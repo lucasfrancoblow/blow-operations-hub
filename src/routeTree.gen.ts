@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as IncidentesRouteImport } from './routes/incidentes'
 import { Route as AutomacoesIndexRouteImport } from './routes/automacoes.index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IncidentesRoute = IncidentesRouteImport.update({
+  id: '/incidentes',
+  path: '/incidentes',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AutomacoesIndexRoute = AutomacoesIndexRouteImport.update({
@@ -25,27 +31,31 @@ const AutomacoesIndexRoute = AutomacoesIndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/incidentes': typeof IncidentesRoute
   '/automacoes/': typeof AutomacoesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/incidentes': typeof IncidentesRoute
   '/automacoes': typeof AutomacoesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/incidentes': typeof IncidentesRoute
   '/automacoes/': typeof AutomacoesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/automacoes/'
+  fullPaths: '/' | '/incidentes' | '/automacoes/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/automacoes'
-  id: '__root__' | '/' | '/automacoes/'
+  to: '/' | '/incidentes' | '/automacoes'
+  id: '__root__' | '/' | '/incidentes' | '/automacoes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  IncidentesRoute: typeof IncidentesRoute
   AutomacoesIndexRoute: typeof AutomacoesIndexRoute
 }
 
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/incidentes': {
+      id: '/incidentes'
+      path: '/incidentes'
+      fullPath: '/incidentes'
+      preLoaderRoute: typeof IncidentesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/automacoes/': {
@@ -70,6 +87,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  IncidentesRoute: IncidentesRoute,
   AutomacoesIndexRoute: AutomacoesIndexRoute,
 }
 export const routeTree = rootRouteImport

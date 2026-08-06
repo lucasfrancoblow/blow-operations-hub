@@ -34,7 +34,7 @@ import { IncidentDetailSheet } from "@/components/hub/IncidentDetailSheet";
 
 export const Route = createFileRoute("/incidentes")({
   validateSearch: (search: Record<string, unknown>) => ({
-    incidente: typeof search.incidente === "string" ? search.incidente : undefined,
+    incidente: typeof search["incidente"] === "string" ? (search["incidente"] as string) : undefined,
   }),
   head: () => ({
     meta: [
