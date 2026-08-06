@@ -32,7 +32,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { EmptyState, PageHeader, TableSkeleton } from "@/components/hub/primitives";
 import { AutomationStatusBadge, HealthBadge, PlatformBadge } from "@/components/hub/badges";
 
-export const Route = createFileRoute("/automacoes")({
+export const Route = createFileRoute("/automacoes/")({
   head: () => ({
     meta: [
       { title: "Automações — hubLOw BLOW" },
