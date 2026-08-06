@@ -895,8 +895,8 @@ export const documentation: Documentation[] = [
 
 export const incidentsByDay: DailyIncidentPoint[] = Array.from({ length: 30 }, (_, i) => {
   const d = new Date(Date.UTC(2026, 6, 8 + i));
-  const base = [0, 1, 2, 1, 3, 0, 2, 4, 1, 0][i % 10];
-  const crit = [0, 0, 1, 0, 1, 0, 0, 2, 0, 0][i % 10];
+  const base = [0, 1, 2, 1, 3, 0, 2, 4, 1, 0][i % 10] ?? 0;
+  const crit = [0, 0, 1, 0, 1, 0, 0, 2, 0, 0][i % 10] ?? 0;
   return {
     date: d.toISOString().slice(0, 10),
     total: base + (i > 24 ? 2 : 0),
