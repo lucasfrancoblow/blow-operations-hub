@@ -70,7 +70,7 @@ export function AppHeader() {
                       <BreadcrumbPage className="max-w-[220px] truncate">{c.label}</BreadcrumbPage>
                     ) : (
                       <BreadcrumbLink asChild>
-                        <Link to={c.href}>{c.label}</Link>
+                        <Link to={c.href as "/"}>{c.label}</Link>
                       </BreadcrumbLink>
                     )}
                   </BreadcrumbItem>
