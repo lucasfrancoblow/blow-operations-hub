@@ -10,33 +10,128 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
+import { Route as CredenciaisRouteImport } from './routes/credenciais'
+import { Route as DocumentacaoRouteImport } from './routes/documentacao'
+import { Route as IncidentesRouteImport } from './routes/incidentes'
+import { Route as SistemasRouteImport } from './routes/sistemas'
+import { Route as AutomacoesIndexRouteImport } from './routes/automacoes.index'
+import { Route as AutomacoesAutomationIdRouteImport } from './routes/automacoes.$automationId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
+  id: '/configuracoes',
+  path: '/configuracoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CredenciaisRoute = CredenciaisRouteImport.update({
+  id: '/credenciais',
+  path: '/credenciais',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentacaoRoute = DocumentacaoRouteImport.update({
+  id: '/documentacao',
+  path: '/documentacao',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IncidentesRoute = IncidentesRouteImport.update({
+  id: '/incidentes',
+  path: '/incidentes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SistemasRoute = SistemasRouteImport.update({
+  id: '/sistemas',
+  path: '/sistemas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AutomacoesIndexRoute = AutomacoesIndexRouteImport.update({
+  id: '/automacoes/',
+  path: '/automacoes/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AutomacoesAutomationIdRoute = AutomacoesAutomationIdRouteImport.update({
+  id: '/automacoes/$automationId',
+  path: '/automacoes/$automationId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/configuracoes': typeof ConfiguracoesRoute
+  '/credenciais': typeof CredenciaisRoute
+  '/documentacao': typeof DocumentacaoRoute
+  '/incidentes': typeof IncidentesRoute
+  '/sistemas': typeof SistemasRoute
+  '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
+  '/automacoes/': typeof AutomacoesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/configuracoes': typeof ConfiguracoesRoute
+  '/credenciais': typeof CredenciaisRoute
+  '/documentacao': typeof DocumentacaoRoute
+  '/incidentes': typeof IncidentesRoute
+  '/sistemas': typeof SistemasRoute
+  '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
+  '/automacoes': typeof AutomacoesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/configuracoes': typeof ConfiguracoesRoute
+  '/credenciais': typeof CredenciaisRoute
+  '/documentacao': typeof DocumentacaoRoute
+  '/incidentes': typeof IncidentesRoute
+  '/sistemas': typeof SistemasRoute
+  '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
+  '/automacoes/': typeof AutomacoesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/configuracoes'
+    | '/credenciais'
+    | '/documentacao'
+    | '/incidentes'
+    | '/sistemas'
+    | '/automacoes/$automationId'
+    | '/automacoes/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/configuracoes'
+    | '/credenciais'
+    | '/documentacao'
+    | '/incidentes'
+    | '/sistemas'
+    | '/automacoes/$automationId'
+    | '/automacoes'
+  id:
+    | '__root__'
+    | '/'
+    | '/configuracoes'
+    | '/credenciais'
+    | '/documentacao'
+    | '/incidentes'
+    | '/sistemas'
+    | '/automacoes/$automationId'
+    | '/automacoes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ConfiguracoesRoute: typeof ConfiguracoesRoute
+  CredenciaisRoute: typeof CredenciaisRoute
+  DocumentacaoRoute: typeof DocumentacaoRoute
+  IncidentesRoute: typeof IncidentesRoute
+  SistemasRoute: typeof SistemasRoute
+  AutomacoesAutomationIdRoute: typeof AutomacoesAutomationIdRoute
+  AutomacoesIndexRoute: typeof AutomacoesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,22 +143,68 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/configuracoes': {
+      id: '/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/configuracoes'
+      preLoaderRoute: typeof ConfiguracoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/credenciais': {
+      id: '/credenciais'
+      path: '/credenciais'
+      fullPath: '/credenciais'
+      preLoaderRoute: typeof CredenciaisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documentacao': {
+      id: '/documentacao'
+      path: '/documentacao'
+      fullPath: '/documentacao'
+      preLoaderRoute: typeof DocumentacaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/incidentes': {
+      id: '/incidentes'
+      path: '/incidentes'
+      fullPath: '/incidentes'
+      preLoaderRoute: typeof IncidentesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sistemas': {
+      id: '/sistemas'
+      path: '/sistemas'
+      fullPath: '/sistemas'
+      preLoaderRoute: typeof SistemasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/automacoes/': {
+      id: '/automacoes/'
+      path: '/automacoes'
+      fullPath: '/automacoes/'
+      preLoaderRoute: typeof AutomacoesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/automacoes/$automationId': {
+      id: '/automacoes/$automationId'
+      path: '/automacoes/$automationId'
+      fullPath: '/automacoes/$automationId'
+      preLoaderRoute: typeof AutomacoesAutomationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ConfiguracoesRoute: ConfiguracoesRoute,
+  CredenciaisRoute: CredenciaisRoute,
+  DocumentacaoRoute: DocumentacaoRoute,
+  IncidentesRoute: IncidentesRoute,
+  SistemasRoute: SistemasRoute,
+  AutomacoesAutomationIdRoute: AutomacoesAutomationIdRoute,
+  AutomacoesIndexRoute: AutomacoesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
