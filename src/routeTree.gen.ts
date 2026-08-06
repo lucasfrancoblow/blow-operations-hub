@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as CredenciaisRouteImport } from './routes/credenciais'
 import { Route as DocumentacaoRouteImport } from './routes/documentacao'
 import { Route as IncidentesRouteImport } from './routes/incidentes'
@@ -20,6 +21,11 @@ import { Route as AutomacoesAutomationIdRouteImport } from './routes/automacoes.
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
+  id: '/configuracoes',
+  path: '/configuracoes',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CredenciaisRoute = CredenciaisRouteImport.update({
@@ -55,6 +61,7 @@ const AutomacoesAutomationIdRoute = AutomacoesAutomationIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/configuracoes': typeof ConfiguracoesRoute
   '/credenciais': typeof CredenciaisRoute
   '/documentacao': typeof DocumentacaoRoute
   '/incidentes': typeof IncidentesRoute
@@ -64,6 +71,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/configuracoes': typeof ConfiguracoesRoute
   '/credenciais': typeof CredenciaisRoute
   '/documentacao': typeof DocumentacaoRoute
   '/incidentes': typeof IncidentesRoute
@@ -74,6 +82,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/configuracoes': typeof ConfiguracoesRoute
   '/credenciais': typeof CredenciaisRoute
   '/documentacao': typeof DocumentacaoRoute
   '/incidentes': typeof IncidentesRoute
@@ -85,6 +94,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/configuracoes'
     | '/credenciais'
     | '/documentacao'
     | '/incidentes'
@@ -94,6 +104,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/configuracoes'
     | '/credenciais'
     | '/documentacao'
     | '/incidentes'
@@ -103,6 +114,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/configuracoes'
     | '/credenciais'
     | '/documentacao'
     | '/incidentes'
@@ -113,6 +125,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ConfiguracoesRoute: typeof ConfiguracoesRoute
   CredenciaisRoute: typeof CredenciaisRoute
   DocumentacaoRoute: typeof DocumentacaoRoute
   IncidentesRoute: typeof IncidentesRoute
@@ -128,6 +141,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/configuracoes': {
+      id: '/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/configuracoes'
+      preLoaderRoute: typeof ConfiguracoesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/credenciais': {
@@ -177,6 +197,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ConfiguracoesRoute: ConfiguracoesRoute,
   CredenciaisRoute: CredenciaisRoute,
   DocumentacaoRoute: DocumentacaoRoute,
   IncidentesRoute: IncidentesRoute,
