@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Plug } from "lucide-react";
 
 import { hubService, queryKeys } from "@/services/hub-service";
+import { getN8nStatus } from "@/services/n8n-service";
+import type { N8nStatus } from "@/services/n8n-service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,10 +39,33 @@ export const Route = createFileRoute("/sistemas")({
   component: SystemsPage,
 });
 
+function N8nLiveStatus({ status }: { status: N8nStatus | undefined }) {
+  if (!status || !status.configured) {
+    return (
+      <p className="text-xs italic">
+        Conecte N8N_BASE_URL / N8N_API_KEY para ver dados reais aqui.
+      </p>
+    );
+  }
+  if (!status.ok) {
+    return <p className="text-xs text-destructive">Falha ao consultar n8n: {status.error}</p>;
+  }
+  return (
+    <p className="text-xs text-foreground">
+      {status.activeWorkflows}/{status.totalWorkflows} workflows ativos (dados reais do n8n)
+    </p>
+  );
+}
+
 function SystemsPage() {
   const { data, isLoading } = useQuery({
     queryKey: queryKeys.integrations,
     queryFn: hubService.listIntegrations,
+  });
+  const { data: n8nStatus } = useQuery({
+    queryKey: ["n8n", "status"],
+    queryFn: () => getN8nStatus(),
+    refetchInterval: 60_000,
   });
   const [selected, setSelected] = useState<Integration | null>(null);
 
@@ -77,6 +102,7 @@ function SystemsPage() {
                   <p>
                     Última verificação: {new Date(s.lastCheck).toLocaleString("pt-BR")}
                   </p>
+                  {s.id === "sys-n8n" && <N8nLiveStatus status={n8nStatus} />}
                 </div>
                 <Button
                   variant="outline"
