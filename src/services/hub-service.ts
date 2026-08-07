@@ -58,7 +58,11 @@ export const hubService = {
   },
   listIntegrations: () => delay<Integration[]>(integrations),
   listCredentials: () => delay<Credential[]>(credentials),
-  listDocumentation: () => delay<Documentation[]>(documentation),
+  listDocumentation: async (): Promise<Documentation[]> => {
+    const real = await getN8nOperationalData();
+    if (real) return real.documentation;
+    return delay(documentation);
+  },
   getOverview: async () => {
     const real = await getN8nOperationalData();
     if (real) return real.overview;

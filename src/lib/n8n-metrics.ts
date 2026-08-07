@@ -16,6 +16,7 @@ import type {
   Automation,
   CategoryPoint,
   DailyIncidentPoint,
+  Documentation,
   HealthStatus,
   Incident,
   IncidentSeverity,
@@ -40,6 +41,7 @@ interface WorkflowStats {
 export interface N8nOperationalData {
   automations: Automation[];
   incidents: Incident[];
+  documentation: Documentation[];
   overview: {
     activeAutomations: number;
     openIncidents: number;
@@ -218,7 +220,11 @@ function toAutomation(
   const hasData = Boolean(stats && stats.totalCount > 0);
   const successRate = hasData ? Math.round((stats!.successCount / stats!.totalCount) * 100) : 100;
   const health: HealthStatus = !hasData
-    ? "Atenção"
+    // Sem execução na janela analisada: workflow pausado não é "problema", só não roda.
+    // Workflow ativo sem dado nenhum merece um olhar (baixa frequência ou nunca rodou).
+    ? workflow.active
+      ? "Atenção"
+      : "Saudável"
     : stats!.lastStatus === "error"
       ? "Crítica"
       : stats!.errorCount > 0
@@ -266,7 +272,7 @@ function toAutomation(
     systems,
     credentialIds: [],
     realCredentials,
-    documentationId: null,
+    documentationId: `n8n-doc-${workflow.id}`,
     externalUrl: `${baseUrl}/workflow/${workflow.id}`,
     flow: workflow.nodes.map((n) => ({
       id: n.id,
@@ -284,6 +290,31 @@ function toAutomation(
         description: "Última atualização salva no n8n",
       },
     ],
+  };
+}
+
+function toDocumentation(workflow: N8nWorkflow): Documentation {
+  const triggerNode = workflow.nodes.find((n) => /trigger|webhook|cron|schedule/i.test(n.type));
+  const systems = detectSystems(workflow.nodes);
+  const realCredentials = extractCredentials(workflow.nodes);
+  const automationType = classifyAutomationType(triggerNode);
+
+  return {
+    id: `n8n-doc-${workflow.id}`,
+    code: `DOC-${workflow.id.slice(0, 6).toUpperCase()}`,
+    title: workflow.name,
+    area: "Não classificada",
+    platform: "n8n",
+    systems,
+    objective: `${automationType} · gerado automaticamente a partir do workflow no n8n.`,
+    flowSummary: workflow.nodes.map((n) => n.name).join(" → ") || "Workflow sem nós.",
+    dependencies: systems,
+    referencedCredentials: realCredentials.map((c) => c.name),
+    postmanTests: [],
+    contingencyPlan:
+      "Não definido — nenhum plano de contingência cadastrado para esta automação ainda.",
+    owner: "Não definido",
+    updatedAt: workflow.updatedAt.slice(0, 10),
   };
 }
 
@@ -359,14 +390,23 @@ function buildOverview(
       .map((i) => i.automationId.replace("n8n-", "")),
   );
 
+  // Pré-preenche os últimos 30 dias com zero — sem isso, dias sem erro simplesmente não
+  // apareciam no array e o gráfico interpolava uma linha reta entre os poucos pontos
+  // existentes, parecendo uma tendência de alta que não existe.
   const byDay = new Map<string, { total: number; criticos: number }>();
+  const today = new Date();
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(today);
+    d.setUTCDate(d.getUTCDate() - i);
+    byDay.set(d.toISOString().slice(0, 10), { total: 0, criticos: 0 });
+  }
   for (const e of executions) {
     if (e.status !== "error") continue;
     const date = e.startedAt.slice(0, 10);
-    const entry = byDay.get(date) ?? { total: 0, criticos: 0 };
+    const entry = byDay.get(date);
+    if (!entry) continue; // execução fora da janela de 30 dias
     entry.total += 1;
     if (criticalWorkflowIds.has(e.workflowId)) entry.criticos += 1;
-    byDay.set(date, entry);
   }
   const incidentsByDay: DailyIncidentPoint[] = Array.from(byDay.entries())
     .sort(([a], [b]) => a.localeCompare(b))
@@ -415,6 +455,7 @@ export async function loadN8nOperationalData(): Promise<N8nOperationalData | nul
   const automations = workflows.map((w) =>
     toAutomation(w, stats.get(w.id), detailByWorkflow.get(w.id) ?? null, baseUrl),
   );
+  const documentation = workflows.map((w) => toDocumentation(w));
 
   const incidents = Array.from(stats.entries())
     .filter(([, s]) => s.errorCount > 0)
@@ -436,5 +477,5 @@ export async function loadN8nOperationalData(): Promise<N8nOperationalData | nul
 
   const overview = buildOverview(automations, incidents, executions);
 
-  return { automations, incidents, overview };
+  return { automations, incidents, documentation, overview };
 }
