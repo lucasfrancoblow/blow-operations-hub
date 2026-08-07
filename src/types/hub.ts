@@ -8,7 +8,13 @@ export type AutomationStatus = "Ativa" | "Pausada" | "Em manutenção" | "Descon
 
 export type HealthStatus = "Saudável" | "Atenção" | "Crítica";
 
-export type Area = "Marketing" | "Comercial" | "Implantação" | "People" | "Operações";
+export type Area =
+  | "Marketing"
+  | "Comercial"
+  | "Implantação"
+  | "People"
+  | "Operações"
+  | "Não classificada";
 
 export type IncidentSeverity = "Crítica" | "Alta" | "Média" | "Baixa";
 

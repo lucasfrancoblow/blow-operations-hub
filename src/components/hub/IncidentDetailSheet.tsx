@@ -100,17 +100,20 @@ export function IncidentDetailSheet({
               </section>
 
               <div className="flex flex-wrap gap-2">
-                {/* Futuro: links reais da execução no n8n e da página no Notion */}
-                <Button variant="outline" size="sm" asChild>
-                  <a href={incident.n8nExecutionUrl} target="_blank" rel="noreferrer">
-                    <ExternalLink className="h-4 w-4" /> Abrir execução no n8n
-                  </a>
-                </Button>
-                <Button variant="outline" size="sm" asChild>
-                  <a href={incident.notionUrl} target="_blank" rel="noreferrer">
-                    <ExternalLink className="h-4 w-4" /> Abrir no Notion
-                  </a>
-                </Button>
+                {incident.n8nExecutionUrl && (
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={incident.n8nExecutionUrl} target="_blank" rel="noreferrer">
+                      <ExternalLink className="h-4 w-4" /> Abrir execução no n8n
+                    </a>
+                  </Button>
+                )}
+                {incident.notionUrl && (
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={incident.notionUrl} target="_blank" rel="noreferrer">
+                      <ExternalLink className="h-4 w-4" /> Abrir no Notion
+                    </a>
+                  </Button>
+                )}
               </div>
             </div>
           </>

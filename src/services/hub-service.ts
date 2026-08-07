@@ -7,6 +7,7 @@ import {
   incidentsByDay,
   integrations,
 } from "@/data/mock";
+import { getN8nOperationalData } from "@/services/n8n-service";
 import type {
   Automation,
   Credential,
@@ -16,14 +17,16 @@ import type {
 } from "@/types/hub";
 
 /**
- * Camada de serviço abstrata do hub.
- * Hoje devolve dados mockados com um pequeno delay para simular rede.
+ * Camada de serviço do hub.
+ *
+ * Quando N8N_BASE_URL/N8N_API_KEY estão configurados, automações/incidentes/overview
+ * vêm de verdade da API do n8n (ver src/lib/n8n-metrics.ts). Sem isso, cai nos dados
+ * mockados abaixo com um pequeno delay simulando rede.
  *
  * Futuro:
- * - automations/incidents/credentials → Supabase (tabelas + RLS)
+ * - credentials → Supabase (tabelas + RLS)
  * - documentation → Notion API
- * - execuções, nós e status → n8n API / Make API
- * Basta trocar a implementação abaixo mantendo as assinaturas.
+ * - integrations (Make, PipeRun, Google Ads, ...) → API de cada sistema
  */
 
 const LATENCY = 400;
@@ -33,16 +36,33 @@ function delay<T>(data: T, ms = LATENCY): Promise<T> {
 }
 
 export const hubService = {
-  listAutomations: () => delay<Automation[]>(automations),
-  getAutomation: (id: string) => delay<Automation | undefined>(automations.find((a) => a.id === id)),
-  listIncidents: () => delay<Incident[]>(incidents),
-  listIncidentsByAutomation: (automationId: string) =>
-    delay<Incident[]>(incidents.filter((i) => i.automationId === automationId)),
+  listAutomations: async (): Promise<Automation[]> => {
+    const real = await getN8nOperationalData();
+    if (real) return real.automations;
+    return delay(automations);
+  },
+  getAutomation: async (id: string): Promise<Automation | undefined> => {
+    const real = await getN8nOperationalData();
+    if (real) return real.automations.find((a) => a.id === id);
+    return delay(automations.find((a) => a.id === id));
+  },
+  listIncidents: async (): Promise<Incident[]> => {
+    const real = await getN8nOperationalData();
+    if (real) return real.incidents;
+    return delay(incidents);
+  },
+  listIncidentsByAutomation: async (automationId: string): Promise<Incident[]> => {
+    const real = await getN8nOperationalData();
+    if (real) return real.incidents.filter((i) => i.automationId === automationId);
+    return delay(incidents.filter((i) => i.automationId === automationId));
+  },
   listIntegrations: () => delay<Integration[]>(integrations),
   listCredentials: () => delay<Credential[]>(credentials),
   listDocumentation: () => delay<Documentation[]>(documentation),
-  getOverview: () =>
-    delay({
+  getOverview: async () => {
+    const real = await getN8nOperationalData();
+    if (real) return real.overview;
+    return delay({
       activeAutomations: automations.filter((a) => a.status === "Ativa").length,
       openIncidents: incidents.filter((i) => i.status !== "Resolvido").length,
       criticalIncidents: incidents.filter(
@@ -51,7 +71,8 @@ export const hubService = {
       healthyAutomations: automations.filter((a) => a.health === "Saudável").length,
       incidentsByDay,
       incidentsByCategory,
-    }),
+    });
+  },
 };
 
 export const queryKeys = {

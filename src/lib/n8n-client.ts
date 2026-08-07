@@ -24,6 +24,15 @@ export interface N8nExecution {
   mode: string;
 }
 
+export interface N8nExecutionError {
+  message: string;
+  description: string | null;
+  name: string | null;
+  node: string | null;
+  nodeType: string | null;
+  httpCode: number | null;
+}
+
 interface N8nConfig {
   baseUrl: string;
   apiKey: string;
@@ -38,6 +47,13 @@ function getConfig(): N8nConfig | null {
 
 export function isN8nConfigured(): boolean {
   return getConfig() !== null;
+}
+
+/** URL pública da instância, para montar links diretos ao editor/execuções. Só chamar quando isN8nConfigured() for true. */
+export function getN8nBaseUrl(): string {
+  const config = getConfig();
+  if (!config) throw new Error("N8N_BASE_URL / N8N_API_KEY não configurados no servidor.");
+  return config.baseUrl;
 }
 
 async function n8nFetch<T>(path: string, params?: Record<string, string>): Promise<T> {
@@ -66,8 +82,23 @@ async function n8nFetch<T>(path: string, params?: Record<string, string>): Promi
 }
 
 export async function fetchN8nWorkflows(): Promise<N8nWorkflow[]> {
-  const page = await n8nFetch<{ data: N8nWorkflow[] }>("/workflows", { limit: "250" });
-  return page.data;
+  const workflows: N8nWorkflow[] = [];
+  let cursor: string | undefined;
+  do {
+    const params: Record<string, string> = { limit: "250" };
+    if (cursor) params["cursor"] = cursor;
+    const page = await n8nFetch<{ data: N8nWorkflow[]; nextCursor?: string | null }>(
+      "/workflows",
+      params,
+    );
+    workflows.push(...page.data);
+    cursor = page.nextCursor ?? undefined;
+  } while (cursor);
+  return workflows;
+}
+
+export async function fetchN8nWorkflow(id: string): Promise<N8nWorkflow> {
+  return n8nFetch<N8nWorkflow>(`/workflows/${id}`);
 }
 
 export async function fetchN8nExecutions(workflowId?: string): Promise<N8nExecution[]> {
@@ -75,4 +106,48 @@ export async function fetchN8nExecutions(workflowId?: string): Promise<N8nExecut
   if (workflowId) params["workflowId"] = workflowId;
   const page = await n8nFetch<{ data: N8nExecution[] }>("/executions", params);
   return page.data;
+}
+
+/**
+ * Janela de execuções recentes, todas as automações misturadas, mais novas primeiro.
+ * Usada pra derivar status/saúde/incidentes sem precisar de 1 chamada por workflow.
+ * Cobertura limitada pelo numero de paginas: workflows de baixa frequencia podem nao aparecer.
+ */
+export async function fetchN8nRecentExecutions(maxPages = 6): Promise<N8nExecution[]> {
+  const executions: N8nExecution[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < maxPages; page++) {
+    const params: Record<string, string> = { limit: "250" };
+    if (cursor) params["cursor"] = cursor;
+    const result = await n8nFetch<{ data: N8nExecution[]; nextCursor?: string | null }>(
+      "/executions",
+      params,
+    );
+    executions.push(...result.data);
+    cursor = result.nextCursor ?? undefined;
+    if (!cursor) break;
+  }
+  return executions;
+}
+
+/** Detalhe de erro de uma execução específica, com o nó/HTTP code/mensagem reais. */
+export async function fetchN8nExecutionError(
+  executionId: string,
+): Promise<N8nExecutionError | null> {
+  const detail = await n8nFetch<{
+    data?: { resultData?: { error?: Record<string, unknown> } };
+  }>(`/executions/${executionId}`, { includeData: "true" });
+
+  const error = detail.data?.resultData?.error;
+  if (!error) return null;
+
+  const node = error["node"] as { name?: string; type?: string } | undefined;
+  return {
+    message: typeof error["message"] === "string" ? error["message"] : "Erro sem mensagem.",
+    description: typeof error["description"] === "string" ? error["description"] : null,
+    name: typeof error["name"] === "string" ? error["name"] : null,
+    node: typeof node?.name === "string" ? node.name : null,
+    nodeType: typeof node?.type === "string" ? node.type : null,
+    httpCode: typeof error["httpCode"] === "number" ? error["httpCode"] : null,
+  };
 }

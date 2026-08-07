@@ -1,4 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   Workflow,
@@ -23,6 +24,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { getN8nStatus } from "@/services/n8n-service";
 
 const items = [
   { title: "Visão geral", url: "/", icon: LayoutDashboard, exact: true },
@@ -41,6 +43,13 @@ export function AppSidebar() {
 
   const isActive = (url: string, exact?: boolean) =>
     exact ? pathname === url : pathname.startsWith(url);
+
+  const n8nStatus = useQuery({
+    queryKey: ["n8n", "status"],
+    queryFn: () => getN8nStatus(),
+    staleTime: 30_000,
+  });
+  const n8nLive = n8nStatus.data?.configured && n8nStatus.data.ok;
 
   return (
     <Sidebar collapsible="icon">
@@ -85,7 +94,9 @@ export function AppSidebar() {
       {!collapsed && (
         <SidebarFooter className="border-t border-sidebar-border">
           <p className="px-2 py-1 text-[11px] leading-relaxed text-muted-foreground">
-            Ambiente de demonstração com dados mockados.
+            {n8nLive
+              ? "Automações e incidentes: dados reais do n8n. Credenciais e documentação seguem mockadas."
+              : "Ambiente de demonstração com dados mockados."}
           </p>
         </SidebarFooter>
       )}
