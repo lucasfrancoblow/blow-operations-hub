@@ -94,6 +94,121 @@ function stripNodePrefix(type: string): string {
   return type.replace("n8n-nodes-base.", "");
 }
 
+const CORE_NODE_TYPES = new Set([
+  "if",
+  "set",
+  "code",
+  "merge",
+  "switch",
+  "noOp",
+  "wait",
+  "filter",
+  "splitInBatches",
+  "splitOut",
+  "aggregate",
+  "scheduleTrigger",
+  "manualTrigger",
+  "errorTrigger",
+  "start",
+  "stickyNote",
+  "executeWorkflow",
+  "executeWorkflowTrigger",
+  "respondToWebhook",
+  "webhook",
+  "httpRequest",
+]);
+
+const KNOWN_SYSTEM_LABELS: Record<string, string> = {
+  supabase: "Supabase",
+  googleSheets: "Google Sheets",
+  googleSheetsTrigger: "Google Sheets",
+  slack: "Slack",
+  telegram: "Telegram",
+  notion: "Notion",
+  hubspot: "HubSpot",
+  pipedrive: "Pipedrive",
+  gmail: "Gmail",
+  gmailTrigger: "Gmail",
+  googleCalendar: "Google Calendar",
+  postgres: "PostgreSQL",
+  mySql: "MySQL",
+  emailSend: "E-mail (SMTP)",
+  whatsApp: "WhatsApp",
+  airtable: "Airtable",
+  googleDrive: "Google Drive",
+  openAi: "OpenAI",
+};
+
+// Muitas integrações reais (Google Ads, PipeRun, Meta...) passam por nós genéricos
+// (httpRequest/webhook) sem um node dedicado no n8n. Nesses casos, procuramos a pista
+// no NOME que o time já deu ao nó — convenção observada nos workflows da BLOW.
+const NAME_HINT_LABELS: Array<[RegExp, string]> = [
+  [/google[\s-]?ads/i, "Google Ads"],
+  [/piperun/i, "PipeRun"],
+  [/meta|facebook/i, "Meta Ads"],
+  [/whatsapp/i, "WhatsApp"],
+  [/slack/i, "Slack"],
+  [/sheets?/i, "Google Sheets"],
+  [/notion/i, "Notion"],
+  [/supabase/i, "Supabase"],
+];
+
+function detectSystems(nodes: N8nWorkflow["nodes"]): string[] {
+  const found = new Set<string>();
+  for (const node of nodes) {
+    const type = stripNodePrefix(node.type);
+    const knownLabel = KNOWN_SYSTEM_LABELS[type];
+    if (knownLabel) {
+      found.add(knownLabel);
+      continue;
+    }
+    if (CORE_NODE_TYPES.has(type)) continue;
+    const hint = NAME_HINT_LABELS.find(([pattern]) => pattern.test(node.name));
+    if (hint) {
+      found.add(hint[1]);
+    }
+  }
+  return Array.from(found);
+}
+
+const TRIGGER_TYPE_LABELS: Record<string, string> = {
+  scheduleTrigger: "Automação agendada",
+  webhook: "Integração via webhook",
+  manualTrigger: "Execução manual",
+  errorTrigger: "Tratamento de erros",
+  executeWorkflowTrigger: "Sub-workflow (chamado por outra automação)",
+  emailReadImap: "Gatilho por e-mail",
+};
+
+function classifyAutomationType(triggerNode: N8nWorkflow["nodes"][number] | undefined): string {
+  if (!triggerNode) return "Tipo não identificado";
+  const type = stripNodePrefix(triggerNode.type);
+  return TRIGGER_TYPE_LABELS[type] ?? `Gatilho: ${type}`;
+}
+
+interface RealCredentialRef {
+  id: string;
+  type: string;
+  name: string;
+  nodes: string[];
+}
+
+function extractCredentials(nodes: N8nWorkflow["nodes"]): RealCredentialRef[] {
+  const byId = new Map<string, RealCredentialRef>();
+  for (const node of nodes) {
+    if (!node.credentials) continue;
+    for (const [credType, ref] of Object.entries(node.credentials)) {
+      let entry = byId.get(ref.id);
+      if (!entry) {
+        entry = { id: ref.id, type: credType, name: ref.name, nodes: [] };
+        byId.set(ref.id, entry);
+      }
+      entry.nodes.push(node.name);
+    }
+  }
+  return Array.from(byId.values());
+}
+
 function toAutomation(
   workflow: N8nWorkflow,
   stats: WorkflowStats | undefined,
@@ -114,6 +229,9 @@ function toAutomation(
       ? Math.round(stats!.durationsMs.reduce((a, b) => a + b, 0) / stats!.durationsMs.length / 1000)
       : 0;
   const triggerNode = workflow.nodes.find((n) => /trigger|webhook|cron|schedule/i.test(n.type));
+  const systems = detectSystems(workflow.nodes);
+  const realCredentials = extractCredentials(workflow.nodes);
+  const automationType = classifyAutomationType(triggerNode);
 
   return {
     id: `n8n-${workflow.id}`,
@@ -131,9 +249,13 @@ function toAutomation(
     lastErrorAt: stats?.lastErrorAt ?? null,
     openIncidents: 0, // preenchido depois de calcular os incidentes
     lastReview: workflow.updatedAt,
-    objective:
-      "Sincronizado automaticamente do n8n — área, responsável e objetivo ainda não classificados.",
-    description: "",
+    objective: `${automationType} · sincronizado automaticamente do n8n (área e responsável ainda não classificados).`,
+    description:
+      systems.length > 0 || realCredentials.length > 0
+        ? `Sistemas envolvidos: ${systems.length > 0 ? systems.join(", ") : "nenhum identificado"}. Credenciais utilizadas: ${
+            realCredentials.length > 0 ? realCredentials.map((c) => c.name).join(", ") : "nenhuma detectada"
+          }.`
+        : "Nenhum sistema externo ou credencial identificado nos nós deste workflow.",
     trigger: triggerNode ? stripNodePrefix(triggerNode.type) : "Não identificado",
     frequency: "—",
     lastRun: stats?.lastAt ?? workflow.updatedAt,
@@ -141,8 +263,9 @@ function toAutomation(
     successRate,
     avgDurationSec,
     runsLast30d: hasData ? stats!.totalCount : 0,
-    systems: [],
+    systems,
     credentialIds: [],
+    realCredentials,
     documentationId: null,
     externalUrl: `${baseUrl}/workflow/${workflow.id}`,
     flow: workflow.nodes.map((n) => ({
@@ -264,10 +387,12 @@ export async function loadN8nOperationalData(): Promise<N8nOperationalData | nul
   if (!isN8nConfigured()) return null;
 
   const baseUrl = getN8nBaseUrl();
-  const [workflows, executions] = await Promise.all([
+  const [allWorkflows, executions] = await Promise.all([
     fetchN8nWorkflows(),
     fetchN8nRecentExecutions(EXECUTION_WINDOW_PAGES),
   ]);
+  // O n8n mantém workflows arquivados na API mas os esconde da UI padrão — espelhamos isso aqui.
+  const workflows = allWorkflows.filter((w) => !w.isArchived);
 
   const stats = buildStats(executions);
   const workflowsById = new Map(workflows.map((w) => [w.id, w] as const));

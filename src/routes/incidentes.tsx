@@ -22,13 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-} from "@/components/ui/pagination";
-import { EmptyState, PageHeader, TableSkeleton } from "@/components/hub/primitives";
+import { EmptyState, PageHeader, TablePagination, TableSkeleton } from "@/components/hub/primitives";
 import { IncidentStatusBadge, SeverityBadge } from "@/components/hub/badges";
 import { IncidentDetailSheet } from "@/components/hub/IncidentDetailSheet";
 
@@ -54,7 +48,7 @@ export const Route = createFileRoute("/incidentes")({
   component: IncidentsPage,
 });
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 25;
 
 function IncidentsPage() {
   const { data, isLoading } = useQuery({
@@ -201,29 +195,13 @@ function IncidentsPage() {
               </TableBody>
             </Table>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 px-4 py-3">
-            <p className="text-xs text-muted-foreground">
-              {filtered.length} incidentes · página {current} de {pages}
-            </p>
-            <Pagination className="mx-0 w-auto">
-              <PaginationContent>
-                {Array.from({ length: pages }).map((_, idx) => (
-                  <PaginationItem key={idx}>
-                    <PaginationLink
-                      href="#"
-                      isActive={current === idx + 1}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setPage(idx + 1);
-                      }}
-                    >
-                      {idx + 1}
-                    </PaginationLink>
-                  </PaginationItem>
-                ))}
-              </PaginationContent>
-            </Pagination>
-          </div>
+          <TablePagination
+            current={current}
+            totalPages={pages}
+            totalItems={filtered.length}
+            itemLabel="incidentes"
+            onPageChange={setPage}
+          />
         </div>
       )}
 

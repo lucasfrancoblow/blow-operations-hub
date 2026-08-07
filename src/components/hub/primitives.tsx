@@ -1,6 +1,14 @@
 import type { ReactNode } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+} from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 
 export function PageHeader({
@@ -88,6 +96,95 @@ export function CardsSkeleton({ count = 4 }: { count?: number }) {
       {Array.from({ length: count }).map((_, i) => (
         <Skeleton key={i} className="h-28 w-full rounded-xl" />
       ))}
+    </div>
+  );
+}
+
+function buildPageWindow(current: number, total: number): Array<number | "ellipsis"> {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const keep = new Set([1, 2, total - 1, total, current - 1, current, current + 1]);
+  const sorted = Array.from(keep)
+    .filter((p) => p >= 1 && p <= total)
+    .sort((a, b) => a - b);
+  const result: Array<number | "ellipsis"> = [];
+  let prev = 0;
+  for (const p of sorted) {
+    if (prev && p - prev > 1) result.push("ellipsis");
+    result.push(p);
+    prev = p;
+  }
+  return result;
+}
+
+/** Paginação com janela de números (evita renderizar uma página por botão em listas grandes). */
+export function TablePagination({
+  current,
+  totalPages,
+  totalItems,
+  itemLabel,
+  onPageChange,
+}: {
+  current: number;
+  totalPages: number;
+  totalItems: number;
+  itemLabel: string;
+  onPageChange: (page: number) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 px-4 py-3">
+      <p className="text-xs text-muted-foreground">
+        {totalItems} {itemLabel} · página {current} de {totalPages}
+      </p>
+      <Pagination className="mx-0 w-auto">
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationLink
+              href="#"
+              aria-label="Página anterior"
+              className={current === 1 ? "pointer-events-none opacity-40" : undefined}
+              onClick={(e) => {
+                e.preventDefault();
+                if (current > 1) onPageChange(current - 1);
+              }}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </PaginationLink>
+          </PaginationItem>
+          {buildPageWindow(current, totalPages).map((p, i) =>
+            p === "ellipsis" ? (
+              <PaginationItem key={`ellipsis-${i}`}>
+                <PaginationEllipsis />
+              </PaginationItem>
+            ) : (
+              <PaginationItem key={p}>
+                <PaginationLink
+                  href="#"
+                  isActive={current === p}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onPageChange(p);
+                  }}
+                >
+                  {p}
+                </PaginationLink>
+              </PaginationItem>
+            ),
+          )}
+          <PaginationItem>
+            <PaginationLink
+              href="#"
+              aria-label="Próxima página"
+              className={current === totalPages ? "pointer-events-none opacity-40" : undefined}
+              onClick={(e) => {
+                e.preventDefault();
+                if (current < totalPages) onPageChange(current + 1);
+              }}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </PaginationLink>
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
     </div>
   );
 }

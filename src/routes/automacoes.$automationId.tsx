@@ -298,31 +298,60 @@ function AutomationDetail() {
         </TabsContent>
 
         <TabsContent value="credenciais" className="mt-4">
-          <SectionCard title="Credenciais de referência">
-            <p className="mb-3 text-xs text-muted-foreground">
-              Somente metadados operacionais. Nenhum segredo é exibido ou armazenado.
-            </p>
-            {relatedCredentials.length === 0 ? (
-              <EmptyState
-                icon={<KeyRound className="h-5 w-5" />}
-                title="Nenhuma credencial vinculada"
-              />
-            ) : (
-              <ul className="divide-y divide-border/70">
-                {relatedCredentials.map((c) => (
-                  <li key={c.id} className="flex flex-wrap items-center gap-3 py-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{c.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {c.system} · {c.type} · {c.location}
-                      </p>
-                    </div>
-                    <CredentialStatusBadge value={c.status} />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </SectionCard>
+          {a.realCredentials !== undefined ? (
+            <SectionCard title="Credenciais usadas pelo workflow">
+              <p className="mb-3 text-xs text-muted-foreground">
+                Nome e tipo reais das credenciais configuradas no n8n para este workflow. O n8n
+                nunca devolve o valor secreto pela API — só a referência.
+              </p>
+              {a.realCredentials.length === 0 ? (
+                <EmptyState
+                  icon={<KeyRound className="h-5 w-5" />}
+                  title="Nenhuma credencial usada"
+                  description="Este workflow não referencia nenhuma credencial cadastrada no n8n."
+                />
+              ) : (
+                <ul className="divide-y divide-border/70">
+                  {a.realCredentials.map((c) => (
+                    <li key={c.id} className="flex flex-wrap items-center gap-3 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{c.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          Tipo: {c.type} · Usada em: {c.nodes.join(", ")}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SectionCard>
+          ) : (
+            <SectionCard title="Credenciais de referência">
+              <p className="mb-3 text-xs text-muted-foreground">
+                Somente metadados operacionais. Nenhum segredo é exibido ou armazenado.
+              </p>
+              {relatedCredentials.length === 0 ? (
+                <EmptyState
+                  icon={<KeyRound className="h-5 w-5" />}
+                  title="Nenhuma credencial vinculada"
+                />
+              ) : (
+                <ul className="divide-y divide-border/70">
+                  {relatedCredentials.map((c) => (
+                    <li key={c.id} className="flex flex-wrap items-center gap-3 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{c.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {c.system} · {c.type} · {c.location}
+                        </p>
+                      </div>
+                      <CredentialStatusBadge value={c.status} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SectionCard>
+          )}
         </TabsContent>
 
         <TabsContent value="documentacao" className="mt-4">

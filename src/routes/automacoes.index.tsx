@@ -22,14 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-} from "@/components/ui/pagination";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { EmptyState, PageHeader, TableSkeleton } from "@/components/hub/primitives";
+import { EmptyState, PageHeader, TablePagination, TableSkeleton } from "@/components/hub/primitives";
 import { AutomationStatusBadge, HealthBadge, PlatformBadge } from "@/components/hub/badges";
 
 export const Route = createFileRoute("/automacoes/")({
@@ -50,7 +44,7 @@ export const Route = createFileRoute("/automacoes/")({
   component: AutomationsPage,
 });
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 25;
 
 function AutomationsPage() {
   const { data, isLoading } = useQuery({
@@ -233,29 +227,13 @@ function AutomationsPage() {
               </TableBody>
             </Table>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 px-4 py-3">
-            <p className="text-xs text-muted-foreground">
-              {filtered.length} automações · página {current} de {pages}
-            </p>
-            <Pagination className="mx-0 w-auto">
-              <PaginationContent>
-                {Array.from({ length: pages }).map((_, i) => (
-                  <PaginationItem key={i}>
-                    <PaginationLink
-                      href="#"
-                      isActive={current === i + 1}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setPage(i + 1);
-                      }}
-                    >
-                      {i + 1}
-                    </PaginationLink>
-                  </PaginationItem>
-                ))}
-              </PaginationContent>
-            </Pagination>
-          </div>
+          <TablePagination
+            current={current}
+            totalPages={pages}
+            totalItems={filtered.length}
+            itemLabel="automações"
+            onPageChange={setPage}
+          />
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

@@ -8,9 +8,15 @@ export interface N8nWorkflow {
   id: string;
   name: string;
   active: boolean;
+  isArchived: boolean;
   createdAt: string;
   updatedAt: string;
-  nodes: Array<{ id: string; name: string; type: string }>;
+  nodes: Array<{
+    id: string;
+    name: string;
+    type: string;
+    credentials?: Record<string, { id: string; name: string }>;
+  }>;
   tags?: Array<{ id: string; name: string }>;
 }
 

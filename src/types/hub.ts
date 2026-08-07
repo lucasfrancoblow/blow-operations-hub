@@ -69,6 +69,8 @@ export interface Automation {
   externalUrl: string;
   flow: FlowNode[];
   history: AutomationEvent[];
+  /** Só presente quando a automação vem de verdade do n8n (ver n8n-metrics.ts). */
+  realCredentials?: Array<{ id: string; type: string; name: string; nodes: string[] }>;
 }
 
 export interface IncidentOccurrence {
