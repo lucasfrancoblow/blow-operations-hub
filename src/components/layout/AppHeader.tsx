@@ -26,6 +26,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 const labels: Record<string, string> = {
   automacoes: "Automações",
   incidentes: "Incidentes",
+  leads: "Leads em risco",
   sistemas: "Sistemas e integrações",
   credenciais: "Credenciais",
   documentacao: "Documentação",
