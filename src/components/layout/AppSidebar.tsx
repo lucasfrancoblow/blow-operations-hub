@@ -95,7 +95,7 @@ export function AppSidebar() {
         <SidebarFooter className="border-t border-sidebar-border">
           <p className="px-2 py-1 text-[11px] leading-relaxed text-muted-foreground">
             {n8nLive
-              ? "Automações e incidentes: dados reais do n8n. Credenciais e documentação seguem mockadas."
+              ? "Automações, incidentes, credenciais e documentação: dados reais do n8n."
               : "Ambiente de demonstração com dados mockados."}
           </p>
         </SidebarFooter>

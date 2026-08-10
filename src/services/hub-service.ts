@@ -8,25 +8,22 @@ import {
   integrations,
 } from "@/data/mock";
 import { getN8nOperationalData } from "@/services/n8n-service";
-import type {
-  Automation,
-  Credential,
-  Documentation,
-  Incident,
-  Integration,
-} from "@/types/hub";
+import type { Automation, Credential, Documentation, Incident, Integration } from "@/types/hub";
 
 /**
  * Camada de serviço do hub.
  *
- * Quando N8N_BASE_URL/N8N_API_KEY estão configurados, automações/incidentes/overview
- * vêm de verdade da API do n8n (ver src/lib/n8n-metrics.ts). Sem isso, cai nos dados
- * mockados abaixo com um pequeno delay simulando rede.
+ * Quando N8N_BASE_URL/N8N_API_KEY estão configurados, tudo abaixo vem de verdade
+ * da API do n8n (ver src/lib/n8n-metrics.ts): automações, incidentes, overview,
+ * documentação e credenciais (metadados — nunca o segredo). "Sistemas e integrações"
+ * também usa contagens reais (quantas automações/incidentes usam cada sistema), mas
+ * como só o n8n tem API própria conectada aqui, o status de saúde dos demais sistemas
+ * (Make, PipeRun, Google Ads...) fica como "Não verificado" até termos a API deles.
+ * Sem N8N_BASE_URL/N8N_API_KEY configurados, cai nos dados mockados abaixo com um
+ * pequeno delay simulando rede.
  *
- * Futuro:
- * - credentials → Supabase (tabelas + RLS)
- * - documentation → Notion API
- * - integrations (Make, PipeRun, Google Ads, ...) → API de cada sistema
+ * Futuro: credentials → Supabase (tabelas + RLS); documentation → Notion API;
+ * status real dos demais sistemas → API de cada um.
  */
 
 const LATENCY = 400;
@@ -56,8 +53,16 @@ export const hubService = {
     if (real) return real.incidents.filter((i) => i.automationId === automationId);
     return delay(incidents.filter((i) => i.automationId === automationId));
   },
-  listIntegrations: () => delay<Integration[]>(integrations),
-  listCredentials: () => delay<Credential[]>(credentials),
+  listIntegrations: async (): Promise<Integration[]> => {
+    const real = await getN8nOperationalData();
+    if (real) return real.integrations;
+    return delay(integrations);
+  },
+  listCredentials: async (): Promise<Credential[]> => {
+    const real = await getN8nOperationalData();
+    if (real) return real.credentials;
+    return delay(credentials);
+  },
   listDocumentation: async (): Promise<Documentation[]> => {
     const real = await getN8nOperationalData();
     if (real) return real.documentation;

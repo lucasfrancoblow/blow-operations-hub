@@ -15,11 +15,14 @@ import {
 import type {
   Automation,
   CategoryPoint,
+  Credential,
+  CredentialType,
   DailyIncidentPoint,
   Documentation,
   HealthStatus,
   Incident,
   IncidentSeverity,
+  Integration,
 } from "@/types/hub";
 
 const EXECUTION_WINDOW_PAGES = 6; // ~1500 execuções recentes, todas as automações misturadas
@@ -42,6 +45,8 @@ export interface N8nOperationalData {
   automations: Automation[];
   incidents: Incident[];
   documentation: Documentation[];
+  credentials: Credential[];
+  integrations: Integration[];
   overview: {
     activeAutomations: number;
     openIncidents: number;
@@ -211,6 +216,182 @@ function extractCredentials(nodes: N8nWorkflow["nodes"]): RealCredentialRef[] {
   return Array.from(byId.values());
 }
 
+const CREDENTIAL_SYSTEM_LABELS: Record<string, string> = {
+  googleSheetsOAuth2Api: "Google Sheets",
+  googleApi: "Google",
+  slackApi: "Slack",
+  slackOAuth2Api: "Slack",
+  notionApi: "Notion",
+  gmailOAuth2: "Gmail",
+  googleCalendarOAuth2Api: "Google Calendar",
+  hubspotApi: "HubSpot",
+  hubspotOAuth2Api: "HubSpot",
+  pipedriveApi: "Pipedrive",
+  postgres: "PostgreSQL",
+  mySql: "MySQL",
+  airtableApi: "Airtable",
+  airtableTokenApi: "Airtable",
+  googleDriveOAuth2Api: "Google Drive",
+  openAiApi: "OpenAI",
+  telegramApi: "Telegram",
+  supabaseApi: "Supabase",
+};
+
+/** Sem endpoint dedicado no n8n pra "sistema" de uma credencial — cruzamos o tipo
+ * conhecido com o nome dos nós que a usam (mesma heurística de detectSystems). */
+function guessCredentialSystem(credType: string, nodeNames: string[]): string {
+  const known = CREDENTIAL_SYSTEM_LABELS[credType];
+  if (known) return known;
+  const hint = NAME_HINT_LABELS.find(([pattern]) => nodeNames.some((n) => pattern.test(n)));
+  if (hint) return hint[1];
+  return credType
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (c) => c.toUpperCase())
+    .trim();
+}
+
+function guessCredentialType(credType: string): CredentialType {
+  if (/oauth2/i.test(credType)) return "OAuth2";
+  if (/basicAuth/i.test(credType)) return "Basic Auth";
+  if (/webhook/i.test(credType)) return "Webhook";
+  return "API Key";
+}
+
+/** Agrega as credenciais reais (id + tipo + nome, nunca o segredo) de todas as
+ * automações num catálogo único, cruzando com quais workflows usam cada uma. */
+function buildRealCredentials(automations: Automation[]): Credential[] {
+  const byId = new Map<
+    string,
+    { type: string; name: string; nodes: Set<string>; automations: Set<string> }
+  >();
+
+  for (const automation of automations) {
+    for (const ref of automation.realCredentials ?? []) {
+      let entry = byId.get(ref.id);
+      if (!entry) {
+        entry = { type: ref.type, name: ref.name, nodes: new Set(), automations: new Set() };
+        byId.set(ref.id, entry);
+      }
+      ref.nodes.forEach((n) => entry!.nodes.add(n));
+      entry.automations.add(automation.name);
+    }
+  }
+
+  return Array.from(byId.entries()).map(([id, entry]) => {
+    const nodeNames = Array.from(entry.nodes);
+    return {
+      id: `n8n-cred-${id}`,
+      name: entry.name,
+      system: guessCredentialSystem(entry.type, nodeNames),
+      type: guessCredentialType(entry.type),
+      location: "n8n › Credentials",
+      owner: "Lucas Franco",
+      status: "Ativa",
+      lastReview: "—",
+      nextReview: "—",
+      relatedAutomations: Array.from(entry.automations),
+      notes: `Usada nos nós: ${nodeNames.join(", ")}.`,
+    };
+  });
+}
+
+/** Catálogo estático dos sistemas conhecidos pela operação (nome/categoria/descrição
+ * não mudam com o tempo). Os números (automações, incidentes, status) são recalculados
+ * a partir dos dados reais do n8n a cada carga — ver buildRealIntegrations. */
+const SYSTEM_CATALOG: Array<Pick<Integration, "id" | "name" | "category" | "description">> = [
+  {
+    id: "sys-n8n",
+    name: "n8n",
+    category: "Orquestração",
+    description: "Plataforma principal de automações self-hosted da BLOW.",
+  },
+  {
+    id: "sys-make",
+    name: "Make",
+    category: "Orquestração",
+    description: "Cenários de automação de baixo código para times de negócio.",
+  },
+  {
+    id: "sys-piperun",
+    name: "PipeRun",
+    category: "CRM",
+    description: "CRM comercial usado pelos times de vendas e implantação.",
+  },
+  {
+    id: "sys-google-ads",
+    name: "Google Ads",
+    category: "Mídia paga",
+    description: "Plataforma de campanhas e conversões offline.",
+  },
+  {
+    id: "sys-sheets",
+    name: "Google Sheets",
+    category: "Dados",
+    description: "Camada de backup, auditoria e relatórios operacionais.",
+  },
+  {
+    id: "sys-notion",
+    name: "Notion",
+    category: "Documentação",
+    description: "Base de conhecimento e registro de incidentes.",
+  },
+  {
+    id: "sys-slack",
+    name: "Slack",
+    category: "Comunicação",
+    description: "Canal de alertas e notificações operacionais.",
+  },
+  {
+    id: "sys-portal",
+    name: "Portal do Franchising",
+    category: "Sistema interno",
+    description: "Origem dos leads e cadastros de unidades franqueadas.",
+  },
+];
+
+/** Só o n8n tem API própria conectada aqui. Pros demais sistemas, o único dado real
+ * disponível é quanto eles aparecem nos workflows do n8n (uso e incidentes vinculados) —
+ * status de saúde deles não é verificável sem a API de cada um. */
+function buildRealIntegrations(automations: Automation[], incidents: Incident[]): Integration[] {
+  const checkedAt = new Date().toISOString();
+  const openByAutomationId = new Map<string, number>();
+  for (const inc of incidents) {
+    if (inc.status !== "Resolvido") {
+      openByAutomationId.set(inc.automationId, (openByAutomationId.get(inc.automationId) ?? 0) + 1);
+    }
+  }
+
+  return SYSTEM_CATALOG.map((entry) => {
+    if (entry.name === "n8n") {
+      const openIncidents = incidents.filter((i) => i.status !== "Resolvido").length;
+      return {
+        ...entry,
+        status: "Operacional",
+        dependentAutomations: automations.length,
+        openIncidents,
+        lastCheck: checkedAt,
+        owner: "Lucas Franco",
+        environment: "Produção",
+      };
+    }
+
+    const dependents = automations.filter((a) => a.systems.includes(entry.name));
+    const openIncidents = dependents.reduce(
+      (sum, a) => sum + (openByAutomationId.get(a.id) ?? 0),
+      0,
+    );
+    return {
+      ...entry,
+      status: "Não verificado",
+      dependentAutomations: dependents.length,
+      openIncidents,
+      lastCheck: checkedAt,
+      owner: "Lucas Franco",
+      environment: "Produção",
+    };
+  });
+}
+
 function toAutomation(
   workflow: N8nWorkflow,
   stats: WorkflowStats | undefined,
@@ -220,9 +401,9 @@ function toAutomation(
   const hasData = Boolean(stats && stats.totalCount > 0);
   const successRate = hasData ? Math.round((stats!.successCount / stats!.totalCount) * 100) : 100;
   const health: HealthStatus = !hasData
-    // Sem execução na janela analisada: workflow pausado não é "problema", só não roda.
-    // Workflow ativo sem dado nenhum merece um olhar (baixa frequência ou nunca rodou).
-    ? workflow.active
+    ? // Sem execução na janela analisada: workflow pausado não é "problema", só não roda.
+      // Workflow ativo sem dado nenhum merece um olhar (baixa frequência ou nunca rodou).
+      workflow.active
       ? "Atenção"
       : "Saudável"
     : stats!.lastStatus === "error"
@@ -250,7 +431,7 @@ function toAutomation(
     owner: "Lucas Franco",
     lastError:
       hasData && stats!.lastStatus === "error"
-        ? errorDetail?.message ?? "Falha na última execução."
+        ? (errorDetail?.message ?? "Falha na última execução.")
         : null,
     lastErrorAt: stats?.lastErrorAt ?? null,
     openIncidents: 0, // preenchido depois de calcular os incidentes
@@ -259,7 +440,9 @@ function toAutomation(
     description:
       systems.length > 0 || realCredentials.length > 0
         ? `Sistemas envolvidos: ${systems.length > 0 ? systems.join(", ") : "nenhum identificado"}. Credenciais utilizadas: ${
-            realCredentials.length > 0 ? realCredentials.map((c) => c.name).join(", ") : "nenhuma detectada"
+            realCredentials.length > 0
+              ? realCredentials.map((c) => c.name).join(", ")
+              : "nenhuma detectada"
           }.`
         : "Nenhum sistema externo ou credencial identificado nos nós deste workflow.",
     trigger: triggerNode ? stripNodePrefix(triggerNode.type) : "Não identificado",
@@ -282,7 +465,12 @@ function toAutomation(
       description: "",
     })),
     history: [
-      { id: `${workflow.id}-created`, date: workflow.createdAt, author: "n8n", description: "Workflow criado" },
+      {
+        id: `${workflow.id}-created`,
+        date: workflow.createdAt,
+        author: "n8n",
+        description: "Workflow criado",
+      },
       {
         id: `${workflow.id}-updated`,
         date: workflow.updatedAt,
@@ -325,7 +513,11 @@ function toIncident(
   baseUrl: string,
 ): Incident {
   const isOpen = stats.lastStatus === "error";
-  const severity: IncidentSeverity = isOpen ? (stats.errorCount >= 5 ? "Crítica" : "Alta") : "Baixa";
+  const severity: IncidentSeverity = isOpen
+    ? stats.errorCount >= 5
+      ? "Crítica"
+      : "Alta"
+    : "Baixa";
 
   const countByDate = new Map<string, number>();
   for (const date of stats.errorDates) countByDate.set(date, (countByDate.get(date) ?? 0) + 1);
@@ -361,7 +553,8 @@ function toIncident(
         ].filter((f): f is string => Boolean(f))
       : [`${stats.errorCount} ocorrência(s) na janela analisada`],
     probableCause:
-      detail?.description ?? "Não determinado automaticamente — abra a execução no n8n para detalhes.",
+      detail?.description ??
+      "Não determinado automaticamente — abra a execução no n8n para detalhes.",
     suggestedFix: "Revisar o nó indicado e suas credenciais diretamente no n8n.",
     evidence: detail?.message ?? "Sem evidências detalhadas disponíveis.",
     n8nExecutionUrl: stats.lastErrorExecutionId
@@ -420,7 +613,14 @@ function buildOverview(
     .slice(0, 8)
     .map((i) => ({ category: i.automationName, total: i.occurrences }));
 
-  return { activeAutomations, openIncidents, criticalIncidents, healthyAutomations, incidentsByDay, incidentsByCategory };
+  return {
+    activeAutomations,
+    openIncidents,
+    criticalIncidents,
+    healthyAutomations,
+    incidentsByDay,
+    incidentsByCategory,
+  };
 }
 
 export async function loadN8nOperationalData(): Promise<N8nOperationalData | null> {
@@ -461,14 +661,19 @@ export async function loadN8nOperationalData(): Promise<N8nOperationalData | nul
     .filter(([, s]) => s.errorCount > 0)
     .map(([workflowId, s]) => {
       const workflow = workflowsById.get(workflowId);
-      return workflow ? toIncident(workflow, s, detailByWorkflow.get(workflowId) ?? null, baseUrl) : null;
+      return workflow
+        ? toIncident(workflow, s, detailByWorkflow.get(workflowId) ?? null, baseUrl)
+        : null;
     })
     .filter((i): i is Incident => i !== null);
 
   const openCountByAutomation = new Map<string, number>();
   for (const inc of incidents) {
     if (inc.status === "Aberto") {
-      openCountByAutomation.set(inc.automationId, (openCountByAutomation.get(inc.automationId) ?? 0) + 1);
+      openCountByAutomation.set(
+        inc.automationId,
+        (openCountByAutomation.get(inc.automationId) ?? 0) + 1,
+      );
     }
   }
   for (const a of automations) {
@@ -476,6 +681,8 @@ export async function loadN8nOperationalData(): Promise<N8nOperationalData | nul
   }
 
   const overview = buildOverview(automations, incidents, executions);
+  const credentials = buildRealCredentials(automations);
+  const integrations = buildRealIntegrations(automations, incidents);
 
-  return { automations, incidents, documentation, overview };
+  return { automations, incidents, documentation, credentials, integrations, overview };
 }

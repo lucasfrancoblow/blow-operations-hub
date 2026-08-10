@@ -20,7 +20,7 @@ export type IncidentSeverity = "Crítica" | "Alta" | "Média" | "Baixa";
 
 export type IncidentStatus = "Aberto" | "Investigando" | "Resolvido";
 
-export type SystemStatus = "Operacional" | "Degradado" | "Fora do ar";
+export type SystemStatus = "Operacional" | "Degradado" | "Fora do ar" | "Não verificado";
 
 export type CredentialType = "OAuth2" | "API Key" | "Basic Auth" | "Webhook";
 

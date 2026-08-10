@@ -84,6 +84,7 @@ export function SystemStatusBadge({ value }: { value: SystemStatus }) {
     Operacional: "success",
     Degradado: "warning",
     "Fora do ar": "critical",
+    "Não verificado": "neutral",
   };
   return <Pill variant={map[value]}>{value}</Pill>;
 }

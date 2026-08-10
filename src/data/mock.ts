@@ -93,7 +93,7 @@ export const automations: Automation[] = [
       {
         id: "h3",
         date: "2026-06-14",
-        author: "Camila Duarte",
+        author: "Lucas Franco",
         description: "Adicionado nó de auditoria no Google Sheets.",
       },
     ],
@@ -106,7 +106,7 @@ export const automations: Automation[] = [
     area: "Comercial",
     status: "Ativa",
     health: "Atenção",
-    owner: "Camila Duarte",
+    owner: "Lucas Franco",
     lastError: "429 Too Many Requests na API do Portal",
     lastErrorAt: "2026-08-05T08:05:00Z",
     openIncidents: 1,
@@ -166,13 +166,13 @@ export const automations: Automation[] = [
       {
         id: "h1",
         date: "2026-08-05",
-        author: "Camila Duarte",
+        author: "Lucas Franco",
         description: "Incidente de rate limit registrado.",
       },
       {
         id: "h2",
         date: "2026-07-15",
-        author: "Camila Duarte",
+        author: "Lucas Franco",
         description: "Adicionado retry exponencial no nó de busca.",
       },
     ],
@@ -251,7 +251,7 @@ export const automations: Automation[] = [
     area: "Comercial",
     status: "Ativa",
     health: "Saudável",
-    owner: "Bruno Tavares",
+    owner: "Lucas Franco",
     lastError: null,
     lastErrorAt: null,
     openIncidents: 0,
@@ -297,7 +297,7 @@ export const automations: Automation[] = [
       {
         id: "h1",
         date: "2026-07-22",
-        author: "Bruno Tavares",
+        author: "Lucas Franco",
         description: "Ajuste no template da mensagem.",
       },
     ],
@@ -310,7 +310,7 @@ export const automations: Automation[] = [
     area: "Implantação",
     status: "Em manutenção",
     health: "Atenção",
-    owner: "Larissa Prado",
+    owner: "Lucas Franco",
     lastError: "Campo customizado ausente no payload",
     lastErrorAt: "2026-08-04T15:32:00Z",
     openIncidents: 1,
@@ -356,7 +356,7 @@ export const automations: Automation[] = [
       {
         id: "h1",
         date: "2026-08-04",
-        author: "Larissa Prado",
+        author: "Lucas Franco",
         description: "Cenário colocado em manutenção para remapear campos.",
       },
     ],
@@ -369,7 +369,7 @@ export const automations: Automation[] = [
     area: "Marketing",
     status: "Pausada",
     health: "Atenção",
-    owner: "Camila Duarte",
+    owner: "Lucas Franco",
     lastError: "Timeout ao consultar Google Ads",
     lastErrorAt: "2026-07-29T07:10:00Z",
     openIncidents: 1,
@@ -422,7 +422,7 @@ export const automations: Automation[] = [
       {
         id: "h1",
         date: "2026-07-29",
-        author: "Camila Duarte",
+        author: "Lucas Franco",
         description: "Workflow pausado até revisão da consulta ao Google Ads.",
       },
     ],
@@ -484,7 +484,7 @@ export const incidents: Incident[] = [
     occurrences: 6,
     firstSeen: "2026-08-03T08:05:00Z",
     lastSeen: "2026-08-05T08:05:00Z",
-    owner: "Camila Duarte",
+    owner: "Lucas Franco",
     aiSummary:
       "A paginação de leads excede o limite de requisições do Portal em dias de alto volume, interrompendo o backup diário parcialmente.",
     facts: [
@@ -519,7 +519,7 @@ export const incidents: Incident[] = [
     occurrences: 23,
     firstSeen: "2026-07-30T12:00:00Z",
     lastSeen: "2026-08-04T15:32:00Z",
-    owner: "Larissa Prado",
+    owner: "Lucas Franco",
     aiSummary:
       "Contatos criados manualmente no PipeRun chegam sem o campo 'unidade', quebrando o módulo de mapeamento do cenário.",
     facts: [
@@ -554,7 +554,7 @@ export const incidents: Incident[] = [
     occurrences: 3,
     firstSeen: "2026-07-15T07:05:00Z",
     lastSeen: "2026-07-29T07:10:00Z",
-    owner: "Camila Duarte",
+    owner: "Lucas Franco",
     aiSummary:
       "A consulta de relatórios cobre um intervalo muito amplo e ultrapassa o tempo limite do nó, impedindo o envio do relatório semanal.",
     facts: [
@@ -588,7 +588,7 @@ export const incidents: Incident[] = [
     occurrences: 11,
     firstSeen: "2026-07-10T14:00:00Z",
     lastSeen: "2026-07-11T09:30:00Z",
-    owner: "Bruno Tavares",
+    owner: "Lucas Franco",
     aiSummary:
       "Uma reordenação de linhas na planilha fez o gatilho reprocessar registros antigos, duplicando avisos no Slack.",
     facts: ["11 mensagens duplicadas em 2 dias.", "Nenhum impacto em dados de leads."],
@@ -652,7 +652,7 @@ export const integrations: Integration[] = [
     dependentAutomations: 2,
     openIncidents: 1,
     lastCheck: "2026-08-06T11:48:00Z",
-    owner: "Bruno Tavares",
+    owner: "Lucas Franco",
     environment: "Produção",
   },
   {
@@ -664,7 +664,7 @@ export const integrations: Integration[] = [
     dependentAutomations: 2,
     openIncidents: 1,
     lastCheck: "2026-08-06T11:30:00Z",
-    owner: "Larissa Prado",
+    owner: "Lucas Franco",
     environment: "Produção",
   },
   {
@@ -676,7 +676,7 @@ export const integrations: Integration[] = [
     dependentAutomations: 2,
     openIncidents: 1,
     lastCheck: "2026-08-06T11:15:00Z",
-    owner: "Camila Duarte",
+    owner: "Lucas Franco",
     environment: "Produção",
   },
   {
@@ -700,7 +700,7 @@ export const integrations: Integration[] = [
     dependentAutomations: 1,
     openIncidents: 0,
     lastCheck: "2026-08-06T11:40:00Z",
-    owner: "Camila Duarte",
+    owner: "Lucas Franco",
     environment: "Produção",
   },
   {
@@ -712,7 +712,7 @@ export const integrations: Integration[] = [
     dependentAutomations: 3,
     openIncidents: 0,
     lastCheck: "2026-08-06T11:52:00Z",
-    owner: "Bruno Tavares",
+    owner: "Lucas Franco",
     environment: "Produção",
   },
   {
@@ -736,7 +736,7 @@ export const credentials: Credential[] = [
     system: "Google Ads",
     type: "OAuth2",
     location: "n8n › Credentials › Google Ads OAuth2",
-    owner: "Camila Duarte",
+    owner: "Lucas Franco",
     status: "Ativa",
     lastReview: "2026-06-10",
     nextReview: "2026-09-10",
@@ -749,7 +749,7 @@ export const credentials: Credential[] = [
     system: "Slack",
     type: "OAuth2",
     location: "n8n › Credentials › Slack API / Make › Connections",
-    owner: "Bruno Tavares",
+    owner: "Lucas Franco",
     status: "Ativa",
     lastReview: "2026-07-02",
     nextReview: "2026-10-02",
@@ -779,7 +779,7 @@ export const credentials: Credential[] = [
     system: "Notion",
     type: "API Key",
     location: "n8n › Credentials › Notion API",
-    owner: "Camila Duarte",
+    owner: "Lucas Franco",
     status: "Ativa",
     lastReview: "2026-07-18",
     nextReview: "2026-10-18",
@@ -808,7 +808,7 @@ export const credentials: Credential[] = [
     system: "PipeRun",
     type: "Webhook",
     location: "Make › Webhooks › PipeRun contatos",
-    owner: "Larissa Prado",
+    owner: "Lucas Franco",
     status: "Ativa",
     lastReview: "2026-06-30",
     nextReview: "2026-09-30",
@@ -833,7 +833,7 @@ export const documentation: Documentation[] = [
     postmanTests: ["POST /oauth/token", "GET /leads?page=1", "GET /leads?updated_after"],
     contingencyPlan:
       "Em caso de indisponibilidade da API, executar exportação manual no Portal e importar na planilha de backup no mesmo dia.",
-    owner: "Camila Duarte",
+    owner: "Lucas Franco",
     updatedAt: "2026-07-15",
   },
   {
@@ -866,7 +866,7 @@ export const documentation: Documentation[] = [
     referencedCredentials: ["Sheets Credenciais - Blow", "Slack-canal"],
     postmanTests: ["POST chat.postMessage (Slack)"],
     contingencyPlan: "Acompanhamento direto na planilha enquanto o cenário estiver parado.",
-    owner: "Bruno Tavares",
+    owner: "Lucas Franco",
     updatedAt: "2026-07-22",
   },
   {
