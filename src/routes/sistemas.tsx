@@ -126,7 +126,7 @@ function SystemsPage() {
                 <DialogTitle>{selected.name}</DialogTitle>
                 <DialogDescription>{selected.description}</DialogDescription>
               </DialogHeader>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <KeyValue label="Status" value={<SystemStatusBadge value={selected.status} />} />
                 <KeyValue label="Categoria" value={selected.category} />
                 <KeyValue label="Ambiente" value={selected.environment} />

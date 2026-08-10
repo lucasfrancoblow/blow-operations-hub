@@ -98,7 +98,7 @@ function AutomationDetail() {
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-border/70 bg-card/70 p-5">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground">{a.code}</p>
             <h1 className="text-xl font-semibold sm:text-2xl">{a.name}</h1>
@@ -110,7 +110,7 @@ function AutomationDetail() {
               <span className="text-xs text-muted-foreground">Responsável: {a.owner}</span>
             </div>
           </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button asChild>
               <a href={a.externalUrl} target="_blank" rel="noreferrer">
                 <ExternalLink className="h-4 w-4" /> Abrir no {a.platform}

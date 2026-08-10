@@ -20,7 +20,7 @@ export const automations: Automation[] = [
     area: "Marketing",
     status: "Ativa",
     health: "Crítica",
-    owner: "Rafael Moreira",
+    owner: "Lucas Franco",
     lastError: "401 Unauthorized ao gerar token do Portal",
     lastErrorAt: "2026-08-06T11:20:00Z",
     openIncidents: 2,
@@ -81,13 +81,13 @@ export const automations: Automation[] = [
       {
         id: "h1",
         date: "2026-08-06",
-        author: "Rafael Moreira",
+        author: "Lucas Franco",
         description: "Incidente INC-1042 aberto após falha de autenticação.",
       },
       {
         id: "h2",
         date: "2026-07-28",
-        author: "Rafael Moreira",
+        author: "Lucas Franco",
         description: "Revisão trimestral concluída, sem alterações de escopo.",
       },
       {
@@ -185,7 +185,7 @@ export const automations: Automation[] = [
     area: "Operações",
     status: "Ativa",
     health: "Saudável",
-    owner: "Rafael Moreira",
+    owner: "Lucas Franco",
     lastError: null,
     lastErrorAt: null,
     openIncidents: 0,
@@ -238,7 +238,7 @@ export const automations: Automation[] = [
       {
         id: "h1",
         date: "2026-08-01",
-        author: "Rafael Moreira",
+        author: "Lucas Franco",
         description: "Nova regra de classificação para erros 4xx.",
       },
     ],
@@ -445,7 +445,7 @@ export const incidents: Incident[] = [
     occurrences: 14,
     firstSeen: "2026-08-06T08:00:00Z",
     lastSeen: "2026-08-06T11:20:00Z",
-    owner: "Rafael Moreira",
+    owner: "Lucas Franco",
     aiSummary:
       "A automação não consegue autenticar na API do Portal do Franchising. Todas as execuções desde 08:00 falham no primeiro nó, impedindo o envio de conversões offline ao Google Ads.",
     facts: [
@@ -617,7 +617,7 @@ export const incidents: Incident[] = [
     occurrences: 5,
     firstSeen: "2026-06-21T10:00:00Z",
     lastSeen: "2026-06-21T16:00:00Z",
-    owner: "Rafael Moreira",
+    owner: "Lucas Franco",
     aiSummary:
       "A conta de serviço perdeu acesso de edição na planilha de auditoria após mudança de compartilhamento.",
     facts: ["5 execuções falharam no mesmo dia.", "Acesso restaurado em 21/06 às 17h."],
@@ -640,7 +640,7 @@ export const integrations: Integration[] = [
     dependentAutomations: 4,
     openIncidents: 3,
     lastCheck: "2026-08-06T11:50:00Z",
-    owner: "Rafael Moreira",
+    owner: "Lucas Franco",
     environment: "Produção",
   },
   {
@@ -688,7 +688,7 @@ export const integrations: Integration[] = [
     dependentAutomations: 5,
     openIncidents: 0,
     lastCheck: "2026-08-06T11:55:00Z",
-    owner: "Rafael Moreira",
+    owner: "Lucas Franco",
     environment: "Produção",
   },
   {
@@ -724,7 +724,7 @@ export const integrations: Integration[] = [
     dependentAutomations: 2,
     openIncidents: 2,
     lastCheck: "2026-08-06T11:20:00Z",
-    owner: "Rafael Moreira",
+    owner: "Lucas Franco",
     environment: "Produção",
   },
 ];
@@ -762,7 +762,7 @@ export const credentials: Credential[] = [
     system: "Google Sheets",
     type: "OAuth2",
     location: "n8n › Credentials › Google Sheets Service Account",
-    owner: "Rafael Moreira",
+    owner: "Lucas Franco",
     status: "Revisão pendente",
     lastReview: "2026-05-05",
     nextReview: "2026-08-12",
@@ -792,7 +792,7 @@ export const credentials: Credential[] = [
     system: "Portal do Franchising",
     type: "Basic Auth",
     location: "n8n › Credentials › Portal Franchising",
-    owner: "Rafael Moreira",
+    owner: "Lucas Franco",
     status: "Expirada",
     lastReview: "2026-04-28",
     nextReview: "2026-08-07",
@@ -850,7 +850,7 @@ export const documentation: Documentation[] = [
     postmanTests: ["POST /v1/pages (Notion)", "POST chat.postMessage (Slack)"],
     contingencyPlan:
       "Se o Notion estiver indisponível, o alerta segue apenas para o Slack e o incidente é registrado manualmente depois.",
-    owner: "Rafael Moreira",
+    owner: "Lucas Franco",
     updatedAt: "2026-08-01",
   },
   {
@@ -888,7 +888,7 @@ export const documentation: Documentation[] = [
     postmanTests: ["POST /oauth/token", "GET /leads", "POST /googleads/uploadClickConversions"],
     contingencyPlan:
       "Acumular conversões na planilha de auditoria e realizar upload manual em até 48h após restabelecimento.",
-    owner: "Rafael Moreira",
+    owner: "Lucas Franco",
     updatedAt: "2026-07-28",
   },
 ];

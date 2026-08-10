@@ -106,13 +106,13 @@ export function AppHeader() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="shrink-0 rounded-full">
               <Avatar className="h-7 w-7">
-                <AvatarFallback className="bg-primary/15 text-xs text-primary">RM</AvatarFallback>
+                <AvatarFallback className="bg-primary/15 text-xs text-primary">LF</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuLabel>
-              <p className="text-sm font-medium">Rafael Moreira</p>
+              <p className="text-sm font-medium">Lucas Franco</p>
               <p className="text-xs font-normal text-muted-foreground">Operações · BLOW</p>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />

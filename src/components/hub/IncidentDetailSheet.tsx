@@ -33,7 +33,7 @@ export function IncidentDetailSheet({
             </SheetHeader>
 
             <div className="space-y-5 px-4 pb-8">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <KeyValue label="Automação afetada" value={incident.automationName} />
                 <KeyValue label="Nó que falhou" value={incident.failedNode} />
                 <KeyValue label="Código HTTP" value={incident.httpCode ?? "—"} />
