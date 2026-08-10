@@ -247,7 +247,7 @@ function toAutomation(
     area: "Não classificada",
     status: workflow.active ? "Ativa" : "Pausada",
     health,
-    owner: "Não definido",
+    owner: "Lucas Franco",
     lastError:
       hasData && stats!.lastStatus === "error"
         ? errorDetail?.message ?? "Falha na última execução."
@@ -313,7 +313,7 @@ function toDocumentation(workflow: N8nWorkflow): Documentation {
     postmanTests: [],
     contingencyPlan:
       "Não definido — nenhum plano de contingência cadastrado para esta automação ainda.",
-    owner: "Não definido",
+    owner: "Lucas Franco",
     updatedAt: workflow.updatedAt.slice(0, 10),
   };
 }
@@ -348,7 +348,7 @@ function toIncident(
     occurrences: stats.errorCount,
     firstSeen: stats.firstErrorAt ?? stats.lastErrorAt ?? workflow.updatedAt,
     lastSeen: stats.lastErrorAt ?? workflow.updatedAt,
-    owner: "Não definido",
+    owner: "Lucas Franco",
     aiSummary:
       detail?.message ??
       "Detalhes da execução não disponíveis (execução expirada ou removida no n8n).",
