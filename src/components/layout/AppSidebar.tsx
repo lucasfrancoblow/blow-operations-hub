@@ -7,6 +7,7 @@ import {
   Plug,
   KeyRound,
   BookOpen,
+  Rocket,
   Settings,
   Zap,
 } from "lucide-react";
@@ -33,6 +34,7 @@ const items = [
   { title: "Sistemas e integrações", url: "/sistemas", icon: Plug },
   { title: "Credenciais", url: "/credenciais", icon: KeyRound },
   { title: "Documentação", url: "/documentacao", icon: BookOpen },
+  { title: "Roadmap", url: "/roadmap", icon: Rocket },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
 ];
 

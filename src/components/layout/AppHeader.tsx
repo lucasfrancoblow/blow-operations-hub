@@ -29,6 +29,7 @@ const labels: Record<string, string> = {
   sistemas: "Sistemas e integrações",
   credenciais: "Credenciais",
   documentacao: "Documentação",
+  roadmap: "Roadmap",
   configuracoes: "Configurações",
 };
 

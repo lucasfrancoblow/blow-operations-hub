@@ -14,6 +14,7 @@ import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as CredenciaisRouteImport } from './routes/credenciais'
 import { Route as DocumentacaoRouteImport } from './routes/documentacao'
 import { Route as IncidentesRouteImport } from './routes/incidentes'
+import { Route as RoadmapRouteImport } from './routes/roadmap'
 import { Route as SistemasRouteImport } from './routes/sistemas'
 import { Route as AutomacoesIndexRouteImport } from './routes/automacoes.index'
 import { Route as AutomacoesAutomationIdRouteImport } from './routes/automacoes.$automationId'
@@ -43,6 +44,11 @@ const IncidentesRoute = IncidentesRouteImport.update({
   path: '/incidentes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RoadmapRoute = RoadmapRouteImport.update({
+  id: '/roadmap',
+  path: '/roadmap',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SistemasRoute = SistemasRouteImport.update({
   id: '/sistemas',
   path: '/sistemas',
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/credenciais': typeof CredenciaisRoute
   '/documentacao': typeof DocumentacaoRoute
   '/incidentes': typeof IncidentesRoute
+  '/roadmap': typeof RoadmapRoute
   '/sistemas': typeof SistemasRoute
   '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
   '/automacoes/': typeof AutomacoesIndexRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/credenciais': typeof CredenciaisRoute
   '/documentacao': typeof DocumentacaoRoute
   '/incidentes': typeof IncidentesRoute
+  '/roadmap': typeof RoadmapRoute
   '/sistemas': typeof SistemasRoute
   '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
   '/automacoes': typeof AutomacoesIndexRoute
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/credenciais': typeof CredenciaisRoute
   '/documentacao': typeof DocumentacaoRoute
   '/incidentes': typeof IncidentesRoute
+  '/roadmap': typeof RoadmapRoute
   '/sistemas': typeof SistemasRoute
   '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
   '/automacoes/': typeof AutomacoesIndexRoute
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
     | '/credenciais'
     | '/documentacao'
     | '/incidentes'
+    | '/roadmap'
     | '/sistemas'
     | '/automacoes/$automationId'
     | '/automacoes/'
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/credenciais'
     | '/documentacao'
     | '/incidentes'
+    | '/roadmap'
     | '/sistemas'
     | '/automacoes/$automationId'
     | '/automacoes'
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '/credenciais'
     | '/documentacao'
     | '/incidentes'
+    | '/roadmap'
     | '/sistemas'
     | '/automacoes/$automationId'
     | '/automacoes/'
@@ -129,6 +141,7 @@ export interface RootRouteChildren {
   CredenciaisRoute: typeof CredenciaisRoute
   DocumentacaoRoute: typeof DocumentacaoRoute
   IncidentesRoute: typeof IncidentesRoute
+  RoadmapRoute: typeof RoadmapRoute
   SistemasRoute: typeof SistemasRoute
   AutomacoesAutomationIdRoute: typeof AutomacoesAutomationIdRoute
   AutomacoesIndexRoute: typeof AutomacoesIndexRoute
@@ -171,6 +184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IncidentesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/roadmap': {
+      id: '/roadmap'
+      path: '/roadmap'
+      fullPath: '/roadmap'
+      preLoaderRoute: typeof RoadmapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sistemas': {
       id: '/sistemas'
       path: '/sistemas'
@@ -201,6 +221,7 @@ const rootRouteChildren: RootRouteChildren = {
   CredenciaisRoute: CredenciaisRoute,
   DocumentacaoRoute: DocumentacaoRoute,
   IncidentesRoute: IncidentesRoute,
+  RoadmapRoute: RoadmapRoute,
   SistemasRoute: SistemasRoute,
   AutomacoesAutomationIdRoute: AutomacoesAutomationIdRoute,
   AutomacoesIndexRoute: AutomacoesIndexRoute,
