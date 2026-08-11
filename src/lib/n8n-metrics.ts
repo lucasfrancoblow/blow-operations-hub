@@ -3,6 +3,7 @@
 // tudo é recalculado a cada carga a partir do histórico de execuções do n8n.
 
 import {
+  fetchN8nErrorExecutions,
   fetchN8nExecutionError,
   fetchN8nRecentExecutions,
   fetchN8nWorkflows,
@@ -25,7 +26,8 @@ import type {
   Integration,
 } from "@/types/hub";
 
-const EXECUTION_WINDOW_PAGES = 6; // ~1500 execuções recentes, todas as automações misturadas
+const EXECUTION_WINDOW_PAGES = 6; // ~1500 execuções recentes, todas as automações misturadas (saúde/successRate)
+const ERROR_HISTORY_PAGES = 20; // ~5000 execuções só de erro, bem mais fundo (incidentes não desaparecem)
 const MAX_ERROR_DETAIL_FETCHES = 30;
 
 interface WorkflowStats {
@@ -509,10 +511,10 @@ function toDocumentation(workflow: N8nWorkflow): Documentation {
 function toIncident(
   workflow: N8nWorkflow,
   stats: WorkflowStats,
+  isOpen: boolean,
   detail: N8nExecutionError | null,
   baseUrl: string,
 ): Incident {
-  const isOpen = stats.lastStatus === "error";
   const severity: IncidentSeverity = isOpen
     ? stats.errorCount >= 5
       ? "Crítica"
@@ -627,17 +629,24 @@ export async function loadN8nOperationalData(): Promise<N8nOperationalData | nul
   if (!isN8nConfigured()) return null;
 
   const baseUrl = getN8nBaseUrl();
-  const [allWorkflows, executions] = await Promise.all([
+  const [allWorkflows, executions, errorExecutions] = await Promise.all([
     fetchN8nWorkflows(),
     fetchN8nRecentExecutions(EXECUTION_WINDOW_PAGES),
+    fetchN8nErrorExecutions(ERROR_HISTORY_PAGES),
   ]);
   // O n8n mantém workflows arquivados na API mas os esconde da UI padrão — espelhamos isso aqui.
   const workflows = allWorkflows.filter((w) => !w.isArchived);
 
+  // `stats`: janela recente e MISTURADA (sucesso+erro) — usada só pra saúde/taxa de
+  // sucesso das automações, e pra saber se o status ATUAL de um workflow é erro ou não.
+  // `errorStats`: histórico bem mais profundo e SÓ de erros — usado pra montar os
+  // incidentes, pra um erro antigo já resolvido não desaparecer da tela conforme
+  // execuções normais mais recentes vão empurrando ele pra fora da janela `stats`.
   const stats = buildStats(executions);
+  const errorStats = buildStats(errorExecutions);
   const workflowsById = new Map(workflows.map((w) => [w.id, w] as const));
 
-  const idsNeedingDetail = Array.from(stats.entries())
+  const idsNeedingDetail = Array.from(errorStats.entries())
     .filter(([, s]) => s.errorCount > 0 && s.lastErrorExecutionId)
     .slice(0, MAX_ERROR_DETAIL_FETCHES);
 
@@ -657,13 +666,17 @@ export async function loadN8nOperationalData(): Promise<N8nOperationalData | nul
   );
   const documentation = workflows.map((w) => toDocumentation(w));
 
-  const incidents = Array.from(stats.entries())
+  const incidents = Array.from(errorStats.entries())
     .filter(([, s]) => s.errorCount > 0)
     .map(([workflowId, s]) => {
       const workflow = workflowsById.get(workflowId);
-      return workflow
-        ? toIncident(workflow, s, detailByWorkflow.get(workflowId) ?? null, baseUrl)
-        : null;
+      if (!workflow) return null;
+      // Se o workflow apareceu na janela recente mista, confiamos no status dela (é a
+      // execução mais nova de verdade). Se não apareceu (baixa frequência, nem sucesso
+      // nem erro recente), não temos evidência de melhora — segue Aberto.
+      const recent = stats.get(workflowId);
+      const isOpen = recent ? recent.lastStatus === "error" : true;
+      return toIncident(workflow, s, isOpen, detailByWorkflow.get(workflowId) ?? null, baseUrl);
     })
     .filter((i): i is Incident => i !== null);
 
@@ -680,7 +693,13 @@ export async function loadN8nOperationalData(): Promise<N8nOperationalData | nul
     a.openIncidents = openCountByAutomation.get(a.id) ?? 0;
   }
 
-  const overview = buildOverview(automations, incidents, executions);
+  // Une as duas janelas de execuções (sem duplicar) pro gráfico de "últimos 30 dias"
+  // usar o histórico profundo de erros também, não só a janela recente misturada.
+  const executionsForChart = new Map<string, N8nExecution>();
+  for (const e of executions) executionsForChart.set(e.id, e);
+  for (const e of errorExecutions) executionsForChart.set(e.id, e);
+
+  const overview = buildOverview(automations, incidents, Array.from(executionsForChart.values()));
   const credentials = buildRealCredentials(automations);
   const integrations = buildRealIntegrations(automations, incidents);
 

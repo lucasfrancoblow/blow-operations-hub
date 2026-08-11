@@ -116,14 +116,28 @@ export async function fetchN8nExecutions(workflowId?: string): Promise<N8nExecut
 
 /**
  * Janela de execuções recentes, todas as automações misturadas, mais novas primeiro.
- * Usada pra derivar status/saúde/incidentes sem precisar de 1 chamada por workflow.
+ * Usada pra derivar status/saúde das automações sem precisar de 1 chamada por workflow.
  * Cobertura limitada pelo numero de paginas: workflows de baixa frequencia podem nao aparecer.
  */
 export async function fetchN8nRecentExecutions(maxPages = 6): Promise<N8nExecution[]> {
+  return fetchN8nExecutionsByStatus(undefined, maxPages);
+}
+
+/**
+ * Histórico de execuções filtrado por status (ex: só "error"), paginando bem mais
+ * fundo que a janela recente — usado pra montar incidentes que não desaparecem da
+ * tela conforme execuções normais mais recentes empurram o erro antigo pra fora da
+ * janela misturada (ver fetchN8nRecentExecutions).
+ */
+async function fetchN8nExecutionsByStatus(
+  status: string | undefined,
+  maxPages: number,
+): Promise<N8nExecution[]> {
   const executions: N8nExecution[] = [];
   let cursor: string | undefined;
   for (let page = 0; page < maxPages; page++) {
     const params: Record<string, string> = { limit: "250" };
+    if (status) params["status"] = status;
     if (cursor) params["cursor"] = cursor;
     const result = await n8nFetch<{ data: N8nExecution[]; nextCursor?: string | null }>(
       "/executions",
@@ -134,6 +148,11 @@ export async function fetchN8nRecentExecutions(maxPages = 6): Promise<N8nExecuti
     if (!cursor) break;
   }
   return executions;
+}
+
+/** Histórico profundo só de execuções com erro — ver fetchN8nExecutionsByStatus. */
+export async function fetchN8nErrorExecutions(maxPages = 20): Promise<N8nExecution[]> {
+  return fetchN8nExecutionsByStatus("error", maxPages);
 }
 
 /** Detalhe de erro de uma execução específica, com o nó/HTTP code/mensagem reais. */
