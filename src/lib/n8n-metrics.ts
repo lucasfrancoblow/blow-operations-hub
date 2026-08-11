@@ -13,6 +13,7 @@ import {
   type N8nExecutionError,
   type N8nWorkflow,
 } from "@/lib/n8n-client";
+import { reconcileIncidents } from "@/lib/incidents-store";
 import type {
   Automation,
   CategoryPoint,
@@ -666,7 +667,7 @@ export async function loadN8nOperationalData(): Promise<N8nOperationalData | nul
   );
   const documentation = workflows.map((w) => toDocumentation(w));
 
-  const incidents = Array.from(errorStats.entries())
+  const liveIncidents = Array.from(errorStats.entries())
     .filter(([, s]) => s.errorCount > 0)
     .map(([workflowId, s]) => {
       const workflow = workflowsById.get(workflowId);
@@ -679,6 +680,10 @@ export async function loadN8nOperationalData(): Promise<N8nOperationalData | nul
       return toIncident(workflow, s, isOpen, detailByWorkflow.get(workflowId) ?? null, baseUrl);
     })
     .filter((i): i is Incident => i !== null);
+
+  // Guarda o retrato atual no Supabase (se configurado) e resgata qualquer incidente
+  // já visto antes que caiu fora do histórico consultado no n8n — ver incidents-store.ts.
+  const incidents = await reconcileIncidents(liveIncidents);
 
   const openCountByAutomation = new Map<string, number>();
   for (const inc of incidents) {
