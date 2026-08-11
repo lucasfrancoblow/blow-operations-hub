@@ -112,7 +112,7 @@ function AutomationDetail() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button asChild>
-              <a href={a.externalUrl} target="_blank" rel="noreferrer">
+              <a href={a.externalUrl} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4" /> Abrir no {a.platform}
               </a>
             </Button>

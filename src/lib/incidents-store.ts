@@ -106,7 +106,7 @@ export async function reconcileIncidents(liveIncidents: Incident[]): Promise<Inc
   try {
     await supabaseUpsert("incidents", liveIncidents.map(toRow));
 
-    const allRows = await supabaseSelect<IncidentRow>("incidents", "select=*");
+    const allRows = await supabaseSelect<IncidentRow>("incidents");
     const liveIds = new Set(liveIncidents.map((i) => i.id));
 
     const historicalOnly = allRows

@@ -21,8 +21,20 @@ export function isSupabaseConfigured(): boolean {
   return getConfig() !== null;
 }
 
+// Nome de tabela sempre vem de uma constante no próprio código (nunca de input
+// externo), mas validamos o formato mesmo assim: fecha a porta pra qualquer uso
+// futuro que acabe interpolando algo não confiável na URL.
+const SAFE_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+function assertSafeIdentifier(value: string, label: string): void {
+  if (!SAFE_IDENTIFIER.test(value)) {
+    throw new Error(`${label} inválido: "${value}". Só letras, números e underscore.`);
+  }
+}
+
 async function restFetch<T>(
   path: string,
+  searchParams: URLSearchParams,
   init: RequestInit & { preferHeader?: string } = {},
 ): Promise<T> {
   const config = getConfig();
@@ -31,7 +43,8 @@ async function restFetch<T>(
   }
 
   const { preferHeader, ...fetchInit } = init;
-  const response = await fetch(`${config.url}/rest/v1${path}`, {
+  const qs = searchParams.toString();
+  const response = await fetch(`${config.url}/rest/v1${path}${qs ? `?${qs}` : ""}`, {
     ...fetchInit,
     headers: {
       apikey: config.serviceRoleKey,
@@ -51,14 +64,24 @@ async function restFetch<T>(
   return (text ? JSON.parse(text) : null) as T;
 }
 
-/** Busca todas as linhas de uma tabela, com paginação simples via Range header. */
-export async function supabaseSelect<T>(table: string, query = ""): Promise<T[]> {
+/**
+ * Busca todas as linhas de uma tabela, com paginação simples via Range header.
+ * `filters` vira query string do PostgREST via URLSearchParams (nunca concatenação
+ * de string crua), então valores especiais são sempre escapados corretamente.
+ */
+export async function supabaseSelect<T>(
+  table: string,
+  filters: Record<string, string> = { select: "*" },
+): Promise<T[]> {
+  assertSafeIdentifier(table, "Nome de tabela");
+
   const rows: T[] = [];
   const pageSize = 1000;
   let offset = 0;
 
   while (true) {
-    const result = await restFetch<T[]>(`/${table}?${query}`, {
+    const params = new URLSearchParams(filters);
+    const result = await restFetch<T[]>(`/${table}`, params, {
       method: "GET",
       headers: { Range: `${offset}-${offset + pageSize - 1}` },
     });
@@ -73,8 +96,9 @@ export async function supabaseSelect<T>(table: string, query = ""): Promise<T[]>
 
 /** Insere ou atualiza linhas por conflito de chave primária (upsert). */
 export async function supabaseUpsert<T>(table: string, rows: T[]): Promise<void> {
+  assertSafeIdentifier(table, "Nome de tabela");
   if (rows.length === 0) return;
-  await restFetch(`/${table}`, {
+  await restFetch(`/${table}`, new URLSearchParams(), {
     method: "POST",
     body: JSON.stringify(rows),
     preferHeader: "resolution=merge-duplicates,return=minimal",
