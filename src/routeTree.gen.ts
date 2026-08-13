@@ -15,6 +15,7 @@ import { Route as CredenciaisRouteImport } from './routes/credenciais'
 import { Route as DocumentacaoRouteImport } from './routes/documentacao'
 import { Route as IncidentesRouteImport } from './routes/incidentes'
 import { Route as LeadsRouteImport } from './routes/leads'
+import { Route as LeadsRecentesRouteImport } from './routes/leads-recentes'
 import { Route as RoadmapRouteImport } from './routes/roadmap'
 import { Route as SistemasRouteImport } from './routes/sistemas'
 import { Route as AutomacoesIndexRouteImport } from './routes/automacoes.index'
@@ -50,6 +51,11 @@ const LeadsRoute = LeadsRouteImport.update({
   path: '/leads',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LeadsRecentesRoute = LeadsRecentesRouteImport.update({
+  id: '/leads-recentes',
+  path: '/leads-recentes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RoadmapRoute = RoadmapRouteImport.update({
   id: '/roadmap',
   path: '/roadmap',
@@ -78,6 +84,7 @@ export interface FileRoutesByFullPath {
   '/documentacao': typeof DocumentacaoRoute
   '/incidentes': typeof IncidentesRoute
   '/leads': typeof LeadsRoute
+  '/leads-recentes': typeof LeadsRecentesRoute
   '/roadmap': typeof RoadmapRoute
   '/sistemas': typeof SistemasRoute
   '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/documentacao': typeof DocumentacaoRoute
   '/incidentes': typeof IncidentesRoute
   '/leads': typeof LeadsRoute
+  '/leads-recentes': typeof LeadsRecentesRoute
   '/roadmap': typeof RoadmapRoute
   '/sistemas': typeof SistemasRoute
   '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/documentacao': typeof DocumentacaoRoute
   '/incidentes': typeof IncidentesRoute
   '/leads': typeof LeadsRoute
+  '/leads-recentes': typeof LeadsRecentesRoute
   '/roadmap': typeof RoadmapRoute
   '/sistemas': typeof SistemasRoute
   '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/documentacao'
     | '/incidentes'
     | '/leads'
+    | '/leads-recentes'
     | '/roadmap'
     | '/sistemas'
     | '/automacoes/$automationId'
@@ -129,6 +139,7 @@ export interface FileRouteTypes {
     | '/documentacao'
     | '/incidentes'
     | '/leads'
+    | '/leads-recentes'
     | '/roadmap'
     | '/sistemas'
     | '/automacoes/$automationId'
@@ -141,6 +152,7 @@ export interface FileRouteTypes {
     | '/documentacao'
     | '/incidentes'
     | '/leads'
+    | '/leads-recentes'
     | '/roadmap'
     | '/sistemas'
     | '/automacoes/$automationId'
@@ -154,6 +166,7 @@ export interface RootRouteChildren {
   DocumentacaoRoute: typeof DocumentacaoRoute
   IncidentesRoute: typeof IncidentesRoute
   LeadsRoute: typeof LeadsRoute
+  LeadsRecentesRoute: typeof LeadsRecentesRoute
   RoadmapRoute: typeof RoadmapRoute
   SistemasRoute: typeof SistemasRoute
   AutomacoesAutomationIdRoute: typeof AutomacoesAutomationIdRoute
@@ -204,6 +217,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LeadsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/leads-recentes': {
+      id: '/leads-recentes'
+      path: '/leads-recentes'
+      fullPath: '/leads-recentes'
+      preLoaderRoute: typeof LeadsRecentesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/roadmap': {
       id: '/roadmap'
       path: '/roadmap'
@@ -242,6 +262,7 @@ const rootRouteChildren: RootRouteChildren = {
   DocumentacaoRoute: DocumentacaoRoute,
   IncidentesRoute: IncidentesRoute,
   LeadsRoute: LeadsRoute,
+  LeadsRecentesRoute: LeadsRecentesRoute,
   RoadmapRoute: RoadmapRoute,
   SistemasRoute: SistemasRoute,
   AutomacoesAutomationIdRoute: AutomacoesAutomationIdRoute,

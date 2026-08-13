@@ -10,6 +10,7 @@ import {
   Rocket,
   Settings,
   Snowflake,
+  Inbox,
   Zap,
 } from "lucide-react";
 
@@ -32,6 +33,7 @@ const items = [
   { title: "Visão geral", url: "/", icon: LayoutDashboard, exact: true },
   { title: "Automações", url: "/automacoes", icon: Workflow },
   { title: "Incidentes", url: "/incidentes", icon: AlertTriangle },
+  { title: "Leads recentes", url: "/leads-recentes", icon: Inbox },
   { title: "Leads em risco", url: "/leads", icon: Snowflake },
   { title: "Sistemas e integrações", url: "/sistemas", icon: Plug },
   { title: "Credenciais", url: "/credenciais", icon: KeyRound },

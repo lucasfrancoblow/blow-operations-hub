@@ -20,6 +20,7 @@ export interface PipeRunDeal {
   owner_id: number | null;
   owner?: PipeRunOwner;
   status: number; // 0 = aberto, 1 = ganho, 2 = perdido
+  origin_id: number | null;
   value: number;
   created_at: string;
   updated_at: string;
@@ -88,6 +89,35 @@ export async function fetchOpenDeals(): Promise<PipeRunDeal[]> {
     const next = await piperunFetch<PipeRunDeal>("/deals", {
       show: String(PAGE_SIZE),
       status: "0",
+      page: String(page),
+    });
+    deals.push(...next.data);
+  }
+
+  return deals;
+}
+
+/** Negócios criados desde `days` atrás, qualquer status — pra ver tudo que chegou, incluindo o que já fechou/perdeu rápido (útil pra achar teste/duplicata). */
+export async function fetchRecentDeals(days: number): Promise<PipeRunDeal[]> {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const deals: PipeRunDeal[] = [];
+  const first = await piperunFetch<PipeRunDeal>("/deals", {
+    show: String(PAGE_SIZE),
+    created_at_start: since,
+    order_by: "created_at",
+    order: "desc",
+    page: "1",
+  });
+  deals.push(...first.data);
+
+  const totalPages = first.meta.total_pages;
+  for (let page = 2; page <= totalPages; page++) {
+    const next = await piperunFetch<PipeRunDeal>("/deals", {
+      show: String(PAGE_SIZE),
+      created_at_start: since,
+      order_by: "created_at",
+      order: "desc",
       page: String(page),
     });
     deals.push(...next.data);

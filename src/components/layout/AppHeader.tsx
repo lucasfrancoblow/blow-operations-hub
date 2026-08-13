@@ -27,6 +27,7 @@ const labels: Record<string, string> = {
   automacoes: "Automações",
   incidentes: "Incidentes",
   leads: "Leads em risco",
+  "leads-recentes": "Leads recentes",
   sistemas: "Sistemas e integrações",
   credenciais: "Credenciais",
   documentacao: "Documentação",
