@@ -150,9 +150,36 @@ async function fetchN8nExecutionsByStatus(
   return executions;
 }
 
-/** Histórico profundo só de execuções com erro — ver fetchN8nExecutionsByStatus. */
-export async function fetchN8nErrorExecutions(maxPages = 20): Promise<N8nExecution[]> {
-  return fetchN8nExecutionsByStatus("error", maxPages);
+/**
+ * Histórico de erros de UM workflow específico, paginando fundo nele sozinho.
+ *
+ * Existia antes uma versão "global" (todos os workflows misturados, paginando as
+ * ~5000 execuções de erro mais recentes da instância inteira) — mas numa instância
+ * com muita automação de alta frequência, esses ~5000 slots enchem rápido com o
+ * ruído das automações mais barulhentas, e o corte de profundidade fica se movendo:
+ * a mesma automação de baixo volume aparece ou some do histórico dependendo de
+ * quantos erros as outras geraram entre uma chamada e outra — não-determinístico.
+ * Consultando por workflowId, cada automação tem sua própria janela, imune ao
+ * volume das demais.
+ */
+export async function fetchN8nErrorExecutionsForWorkflow(
+  workflowId: string,
+  maxPages = 3,
+): Promise<N8nExecution[]> {
+  const executions: N8nExecution[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < maxPages; page++) {
+    const params: Record<string, string> = { limit: "250", status: "error", workflowId };
+    if (cursor) params["cursor"] = cursor;
+    const result = await n8nFetch<{ data: N8nExecution[]; nextCursor?: string | null }>(
+      "/executions",
+      params,
+    );
+    executions.push(...result.data);
+    cursor = result.nextCursor ?? undefined;
+    if (!cursor) break;
+  }
+  return executions;
 }
 
 /** Detalhe de erro de uma execução específica, com o nó/HTTP code/mensagem reais. */

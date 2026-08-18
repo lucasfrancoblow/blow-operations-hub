@@ -7,9 +7,7 @@ import {
   Plug,
   KeyRound,
   BookOpen,
-  Rocket,
   Settings,
-  Snowflake,
   Inbox,
   ListTodo,
   Zap,
@@ -36,11 +34,9 @@ const items = [
   { title: "Automações", url: "/automacoes", icon: Workflow },
   { title: "Incidentes", url: "/incidentes", icon: AlertTriangle },
   { title: "Leads recentes", url: "/leads-recentes", icon: Inbox },
-  { title: "Leads em risco", url: "/leads", icon: Snowflake },
   { title: "Sistemas e integrações", url: "/sistemas", icon: Plug },
   { title: "Credenciais", url: "/credenciais", icon: KeyRound },
   { title: "Documentação", url: "/documentacao", icon: BookOpen },
-  { title: "Roadmap", url: "/roadmap", icon: Rocket },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
 ];
 

@@ -1,6 +1,6 @@
-// Feed de leads recém-chegados no PipeRun, pro time validar direto no hub — combina
-// negócios reais do CRM (últimos N dias, qualquer status) com o registro de validação
-// manual guardado no Supabase (tabela leads_validacao).
+// Feed de leads recém-chegados no PipeRun, pro time acompanhar direto no hub — o
+// próprio avanço de etapa no CRM já diz se o lead foi trabalhado, então não duplicamos
+// isso com um registro manual: "em andamento" é derivado automaticamente da etapa real.
 
 import {
   fetchPipelines,
@@ -9,7 +9,10 @@ import {
   isPipeRunConfigured,
   type PipeRunDeal,
 } from "@/lib/piperun-client";
-import { isSupabaseConfigured, supabaseSelect } from "@/lib/supabase-client";
+
+// Etapas que ainda não tiveram nenhum trabalho real do time — qualquer etapa fora
+// dessa lista conta como "em andamento", automaticamente, sem precisar de flag manual.
+const ETAPAS_INICIAIS = new Set(["Novo Lead", "NOVO LEAD", "Contato Inicial"]);
 
 // Códigos de origem usados pelos workflows de criação de card no n8n (ver Deal-* nodes).
 // Não é uma lista exaustiva de todo código que já existiu no CRM — só os que os fluxos
@@ -28,14 +31,6 @@ const DEAL_STATUS_LABELS: Record<number, string> = {
   3: "Congelado",
 };
 
-export interface LeadValidacaoRow {
-  deal_id: number;
-  validado: boolean;
-  validado_por: string | null;
-  observacao: string | null;
-  created_at: string;
-}
-
 export interface LeadRecente {
   id: number;
   title: string;
@@ -46,9 +41,7 @@ export interface LeadRecente {
   status: string;
   value: number;
   createdAt: string;
-  validado: boolean;
-  validadoPor: string | null;
-  observacao: string | null;
+  emAndamento: boolean;
 }
 
 export interface LeadsRecentesData {
@@ -57,8 +50,8 @@ export interface LeadsRecentesData {
   origins: string[];
   summary: {
     total: number;
-    pendentes: number;
-    validados: number;
+    novos: number;
+    emAndamento: number;
     ultimasVintQuatroHoras: number;
   };
 }
@@ -67,22 +60,19 @@ function toLeadRecente(
   deal: PipeRunDeal,
   pipelineNames: Map<number, string>,
   stageNames: Map<number, string>,
-  validacoes: Map<number, LeadValidacaoRow>,
 ): LeadRecente {
-  const validacao = validacoes.get(deal.id);
+  const stageName = stageNames.get(deal.stage_id) ?? "Etapa não identificada";
   return {
     id: deal.id,
     title: deal.title || `Negócio #${deal.id}`,
     pipelineName: pipelineNames.get(deal.pipeline_id) ?? "Funil não identificado",
-    stageName: stageNames.get(deal.stage_id) ?? "Etapa não identificada",
+    stageName,
     ownerName: deal.owner?.name ?? "Sem responsável",
     origin: (deal.origin_id && ORIGIN_LABELS[deal.origin_id]) || "Outra origem",
     status: DEAL_STATUS_LABELS[deal.status] ?? "Desconhecido",
     value: deal.value,
     createdAt: deal.created_at,
-    validado: validacao?.validado ?? false,
-    validadoPor: validacao?.validado_por ?? null,
-    observacao: validacao?.observacao ?? null,
+    emAndamento: !ETAPAS_INICIAIS.has(stageName),
   };
 }
 
@@ -101,16 +91,8 @@ export async function loadLeadsRecentesData(): Promise<LeadsRecentesData | null>
   const stagesByPipeline = await Promise.all(pipelineIdsInUse.map((id) => fetchStages(id)));
   const stageNames = new Map(stagesByPipeline.flat().map((s) => [s.id, s.name] as const));
 
-  const validacoes = isSupabaseConfigured()
-    ? new Map(
-        (await supabaseSelect<LeadValidacaoRow>("leads_validacao", { select: "*" })).map(
-          (r) => [r.deal_id, r] as const,
-        ),
-      )
-    : new Map<number, LeadValidacaoRow>();
-
   const leads = deals
-    .map((d) => toLeadRecente(d, pipelineNames, stageNames, validacoes))
+    .map((d) => toLeadRecente(d, pipelineNames, stageNames))
     .sort(
       (a, b) =>
         new Date(b.createdAt.replace(" ", "T")).getTime() -
@@ -120,8 +102,8 @@ export async function loadLeadsRecentesData(): Promise<LeadsRecentesData | null>
   const now = Date.now();
   const summary = {
     total: leads.length,
-    pendentes: leads.filter((l) => !l.validado).length,
-    validados: leads.filter((l) => l.validado).length,
+    novos: leads.filter((l) => !l.emAndamento).length,
+    emAndamento: leads.filter((l) => l.emAndamento).length,
     ultimasVintQuatroHoras: leads.filter(
       (l) => now - new Date(l.createdAt.replace(" ", "T") + "Z").getTime() < 24 * 60 * 60 * 1000,
     ).length,

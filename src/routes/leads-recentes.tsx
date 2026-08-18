@@ -37,12 +37,12 @@ export const Route = createFileRoute("/leads-recentes")({
       { title: "Leads recentes — hubLOw BLOW" },
       {
         name: "description",
-        content: "Leads que chegaram nos últimos 14 dias no PipeRun, pro time conferir e validar.",
+        content: "Leads que chegaram nos últimos 14 dias no PipeRun, com o progresso real do CRM.",
       },
       { property: "og:title", content: "Leads recentes — hubLOw BLOW" },
       {
         property: "og:description",
-        content: "Feed em tempo real dos leads que entram no CRM, com validação manual do time.",
+        content: "Feed em tempo real dos leads que entram no CRM, com progresso automático por etapa.",
       },
     ],
   }),
@@ -50,24 +50,24 @@ export const Route = createFileRoute("/leads-recentes")({
 });
 
 const PAGE_SIZE = 25;
-const VALIDACAO_FILTERS = [
+const PROGRESSO_FILTERS = [
   { value: "todos", label: "Todos" },
-  { value: "pendente", label: "Pendentes" },
-  { value: "validado", label: "Já conferidos" },
+  { value: "novo", label: "Novos" },
+  { value: "andamento", label: "Em andamento" },
 ];
 
-function ValidacaoBadge({ validado }: { validado: boolean }) {
+function ProgressoBadge({ emAndamento }: { emAndamento: boolean }) {
   return (
     <span
       className={cn(
         "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium",
-        validado
+        emAndamento
           ? "border-success/30 bg-success/12 text-success"
           : "border-warning/30 bg-warning/12 text-warning",
       )}
     >
       <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      {validado ? "Conferido" : "Pendente"}
+      {emAndamento ? "Em andamento" : "Novo"}
     </span>
   );
 }
@@ -87,7 +87,7 @@ function LeadsRecentesPage() {
   const [search, setSearch] = useState("");
   const [pipeline, setPipeline] = useState("todos");
   const [origem, setOrigem] = useState("todas");
-  const [validacao, setValidacao] = useState("todos");
+  const [progresso, setProgresso] = useState("todos");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<LeadRecente | null>(null);
 
@@ -96,11 +96,11 @@ function LeadsRecentesPage() {
       if (search && !l.title.toLowerCase().includes(search.toLowerCase())) return false;
       if (pipeline !== "todos" && l.pipelineName !== pipeline) return false;
       if (origem !== "todas" && l.origin !== origem) return false;
-      if (validacao === "pendente" && l.validado) return false;
-      if (validacao === "validado" && !l.validado) return false;
+      if (progresso === "novo" && l.emAndamento) return false;
+      if (progresso === "andamento" && !l.emAndamento) return false;
       return true;
     });
-  }, [data, search, pipeline, origem, validacao]);
+  }, [data, search, pipeline, origem, progresso]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const current = Math.min(page, pages);
@@ -110,7 +110,7 @@ function LeadsRecentesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Leads recentes"
-        subtitle="Últimos 14 dias no PipeRun — dados reais, pro time conferir e validar"
+        subtitle="Últimos 14 dias no PipeRun — dados reais, progresso automático por etapa"
       />
 
       {!isLoading && !data ? (
@@ -153,21 +153,19 @@ function LeadsRecentesPage() {
                 </Card>
                 <Card className="border-border/70 bg-card/70">
                   <CardContent className="py-5">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Pendentes de validação
-                    </p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Novos</p>
                     <p className="mt-1 text-2xl font-semibold text-warning">
-                      {data!.summary.pendentes}
+                      {data!.summary.novos}
                     </p>
                   </CardContent>
                 </Card>
                 <Card className="border-border/70 bg-card/70">
                   <CardContent className="py-5">
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Já conferidos
+                      Em andamento
                     </p>
                     <p className="mt-1 text-2xl font-semibold text-success">
-                      {data!.summary.validados}
+                      {data!.summary.emAndamento}
                     </p>
                   </CardContent>
                 </Card>
@@ -223,9 +221,9 @@ function LeadsRecentesPage() {
               </SelectContent>
             </Select>
             <Select
-              value={validacao}
+              value={progresso}
               onValueChange={(v) => {
-                setValidacao(v);
+                setProgresso(v);
                 setPage(1);
               }}
             >
@@ -233,7 +231,7 @@ function LeadsRecentesPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {VALIDACAO_FILTERS.map((f) => (
+                {PROGRESSO_FILTERS.map((f) => (
                   <SelectItem key={f.value} value={f.value}>
                     {f.label}
                   </SelectItem>
@@ -263,7 +261,7 @@ function LeadsRecentesPage() {
                       <TableHead>Responsável</TableHead>
                       <TableHead>Valor</TableHead>
                       <TableHead>Criado em</TableHead>
-                      <TableHead>Validação</TableHead>
+                      <TableHead>Progresso</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -285,7 +283,7 @@ function LeadsRecentesPage() {
                           {new Date(lead.createdAt.replace(" ", "T")).toLocaleDateString("pt-BR")}
                         </TableCell>
                         <TableCell>
-                          <ValidacaoBadge validado={lead.validado} />
+                          <ProgressoBadge emAndamento={lead.emAndamento} />
                         </TableCell>
                       </TableRow>
                     ))}

@@ -3,8 +3,9 @@
 // tudo é recalculado a cada carga a partir do histórico de execuções do n8n.
 
 import {
-  fetchN8nErrorExecutions,
+  fetchN8nErrorExecutionsForWorkflow,
   fetchN8nExecutionError,
+  fetchN8nExecutions,
   fetchN8nRecentExecutions,
   fetchN8nWorkflows,
   getN8nBaseUrl,
@@ -28,8 +29,27 @@ import type {
 } from "@/types/hub";
 
 const EXECUTION_WINDOW_PAGES = 6; // ~1500 execuções recentes, todas as automações misturadas (saúde/successRate)
-const ERROR_HISTORY_PAGES = 20; // ~5000 execuções só de erro, bem mais fundo (incidentes não desaparecem)
+const ERROR_HISTORY_PAGES_PER_WORKFLOW = 3; // ~750 erros por workflow — cada automação tem sua própria janela
+const ERROR_FETCH_CONCURRENCY = 15; // paralelismo ao consultar erro de cada workflow, pra não sobrecarregar o n8n
 const MAX_ERROR_DETAIL_FETCHES = 30;
+
+/** Roda `fn` sobre `items` com no máximo `limit` chamadas em paralelo por vez. */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < items.length) {
+      const current = nextIndex++;
+      results[current] = await fn(items[current]!);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
 
 interface WorkflowStats {
   totalCount: number;
@@ -630,19 +650,24 @@ export async function loadN8nOperationalData(): Promise<N8nOperationalData | nul
   if (!isN8nConfigured()) return null;
 
   const baseUrl = getN8nBaseUrl();
-  const [allWorkflows, executions, errorExecutions] = await Promise.all([
+  const [allWorkflows, executions] = await Promise.all([
     fetchN8nWorkflows(),
     fetchN8nRecentExecutions(EXECUTION_WINDOW_PAGES),
-    fetchN8nErrorExecutions(ERROR_HISTORY_PAGES),
   ]);
   // O n8n mantém workflows arquivados na API mas os esconde da UI padrão — espelhamos isso aqui.
   const workflows = allWorkflows.filter((w) => !w.isArchived);
 
-  // `stats`: janela recente e MISTURADA (sucesso+erro) — usada só pra saúde/taxa de
-  // sucesso das automações, e pra saber se o status ATUAL de um workflow é erro ou não.
+  // Erros por workflow, cada um com sua própria janela — ver fetchN8nErrorExecutionsForWorkflow.
+  const errorExecutions = (
+    await mapWithConcurrency(workflows, ERROR_FETCH_CONCURRENCY, (w) =>
+      fetchN8nErrorExecutionsForWorkflow(w.id, ERROR_HISTORY_PAGES_PER_WORKFLOW),
+    )
+  ).flat();
+
+  // `stats`: janela recente e MISTURADA (sucesso+erro, todas as automações juntas) —
+  // usada só pra saúde/taxa de sucesso das automações.
   // `errorStats`: histórico bem mais profundo e SÓ de erros — usado pra montar os
-  // incidentes, pra um erro antigo já resolvido não desaparecer da tela conforme
-  // execuções normais mais recentes vão empurrando ele pra fora da janela `stats`.
+  // incidentes, pra um erro antigo já resolvido não desaparecer da tela.
   const stats = buildStats(executions);
   const errorStats = buildStats(errorExecutions);
   const workflowsById = new Map(workflows.map((w) => [w.id, w] as const));
@@ -652,12 +677,24 @@ export async function loadN8nOperationalData(): Promise<N8nOperationalData | nul
     .slice(0, MAX_ERROR_DETAIL_FETCHES);
 
   const detailByWorkflow = new Map<string, N8nExecutionError | null>();
+  // Status atual de cada workflow com erro, consultado direto (não via `stats`): a
+  // janela mista compartilhada favorece workflows de alta frequência (um sucesso
+  // qualquer aparece por cima e "resolve" o incidente mesmo com erros recorrentes) e
+  // esconde workflows raros dela por completo. Consultar a própria automação garante
+  // que o status refletido é realmente a sua última execução, não a janela global.
+  const latestStatusByWorkflow = new Map<string, string | null>();
   await Promise.all(
     idsNeedingDetail.map(async ([workflowId, s]) => {
       try {
         detailByWorkflow.set(workflowId, await fetchN8nExecutionError(s.lastErrorExecutionId!));
       } catch {
         detailByWorkflow.set(workflowId, null);
+      }
+      try {
+        const ownExecutions = await fetchN8nExecutions(workflowId);
+        latestStatusByWorkflow.set(workflowId, ownExecutions[0]?.status ?? null);
+      } catch {
+        latestStatusByWorkflow.set(workflowId, null);
       }
     }),
   );
@@ -672,11 +709,11 @@ export async function loadN8nOperationalData(): Promise<N8nOperationalData | nul
     .map(([workflowId, s]) => {
       const workflow = workflowsById.get(workflowId);
       if (!workflow) return null;
-      // Se o workflow apareceu na janela recente mista, confiamos no status dela (é a
-      // execução mais nova de verdade). Se não apareceu (baixa frequência, nem sucesso
-      // nem erro recente), não temos evidência de melhora — segue Aberto.
-      const recent = stats.get(workflowId);
-      const isOpen = recent ? recent.lastStatus === "error" : true;
+      // Consultado direto na própria automação (ver latestStatusByWorkflow acima) — se
+      // não tiver vindo (fora do teto de MAX_ERROR_DETAIL_FETCHES), não temos evidência
+      // de melhora e segue Aberto por padrão.
+      const latestStatus = latestStatusByWorkflow.get(workflowId);
+      const isOpen = latestStatus ? latestStatus === "error" : true;
       return toIncident(workflow, s, isOpen, detailByWorkflow.get(workflowId) ?? null, baseUrl);
     })
     .filter((i): i is Incident => i !== null);
