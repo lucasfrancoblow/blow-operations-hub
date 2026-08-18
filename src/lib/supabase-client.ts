@@ -104,3 +104,26 @@ export async function supabaseUpsert<T>(table: string, rows: T[]): Promise<void>
     preferHeader: "resolution=merge-duplicates,return=minimal",
   });
 }
+
+/** Atualiza parcialmente uma linha por id (PATCH). */
+export async function supabaseUpdate<T extends object>(
+  table: string,
+  id: string,
+  patch: Partial<T>,
+): Promise<void> {
+  assertSafeIdentifier(table, "Nome de tabela");
+  await restFetch(`/${table}`, new URLSearchParams({ id: `eq.${id}` }), {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+    preferHeader: "return=minimal",
+  });
+}
+
+/** Remove uma linha por id. */
+export async function supabaseDelete(table: string, id: string): Promise<void> {
+  assertSafeIdentifier(table, "Nome de tabela");
+  await restFetch(`/${table}`, new URLSearchParams({ id: `eq.${id}` }), {
+    method: "DELETE",
+    preferHeader: "return=minimal",
+  });
+}

@@ -11,6 +11,7 @@ import {
   Settings,
   Snowflake,
   Inbox,
+  ListTodo,
   Zap,
 } from "lucide-react";
 
@@ -31,6 +32,7 @@ import { getN8nStatus } from "@/services/n8n-service";
 
 const items = [
   { title: "Visão geral", url: "/", icon: LayoutDashboard, exact: true },
+  { title: "Tarefas", url: "/tarefas", icon: ListTodo },
   { title: "Automações", url: "/automacoes", icon: Workflow },
   { title: "Incidentes", url: "/incidentes", icon: AlertTriangle },
   { title: "Leads recentes", url: "/leads-recentes", icon: Inbox },
