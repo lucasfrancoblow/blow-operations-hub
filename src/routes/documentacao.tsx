@@ -74,12 +74,9 @@ function DocumentationPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Documentação"
-        subtitle="Base de conhecimento operacional das automações"
-      />
+      <PageHeader title="Documentação" subtitle="Base de conhecimento operacional das automações" />
 
-      <div className="grid gap-3 rounded-xl border border-border/70 bg-card/60 p-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 rounded-xl border border-border/60 bg-card/60 p-3 md:grid-cols-2 xl:grid-cols-4">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -89,9 +86,27 @@ function DocumentationPage() {
             className="pl-9"
           />
         </div>
-        <DocFilter value={area} onChange={setArea} all="todas" allLabel="Todas as áreas" options={["Marketing", "Comercial", "Implantação", "People", "Operações"]} />
-        <DocFilter value={platform} onChange={setPlatform} all="todas" allLabel="Todas as plataformas" options={["n8n", "Make"]} />
-        <DocFilter value={system} onChange={setSystem} all="todos" allLabel="Todos os sistemas" options={systems} />
+        <DocFilter
+          value={area}
+          onChange={setArea}
+          all="todas"
+          allLabel="Todas as áreas"
+          options={["Marketing", "Comercial", "Implantação", "People", "Operações"]}
+        />
+        <DocFilter
+          value={platform}
+          onChange={setPlatform}
+          all="todas"
+          allLabel="Todas as plataformas"
+          options={["n8n", "Make"]}
+        />
+        <DocFilter
+          value={system}
+          onChange={setSystem}
+          all="todos"
+          allLabel="Todos os sistemas"
+          options={systems}
+        />
       </div>
 
       {isLoading ? (
@@ -109,7 +124,10 @@ function DocumentationPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((d) => (
-            <Card key={d.id} className="border-border/70 bg-card/70 transition-colors hover:border-primary/40">
+            <Card
+              key={d.id}
+              className="border-border/60 bg-card transition-colors hover:border-primary/40"
+            >
               <CardContent className="flex h-full flex-col gap-3 py-5">
                 <div>
                   <p className="text-xs text-muted-foreground">{d.code}</p>

@@ -12,6 +12,11 @@ export interface PipeRunOwner {
   name: string;
 }
 
+export interface PipeRunCustomField {
+  name: string;
+  value: string | null;
+}
+
 export interface PipeRunDeal {
   id: number;
   title: string;
@@ -25,6 +30,7 @@ export interface PipeRunDeal {
   created_at: string;
   updated_at: string;
   last_contact_at: string | null;
+  customFields?: PipeRunCustomField[];
 }
 
 export interface PipeRunPipeline {
@@ -97,14 +103,15 @@ export async function fetchOpenDeals(): Promise<PipeRunDeal[]> {
   return deals;
 }
 
-/** Negócios criados desde `days` atrás, qualquer status — pra ver tudo que chegou, incluindo o que já fechou/perdeu rápido (útil pra achar teste/duplicata). */
-export async function fetchRecentDeals(days: number): Promise<PipeRunDeal[]> {
-  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-
+/** Negócios criados dentro de um range de datas (YYYY-MM-DD, inclusivo), qualquer
+ * status — pra ver tudo que chegou, incluindo o que já fechou/perdeu rápido. */
+export async function fetchDealsInRange(since: string, until: string): Promise<PipeRunDeal[]> {
   const deals: PipeRunDeal[] = [];
   const first = await piperunFetch<PipeRunDeal>("/deals", {
     show: String(PAGE_SIZE),
     created_at_start: since,
+    created_at_end: until,
+    with: "customFields",
     order_by: "created_at",
     order: "desc",
     page: "1",
@@ -116,6 +123,8 @@ export async function fetchRecentDeals(days: number): Promise<PipeRunDeal[]> {
     const next = await piperunFetch<PipeRunDeal>("/deals", {
       show: String(PAGE_SIZE),
       created_at_start: since,
+      created_at_end: until,
+      with: "customFields",
       order_by: "created_at",
       order: "desc",
       page: String(page),

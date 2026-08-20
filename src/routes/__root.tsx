@@ -13,11 +13,9 @@ import { AnimatePresence, motion } from "framer-motion";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AppSidebar } from "@/components/layout/AppSidebar";
-import { AppHeader } from "@/components/layout/AppHeader";
+import { TopNav } from "@/components/layout/TopNav";
 import { ThemeProvider, THEME_INIT_SCRIPT } from "@/components/theme-provider";
 
 function NotFoundComponent() {
@@ -112,7 +110,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR" className="dark" suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
@@ -151,17 +149,12 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TooltipProvider delayDuration={200}>
-          <SidebarProvider>
-            <div className="flex min-h-screen w-full bg-background surface-grid">
-              <AppSidebar />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <AppHeader />
-                <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
-                  <PageTransition />
-                </main>
-              </div>
-            </div>
-          </SidebarProvider>
+          <div className="min-h-screen w-full bg-background surface-grid">
+            <TopNav />
+            <main className="mx-auto min-w-0 max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
+              <PageTransition />
+            </main>
+          </div>
           <Toaster position="top-right" />
         </TooltipProvider>
       </ThemeProvider>

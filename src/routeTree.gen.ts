@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as DocumentacaoRouteImport } from './routes/documentacao'
+import { Route as FunilMarketingRouteImport } from './routes/funil-marketing'
 import { Route as IncidentesRouteImport } from './routes/incidentes'
 import { Route as LeadsRecentesRouteImport } from './routes/leads-recentes'
 import { Route as TarefasRouteImport } from './routes/tarefas'
@@ -31,6 +32,11 @@ const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
 const DocumentacaoRoute = DocumentacaoRouteImport.update({
   id: '/documentacao',
   path: '/documentacao',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FunilMarketingRoute = FunilMarketingRouteImport.update({
+  id: '/funil-marketing',
+  path: '/funil-marketing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IncidentesRoute = IncidentesRouteImport.update({
@@ -63,6 +69,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/documentacao': typeof DocumentacaoRoute
+  '/funil-marketing': typeof FunilMarketingRoute
   '/incidentes': typeof IncidentesRoute
   '/leads-recentes': typeof LeadsRecentesRoute
   '/tarefas': typeof TarefasRoute
@@ -73,6 +80,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/documentacao': typeof DocumentacaoRoute
+  '/funil-marketing': typeof FunilMarketingRoute
   '/incidentes': typeof IncidentesRoute
   '/leads-recentes': typeof LeadsRecentesRoute
   '/tarefas': typeof TarefasRoute
@@ -84,6 +92,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/documentacao': typeof DocumentacaoRoute
+  '/funil-marketing': typeof FunilMarketingRoute
   '/incidentes': typeof IncidentesRoute
   '/leads-recentes': typeof LeadsRecentesRoute
   '/tarefas': typeof TarefasRoute
@@ -96,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/configuracoes'
     | '/documentacao'
+    | '/funil-marketing'
     | '/incidentes'
     | '/leads-recentes'
     | '/tarefas'
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/configuracoes'
     | '/documentacao'
+    | '/funil-marketing'
     | '/incidentes'
     | '/leads-recentes'
     | '/tarefas'
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/'
     | '/configuracoes'
     | '/documentacao'
+    | '/funil-marketing'
     | '/incidentes'
     | '/leads-recentes'
     | '/tarefas'
@@ -127,6 +139,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
   DocumentacaoRoute: typeof DocumentacaoRoute
+  FunilMarketingRoute: typeof FunilMarketingRoute
   IncidentesRoute: typeof IncidentesRoute
   LeadsRecentesRoute: typeof LeadsRecentesRoute
   TarefasRoute: typeof TarefasRoute
@@ -155,6 +168,13 @@ declare module '@tanstack/react-router' {
       path: '/documentacao'
       fullPath: '/documentacao'
       preLoaderRoute: typeof DocumentacaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/funil-marketing': {
+      id: '/funil-marketing'
+      path: '/funil-marketing'
+      fullPath: '/funil-marketing'
+      preLoaderRoute: typeof FunilMarketingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/incidentes': {
@@ -199,6 +219,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
   DocumentacaoRoute: DocumentacaoRoute,
+  FunilMarketingRoute: FunilMarketingRoute,
   IncidentesRoute: IncidentesRoute,
   LeadsRecentesRoute: LeadsRecentesRoute,
   TarefasRoute: TarefasRoute,

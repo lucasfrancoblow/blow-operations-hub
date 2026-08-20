@@ -3,16 +3,52 @@
 // isso com um registro manual: "em andamento" é derivado automaticamente da etapa real.
 
 import {
+  fetchDealsInRange,
   fetchPipelines,
-  fetchRecentDeals,
   fetchStages,
   isPipeRunConfigured,
   type PipeRunDeal,
 } from "@/lib/piperun-client";
 
+// "Destino" (LP vs Forms) não existe como campo pronto no PipeRun — é inferido do texto
+// do utm_campaign, com base no padrão observado nos dados reais (ex:
+// "BLOW-MO-LEA-ABO-META-LP-REPASSE", "BLOW-MO-LEA-ABO-META-FORM-INTERESSES-ESTATICOS").
+// Isso é uma aproximação, não uma taxonomia oficial do time de marketing — ajustar aqui
+// se o time confirmar outros padrões de nomenclatura de campanha.
+function classifyDestino(utmCampaign: string | null): string {
+  if (!utmCampaign) return "Sem campanha";
+  const c = utmCampaign.toLowerCase();
+  if (c.includes("lp-repasse")) return "LP Repasse";
+  if (c.includes("lp-rapha-mattos") || c.includes("rapha-mattos")) return "LP Rapha Mattos";
+  if (c.includes("lp-")) return "LP (outras)";
+  if (c.includes("form")) return "Forms";
+  return "Outro";
+}
+
 // Etapas que ainda não tiveram nenhum trabalho real do time — qualquer etapa fora
 // dessa lista conta como "em andamento", automaticamente, sem precisar de flag manual.
 const ETAPAS_INICIAIS = new Set(["Novo Lead", "NOVO LEAD", "Contato Inicial"]);
+
+// Funil real, lido direto da ordem das etapas no PipeRun (ver stages?pipeline_id=...):
+// PRÉ VENDAS (0 Novo Lead → ... → 8 SQL → 10 Reunião Agendada, etapa final que passa o
+// bastão) → EXPANSÃO CLOSER (0 Reunião Realizada → ... → 4 Contrato → 5 Venda). Cada
+// flag abaixo é cumulativa: um lead que já está no Closer necessariamente passou por
+// SQL e RA na Pré Vendas, mesmo que o card de lá não mostre mais isso.
+const PIPELINE_CLOSER = "EXPANSÃO CLOSER";
+const STAGE_SQL = "SQL";
+const STAGE_REUNIAO_AGENDADA = "Reunião Agendada";
+const STAGE_CONTRATO = "Contrato";
+const STAGE_VENDA = "Venda";
+
+function funnelFlags(pipelineName: string, stageName: string) {
+  const inCloser = pipelineName.toUpperCase() === PIPELINE_CLOSER;
+  const isSql = inCloser || stageName === STAGE_SQL || stageName === STAGE_REUNIAO_AGENDADA;
+  const isReuniaoAgendada = inCloser || stageName === STAGE_REUNIAO_AGENDADA;
+  const isReuniaoRealizada = inCloser;
+  const isContratoEnviado = inCloser && (stageName === STAGE_CONTRATO || stageName === STAGE_VENDA);
+  const isContratoAssinado = inCloser && stageName === STAGE_VENDA;
+  return { isSql, isReuniaoAgendada, isReuniaoRealizada, isContratoEnviado, isContratoAssinado };
+}
 
 // Códigos de origem usados pelos workflows de criação de card no n8n (ver Deal-* nodes).
 // Não é uma lista exaustiva de todo código que já existiu no CRM — só os que os fluxos
@@ -38,22 +74,34 @@ export interface LeadRecente {
   stageName: string;
   ownerName: string;
   origin: string;
+  destino: string;
+  utmCampaign: string | null;
   status: string;
   value: number;
   createdAt: string;
   emAndamento: boolean;
+  isSql: boolean;
+  isReuniaoAgendada: boolean;
+  isReuniaoRealizada: boolean;
+  isContratoEnviado: boolean;
+  isContratoAssinado: boolean;
 }
 
 export interface LeadsRecentesData {
   leads: LeadRecente[];
   pipelineNames: string[];
   origins: string[];
+  destinos: string[];
   summary: {
     total: number;
     novos: number;
     emAndamento: number;
     ultimasVintQuatroHoras: number;
   };
+  byDay: Array<{ date: string; total: number }>;
+  byOrigin: Array<{ origin: string; total: number }>;
+  byPipeline: Array<{ pipeline: string; total: number }>;
+  byDestino: Array<{ destino: string; total: number }>;
 }
 
 function toLeadRecente(
@@ -62,27 +110,46 @@ function toLeadRecente(
   stageNames: Map<number, string>,
 ): LeadRecente {
   const stageName = stageNames.get(deal.stage_id) ?? "Etapa não identificada";
+  const pipelineName = pipelineNames.get(deal.pipeline_id) ?? "Funil não identificado";
+  const utmCampaign =
+    deal.customFields?.find((c) => c.name === "utm_campaign")?.value?.trim() || null;
   return {
     id: deal.id,
     title: deal.title || `Negócio #${deal.id}`,
-    pipelineName: pipelineNames.get(deal.pipeline_id) ?? "Funil não identificado",
+    pipelineName,
     stageName,
     ownerName: deal.owner?.name ?? "Sem responsável",
     origin: (deal.origin_id && ORIGIN_LABELS[deal.origin_id]) || "Outra origem",
+    destino: classifyDestino(utmCampaign),
+    utmCampaign,
     status: DEAL_STATUS_LABELS[deal.status] ?? "Desconhecido",
     value: deal.value,
     createdAt: deal.created_at,
     emAndamento: !ETAPAS_INICIAIS.has(stageName),
+    ...funnelFlags(pipelineName, stageName),
   };
 }
 
-const RECENT_WINDOW_DAYS = 14;
+export interface DateRange {
+  from: string; // YYYY-MM-DD
+  to: string; // YYYY-MM-DD
+}
 
-export async function loadLeadsRecentesData(): Promise<LeadsRecentesData | null> {
+/** Range default quando a tela abre sem filtro explícito: últimos 14 dias. */
+export function defaultDateRange(): DateRange {
+  const today = new Date();
+  const from = new Date(today);
+  from.setDate(from.getDate() - 13);
+  return { from: from.toISOString().slice(0, 10), to: today.toISOString().slice(0, 10) };
+}
+
+export async function loadLeadsRecentesData(
+  range: DateRange = defaultDateRange(),
+): Promise<LeadsRecentesData | null> {
   if (!isPipeRunConfigured()) return null;
 
   const [deals, pipelines] = await Promise.all([
-    fetchRecentDeals(RECENT_WINDOW_DAYS),
+    fetchDealsInRange(range.from, range.to),
     fetchPipelines(),
   ]);
   const pipelineNames = new Map(pipelines.map((p) => [p.id, p.name] as const));
@@ -109,10 +176,45 @@ export async function loadLeadsRecentesData(): Promise<LeadsRecentesData | null>
     ).length,
   };
 
+  const rangeStart = new Date(`${range.from}T00:00:00Z`);
+  const rangeEnd = new Date(`${range.to}T00:00:00Z`);
+  const dayCount =
+    Math.round((rangeEnd.getTime() - rangeStart.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+  const byDay = Array.from({ length: Math.max(1, dayCount) }, (_, i) => {
+    const d = new Date(rangeStart.getTime() + i * 24 * 60 * 60 * 1000);
+    const date = d.toISOString().slice(0, 10);
+    const total = leads.filter((l) => l.createdAt.slice(0, 10) === date).length;
+    return { date, total };
+  });
+
+  const originCounts = new Map<string, number>();
+  for (const l of leads) originCounts.set(l.origin, (originCounts.get(l.origin) ?? 0) + 1);
+  const byOrigin = Array.from(originCounts, ([origin, total]) => ({ origin, total })).sort(
+    (a, b) => b.total - a.total,
+  );
+
+  const pipelineCounts = new Map<string, number>();
+  for (const l of leads)
+    pipelineCounts.set(l.pipelineName, (pipelineCounts.get(l.pipelineName) ?? 0) + 1);
+  const byPipeline = Array.from(pipelineCounts, ([pipeline, total]) => ({ pipeline, total })).sort(
+    (a, b) => b.total - a.total,
+  );
+
+  const destinoCounts = new Map<string, number>();
+  for (const l of leads) destinoCounts.set(l.destino, (destinoCounts.get(l.destino) ?? 0) + 1);
+  const byDestino = Array.from(destinoCounts, ([destino, total]) => ({ destino, total })).sort(
+    (a, b) => b.total - a.total,
+  );
+
   return {
     leads,
     pipelineNames: Array.from(new Set(leads.map((l) => l.pipelineName))).sort(),
     origins: Array.from(new Set(leads.map((l) => l.origin))).sort(),
+    destinos: Array.from(new Set(leads.map((l) => l.destino))).sort(),
     summary,
+    byDay,
+    byOrigin,
+    byPipeline,
+    byDestino,
   };
 }

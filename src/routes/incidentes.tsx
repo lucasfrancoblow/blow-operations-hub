@@ -6,7 +6,6 @@ import { AlertTriangle, Search } from "lucide-react";
 import { hubService, queryKeys } from "@/services/hub-service";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -22,14 +21,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { EmptyState, PageHeader, TablePagination, TableSkeleton } from "@/components/hub/primitives";
-import { AnimatedNumber, Stagger, StaggerItem } from "@/components/hub/motion";
+import {
+  EmptyState,
+  PageHeader,
+  StatCard,
+  TablePagination,
+  TableSkeleton,
+} from "@/components/hub/primitives";
+import { Stagger, StaggerItem } from "@/components/hub/motion";
 import { IncidentStatusBadge, SeverityBadge } from "@/components/hub/badges";
 import { IncidentDetailSheet } from "@/components/hub/IncidentDetailSheet";
 
 export const Route = createFileRoute("/incidentes")({
   validateSearch: (search: Record<string, unknown>) => ({
-    incidente: typeof search["incidente"] === "string" ? (search["incidente"] as string) : undefined,
+    incidente:
+      typeof search["incidente"] === "string" ? (search["incidente"] as string) : undefined,
   }),
   head: () => ({
     meta: [
@@ -105,26 +111,26 @@ function IncidentsPage() {
       />
 
       <Stagger className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: "Abertos", value: counts.abertos, tone: "text-critical" },
-          { label: "Investigando", value: counts.investigando, tone: "text-warning" },
-          { label: "Resolvidos", value: counts.resolvidos, tone: "text-success" },
-          { label: "Críticos", value: counts.criticos, tone: "text-critical" },
-        ].map((c) => (
+        {(
+          [
+            { label: "Abertos", value: counts.abertos, tone: "critical", accent: "critical" },
+            {
+              label: "Investigando",
+              value: counts.investigando,
+              tone: "warning",
+              accent: "warning",
+            },
+            { label: "Resolvidos", value: counts.resolvidos, tone: "success", accent: "success" },
+            { label: "Críticos", value: counts.criticos, tone: "critical", accent: "critical" },
+          ] as const
+        ).map((c) => (
           <StaggerItem key={c.label}>
-            <Card className="h-full border-border/70 bg-card/70 transition-shadow hover:shadow-lg hover:shadow-black/5">
-              <CardContent className="py-5">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">{c.label}</p>
-                <p className={`mt-1 text-2xl font-semibold ${c.tone}`}>
-                  <AnimatedNumber value={c.value} />
-                </p>
-              </CardContent>
-            </Card>
+            <StatCard label={c.label} value={c.value} tone={c.tone} accent={c.accent} />
           </StaggerItem>
         ))}
       </Stagger>
 
-      <div className="grid gap-3 rounded-xl border border-border/70 bg-card/60 p-3 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 rounded-xl border border-border/60 bg-card/60 p-3 md:grid-cols-2 xl:grid-cols-5">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -137,10 +143,34 @@ function IncidentsPage() {
             className="pl-9"
           />
         </div>
-        <Filter value={severity} onChange={setSeverity} all="todas" allLabel="Todas as severidades" options={["Crítica", "Alta", "Média", "Baixa"]} />
-        <Filter value={status} onChange={setStatus} all="todos" allLabel="Todos os status" options={["Aberto", "Investigando", "Resolvido"]} />
-        <Filter value={category} onChange={setCategory} all="todas" allLabel="Todas as categorias" options={categories} />
-        <Filter value={automation} onChange={setAutomation} all="todas" allLabel="Todas as automações" options={automationNames} />
+        <Filter
+          value={severity}
+          onChange={setSeverity}
+          all="todas"
+          allLabel="Todas as severidades"
+          options={["Crítica", "Alta", "Média", "Baixa"]}
+        />
+        <Filter
+          value={status}
+          onChange={setStatus}
+          all="todos"
+          allLabel="Todos os status"
+          options={["Aberto", "Investigando", "Resolvido"]}
+        />
+        <Filter
+          value={category}
+          onChange={setCategory}
+          all="todas"
+          allLabel="Todas as categorias"
+          options={categories}
+        />
+        <Filter
+          value={automation}
+          onChange={setAutomation}
+          all="todas"
+          allLabel="Todas as automações"
+          options={automationNames}
+        />
       </div>
 
       {isLoading ? (
@@ -152,7 +182,7 @@ function IncidentsPage() {
           description="Nenhum registro corresponde aos filtros selecionados."
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border/70 bg-card/60">
+        <div className="overflow-hidden rounded-xl border border-border/60 bg-card/60">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>

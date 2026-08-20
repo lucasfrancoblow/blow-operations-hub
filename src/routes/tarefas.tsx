@@ -101,7 +101,7 @@ function TarefasPage() {
         }
       />
 
-      <div className="grid gap-3 rounded-xl border border-border/70 bg-card/60 p-3 sm:grid-cols-3">
+      <div className="grid gap-3 rounded-xl border border-border/60 bg-card/60 p-3 sm:grid-cols-3">
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}

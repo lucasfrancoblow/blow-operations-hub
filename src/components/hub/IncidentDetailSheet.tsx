@@ -1,4 +1,10 @@
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
@@ -81,14 +87,14 @@ export function IncidentDetailSheet({
 
               <section>
                 <h4 className="text-sm font-semibold">Evidências técnicas</h4>
-                <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-lg border border-border/70 bg-muted/40 p-3 text-xs text-muted-foreground">
+                <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-lg border border-border/60 bg-muted/40 p-3 text-xs text-muted-foreground">
                   {incident.evidence}
                 </pre>
               </section>
 
               <section>
                 <h4 className="text-sm font-semibold">Linha do tempo de ocorrências</h4>
-                <ol className="mt-3 space-y-3 border-l border-border/70 pl-4">
+                <ol className="mt-3 space-y-3 border-l border-border/60 pl-4">
                   {incident.timeline.map((t) => (
                     <li key={t.date} className="relative text-sm">
                       <span className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-primary" />

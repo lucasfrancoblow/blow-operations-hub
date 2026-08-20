@@ -44,7 +44,7 @@ export function TaskCard({
       transition={{ type: "spring", stiffness: 500, damping: 35 }}
       onClick={() => !dragOverlay && onOpen?.(task)}
       className={cn(
-        "cursor-grab space-y-2 rounded-lg border border-border/70 bg-card/90 p-3 text-left shadow-sm transition-colors active:cursor-grabbing",
+        "cursor-grab space-y-2 rounded-lg border border-border/60 bg-card/90 p-3 text-left shadow-sm transition-colors active:cursor-grabbing",
         "hover:border-primary/40 hover:shadow-md hover:shadow-primary/5",
         dragOverlay && "rotate-2 border-primary/50 shadow-lg shadow-primary/20",
       )}

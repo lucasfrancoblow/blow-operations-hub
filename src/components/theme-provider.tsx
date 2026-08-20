@@ -24,18 +24,18 @@ export const THEME_INIT_SCRIPT = `
     var stored = localStorage.getItem("${STORAGE_KEY}");
     var theme = stored === "light" || stored === "dark"
       ? stored
-      : (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+      : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
     document.documentElement.classList.toggle("dark", theme === "dark");
   } catch (e) {}
 })();
 `;
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  // Sempre inicia como "dark" pra bater com o className do <html> renderizado no
+  // Sempre inicia como "light" pra bater com o className do <html> renderizado no
   // servidor (ver RootShell) — o valor real (já aplicado pelo THEME_INIT_SCRIPT
   // antes da primeira pintura) só é lido depois de montar, no efeito abaixo, pra
   // não causar mismatch de hidratação entre servidor e cliente.
-  const [theme, setThemeState] = useState<Theme>("dark");
+  const [theme, setThemeState] = useState<Theme>("light");
   const skipNextPersist = useRef(true);
 
   useEffect(() => {

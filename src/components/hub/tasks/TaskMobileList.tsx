@@ -56,7 +56,7 @@ export function TaskMobileList({
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className="flex items-start justify-between gap-2 rounded-lg border border-border/70 bg-card/90 p-3"
+                className="flex items-start justify-between gap-2 rounded-lg border border-border/60 bg-card/90 p-3"
                 onClick={() => onOpenTask(task)}
               >
                 <div className="min-w-0 space-y-1.5">

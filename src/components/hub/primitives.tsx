@@ -11,6 +11,56 @@ import {
   PaginationLink,
 } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
+import { AnimatedNumber } from "@/components/hub/motion";
+
+/** Card de KPI com barra de destaque colorida no topo e número animado — usado nas
+ * telas de Visão Geral, Radar de Leads e Incidentes pra manter o mesmo tratamento visual. */
+export function StatCard({
+  label,
+  value,
+  accent,
+  tone,
+  loading,
+}: {
+  label: string;
+  value: number;
+  accent: "primary" | "warning" | "critical" | "success";
+  tone?: "default" | "warning" | "critical" | "success";
+  loading?: boolean;
+}) {
+  const toneClass =
+    tone === "warning"
+      ? "text-warning"
+      : tone === "critical"
+        ? "text-critical"
+        : tone === "success"
+          ? "text-success"
+          : "text-foreground";
+  const accentClass =
+    accent === "warning"
+      ? "bg-warning"
+      : accent === "critical"
+        ? "bg-critical"
+        : accent === "success"
+          ? "bg-success"
+          : "bg-primary";
+
+  return (
+    <Card className="relative h-full overflow-hidden border-border/60 bg-card transition-shadow hover:shadow-lg hover:shadow-black/5">
+      <div className={cn("absolute inset-x-0 top-0 h-1", accentClass)} />
+      <CardContent className="py-5">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+        {loading ? (
+          <Skeleton className="mt-2 h-8 w-14" />
+        ) : (
+          <p className={cn("mt-0.5 font-display text-3xl font-semibold tabular-nums", toneClass)}>
+            <AnimatedNumber value={value} />
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export function PageHeader({
   title,
@@ -52,7 +102,7 @@ export function SectionCard({
       whileHover={reduce ? undefined : { y: -2 }}
       className={cn("h-full", className)}
     >
-      <Card className="h-full border-border/70 bg-card/70 backdrop-blur transition-shadow hover:shadow-lg hover:shadow-black/5">
+      <Card className="h-full border-border/60 bg-card backdrop-blur transition-shadow hover:shadow-lg hover:shadow-black/5">
         <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
           <CardTitle className="truncate text-base font-semibold">{title}</CardTitle>
           {action}
@@ -82,9 +132,7 @@ export function EmptyState({
         </div>
       )}
       <p className="text-sm font-medium">{title}</p>
-      {description && (
-        <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>
-      )}
+      {description && <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );
@@ -141,7 +189,7 @@ export function TablePagination({
   onPageChange: (page: number) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 px-4 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 px-4 py-3">
       <p className="text-xs text-muted-foreground">
         {totalItems} {itemLabel} · página {current} de {totalPages}
       </p>

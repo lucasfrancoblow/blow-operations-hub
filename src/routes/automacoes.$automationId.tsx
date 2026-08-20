@@ -97,7 +97,7 @@ function AutomationDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-border/70 bg-card/70 p-5">
+      <div className="rounded-xl border border-border/60 bg-card p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground">{a.code}</p>
@@ -198,7 +198,7 @@ function AutomationDetail() {
             <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
               {a.flow.map((node, idx) => (
                 <div key={node.id} className="flex flex-1 items-center gap-3">
-                  <Card className="w-full border-border/70 bg-muted/20">
+                  <Card className="w-full border-border/60 bg-muted/20">
                     <CardContent className="space-y-2 py-4">
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-medium leading-tight">{node.name}</p>
@@ -229,7 +229,10 @@ function AutomationDetail() {
             {incidents.isLoading ? (
               <Skeleton className="h-40 w-full" />
             ) : (incidents.data ?? []).length === 0 ? (
-              <EmptyState title="Nenhum incidente registrado" description="Esta automação não gerou falhas." />
+              <EmptyState
+                title="Nenhum incidente registrado"
+                description="Esta automação não gerou falhas."
+              />
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -281,7 +284,7 @@ function AutomationDetail() {
         <TabsContent value="integracoes" className="mt-4">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {relatedSystems.map((s) => (
-              <Card key={s.id} className="border-border/70 bg-card/70">
+              <Card key={s.id} className="border-border/60 bg-card">
                 <CardContent className="space-y-2 py-5">
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-medium">{s.name}</p>
@@ -377,7 +380,10 @@ function AutomationDetail() {
               title="Documentação não criada"
               description="Esta automação ainda não possui documento na base de conhecimento."
               action={
-                <Button variant="outline" onClick={() => toast.success("Rascunho criado no Notion (simulado).")}>
+                <Button
+                  variant="outline"
+                  onClick={() => toast.success("Rascunho criado no Notion (simulado).")}
+                >
                   Criar documentação
                 </Button>
               }
@@ -387,7 +393,7 @@ function AutomationDetail() {
 
         <TabsContent value="historico" className="mt-4">
           <SectionCard title="Histórico de alterações">
-            <ol className="space-y-4 border-l border-border/70 pl-4">
+            <ol className="space-y-4 border-l border-border/60 pl-4">
               {a.history.map((h) => (
                 <li key={h.id} className="relative">
                   <span className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-primary" />

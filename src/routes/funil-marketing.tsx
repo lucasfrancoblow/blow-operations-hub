@@ -1,0 +1,464 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { Fragment, useMemo, useState } from "react";
+import { CheckCircle2, Inbox } from "lucide-react";
+
+import { getLeadsRecentesData } from "@/services/leads-recentes-service";
+import { getAdMetricsData } from "@/services/ad-metrics-service";
+import { adChannelFor } from "@/lib/ad-metrics";
+import { defaultDateRange, type DateRange, type LeadRecente } from "@/lib/leads-recentes";
+import { DateRangePicker } from "@/components/hub/DateRangePicker";
+import { EmptyState, PageHeader, SectionCard, StatCard } from "@/components/hub/primitives";
+import { FadeIn, Stagger, StaggerItem } from "@/components/hub/motion";
+import { FunnelChart, type FunnelStage } from "@/components/hub/FunnelChart";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+export const Route = createFileRoute("/funil-marketing")({
+  head: () => ({
+    meta: [
+      { title: "Funil de Marketing — hubLOw BLOW" },
+      {
+        name: "description",
+        content:
+          "Indicadores semanais de marketing por canal, no formato da planilha 'Indicadores Expansão' — leads e custo reais, alimentado automaticamente.",
+      },
+    ],
+  }),
+  component: FunilMarketingPage,
+});
+
+// Mesmo agrupamento de canal da planilha "Indicadores Expansão" (Geral / Facebook Ads /
+// Google / Orgânico / Rapha Mattos) — mapeado a partir da origem (UTM) e do funil real do
+// PipeRun, já que não existe um campo "canal" pronto no CRM.
+const CHANNEL_ORDER = ["Facebook Ads", "Google", "Orgânico", "Rapha Mattos", "Outros"] as const;
+
+function channelFor(lead: LeadRecente): string {
+  if (lead.pipelineName.toLowerCase().includes("rapha mattos")) return "Rapha Mattos";
+  if (lead.origin === "Meta (pago)") return "Facebook Ads";
+  if (lead.origin === "Google") return "Google";
+  if (lead.origin === "Meta (orgânico)" || lead.origin === "Sem UTM") return "Orgânico";
+  return "Outros";
+}
+
+function isoWeekLabel(dateStr: string): { key: string; label: string } {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  const day = d.getUTCDay() || 7;
+  const monday = new Date(d);
+  monday.setUTCDate(d.getUTCDate() - day + 1);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  const fmt = (x: Date) =>
+    `${String(x.getUTCDate()).padStart(2, "0")}/${String(x.getUTCMonth() + 1).padStart(2, "0")}`;
+  return { key: monday.toISOString().slice(0, 10), label: `${fmt(monday)} – ${fmt(sunday)}` };
+}
+
+interface WeekCounts {
+  novosLeads: number;
+  sql: number;
+  reuniaoAgendada: number;
+  reuniaoRealizada: number;
+  contratoEnviado: number;
+  contratoAssinado: number;
+  investimento: number;
+}
+
+function emptyCounts(): WeekCounts {
+  return {
+    novosLeads: 0,
+    sql: 0,
+    reuniaoAgendada: 0,
+    reuniaoRealizada: 0,
+    contratoEnviado: 0,
+    contratoAssinado: 0,
+    investimento: 0,
+  };
+}
+
+function pct(num: number, den: number): string {
+  if (den === 0) return "—";
+  return `${((num / den) * 100).toFixed(0)}%`;
+}
+
+function money(value: number): string {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function costPer(spend: number, count: number): string {
+  if (spend === 0 && count === 0) return "—";
+  if (count === 0) return "—";
+  return money(spend / count);
+}
+
+// Linhas exatamente como na planilha "Indicadores Expansão — Indicadores Semanais":
+// Topo do Funil, Fundo de Funil e Taxas de Conversão.
+const ROWS: Array<{
+  label: string;
+  group: "Topo do Funil" | "Fundo de Funil" | "Taxas de Conversão";
+  value: (c: WeekCounts) => number | string;
+}> = [
+  { label: "Novos Leads", group: "Topo do Funil", value: (c) => c.novosLeads },
+  { label: "Leads Qualificados (SQL)", group: "Topo do Funil", value: (c) => c.sql },
+  { label: "Reunião Agendada (RA)", group: "Topo do Funil", value: (c) => c.reuniaoAgendada },
+  { label: "Investimento", group: "Topo do Funil", value: (c) => money(c.investimento) },
+  { label: "CPL", group: "Topo do Funil", value: (c) => costPer(c.investimento, c.novosLeads) },
+  { label: "CPQL", group: "Topo do Funil", value: (c) => costPer(c.investimento, c.sql) },
+  {
+    label: "CPRA",
+    group: "Topo do Funil",
+    value: (c) => costPer(c.investimento, c.reuniaoAgendada),
+  },
+  { label: "RR (Reunião Realizada)", group: "Fundo de Funil", value: (c) => c.reuniaoRealizada },
+  { label: "Contratos Enviados", group: "Fundo de Funil", value: (c) => c.contratoEnviado },
+  { label: "Contratos Assinados", group: "Fundo de Funil", value: (c) => c.contratoAssinado },
+  {
+    label: "CPRR",
+    group: "Fundo de Funil",
+    value: (c) => costPer(c.investimento, c.reuniaoRealizada),
+  },
+  {
+    label: "CPCE",
+    group: "Fundo de Funil",
+    value: (c) => costPer(c.investimento, c.contratoEnviado),
+  },
+  {
+    label: "CPCA",
+    group: "Fundo de Funil",
+    value: (c) => costPer(c.investimento, c.contratoAssinado),
+  },
+  { label: "Taxa: NL → SQL", group: "Taxas de Conversão", value: (c) => pct(c.sql, c.novosLeads) },
+  {
+    label: "Taxa: SQL → RA",
+    group: "Taxas de Conversão",
+    value: (c) => pct(c.reuniaoAgendada, c.sql),
+  },
+  {
+    label: "Taxa: RA → RR",
+    group: "Taxas de Conversão",
+    value: (c) => pct(c.reuniaoRealizada, c.reuniaoAgendada),
+  },
+  {
+    label: "Taxa: RR → CE",
+    group: "Taxas de Conversão",
+    value: (c) => pct(c.contratoEnviado, c.reuniaoRealizada),
+  },
+  {
+    label: "Taxa: CE → CA",
+    group: "Taxas de Conversão",
+    value: (c) => pct(c.contratoAssinado, c.contratoEnviado),
+  },
+  {
+    label: "Taxa: NL → CA",
+    group: "Taxas de Conversão",
+    value: (c) => pct(c.contratoAssinado, c.novosLeads),
+  },
+];
+
+const CHANNEL_FILTERS = ["Todos os canais", ...CHANNEL_ORDER] as const;
+
+function FunilMarketingPage() {
+  const [range, setRange] = useState<DateRange>(() => defaultDateRange());
+  const [channelFilter, setChannelFilter] = useState<string>("Todos os canais");
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["piperun", "leads-recentes", range.from, range.to],
+    queryFn: () => getLeadsRecentesData({ data: range }),
+    refetchInterval: 60_000,
+  });
+
+  const { data: adMetrics, isLoading: adLoading } = useQuery({
+    queryKey: ["ad-metrics", range.from, range.to],
+    queryFn: () => getAdMetricsData({ data: range }),
+    refetchInterval: 60_000,
+  });
+
+  const table = useMemo(() => {
+    if (!data) return null;
+
+    const weekMap = new Map<string, { label: string }>();
+    for (const l of data.leads) {
+      const { key, label } = isoWeekLabel(l.createdAt.slice(0, 10));
+      if (!weekMap.has(key)) weekMap.set(key, { label });
+    }
+    const weeks = Array.from(weekMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([key, v]) => ({ key, label: v.label }));
+
+    const byChannelWeek = new Map<string, Map<string, WeekCounts>>();
+    for (const ch of [...CHANNEL_ORDER, "Geral"]) byChannelWeek.set(ch, new Map());
+
+    for (const l of data.leads) {
+      const { key } = isoWeekLabel(l.createdAt.slice(0, 10));
+      const ch = channelFor(l);
+      for (const target of [ch, "Geral"]) {
+        const m = byChannelWeek.get(target)!;
+        const cur = m.get(key) ?? emptyCounts();
+        cur.novosLeads += 1;
+        if (l.isSql) cur.sql += 1;
+        if (l.isReuniaoAgendada) cur.reuniaoAgendada += 1;
+        if (l.isReuniaoRealizada) cur.reuniaoRealizada += 1;
+        if (l.isContratoEnviado) cur.contratoEnviado += 1;
+        if (l.isContratoAssinado) cur.contratoAssinado += 1;
+        m.set(key, cur);
+      }
+    }
+
+    for (const row of adMetrics ?? []) {
+      const { key } = isoWeekLabel(row.data_referencia);
+      const ch = adChannelFor(row);
+      for (const target of [ch, "Geral"]) {
+        const m = byChannelWeek.get(target);
+        if (!m) continue;
+        const cur = m.get(key) ?? emptyCounts();
+        cur.investimento += row.valor_usado ?? 0;
+        m.set(key, cur);
+      }
+    }
+
+    return { weeks, byChannelWeek };
+  }, [data, adMetrics]);
+
+  const funnelTotals = useMemo(() => {
+    if (!table) return null;
+    const target = channelFilter === "Todos os canais" ? "Geral" : channelFilter;
+    const weekly = table.byChannelWeek.get(target);
+    if (!weekly) return null;
+    const total = emptyCounts();
+    for (const w of table.weeks) {
+      const c = weekly.get(w.key);
+      if (!c) continue;
+      total.novosLeads += c.novosLeads;
+      total.sql += c.sql;
+      total.reuniaoAgendada += c.reuniaoAgendada;
+      total.reuniaoRealizada += c.reuniaoRealizada;
+      total.contratoEnviado += c.contratoEnviado;
+      total.contratoAssinado += c.contratoAssinado;
+      total.investimento += c.investimento;
+    }
+    return total;
+  }, [table, channelFilter]);
+
+  const visibleChannels = useMemo(() => {
+    const all = CHANNEL_ORDER.concat("Geral" as never);
+    if (channelFilter === "Todos os canais") return all;
+    return all.filter((c) => c === channelFilter);
+  }, [channelFilter]);
+
+  const loading = isLoading || adLoading;
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Funil de Marketing"
+        subtitle="Indicadores semanais por canal — mesmo formato da planilha 'Indicadores Expansão', agora automático"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={channelFilter} onValueChange={setChannelFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CHANNEL_FILTERS.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <DateRangePicker value={range} onChange={setRange} />
+          </div>
+        }
+      />
+
+      {loading ? (
+        <Skeleton className="h-96 w-full" />
+      ) : !data || !table ? (
+        <EmptyState
+          icon={<Inbox className="h-5 w-5" />}
+          title="PipeRun não configurado"
+          description="Defina PIPERUN_API_KEY no ambiente do servidor para ver os dados reais aqui."
+        />
+      ) : (
+        <FadeIn className="space-y-6">
+          <div className="flex items-start gap-3 rounded-xl border border-success/30 bg-success/8 px-4 py-3 text-sm">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+            <p className="text-muted-foreground">
+              <span className="font-medium text-foreground">
+                Novos Leads, SQL, RA, RR, Contratos e Taxas de Conversão
+              </span>{" "}
+              vêm do PipeRun (etapa real de cada negócio).{" "}
+              <span className="font-medium text-foreground">
+                Investimento, CPL, CPQL, CPRA, CPRR, CPCE e CPCA
+              </span>{" "}
+              agora vêm de verdade do Meta Ads e do Google Ads — dois workflows no n8n gravam o
+              custo por campanha direto no banco a cada hora.{" "}
+              <span className="font-medium text-foreground">Orgânico</span> e{" "}
+              <span className="font-medium text-foreground">Outros</span> não têm investimento por
+              definição (não são mídia paga) — não é dado faltando.
+            </p>
+          </div>
+
+          {funnelTotals && (
+            <SectionCard
+              title={`Funil — ${channelFilter === "Todos os canais" ? "Geral" : channelFilter}`}
+            >
+              <FunnelChart
+                stages={
+                  [
+                    { label: "Novos Leads", value: funnelTotals.novosLeads, accent: "primary" },
+                    { label: "SQL", value: funnelTotals.sql, accent: "info" },
+                    {
+                      label: "Reunião Agendada",
+                      value: funnelTotals.reuniaoAgendada,
+                      accent: "warning",
+                    },
+                    {
+                      label: "Reunião Realizada",
+                      value: funnelTotals.reuniaoRealizada,
+                      accent: "warning",
+                    },
+                    {
+                      label: "Contrato Enviado",
+                      value: funnelTotals.contratoEnviado,
+                      accent: "success",
+                    },
+                    {
+                      label: "Contrato Assinado",
+                      value: funnelTotals.contratoAssinado,
+                      accent: "success",
+                    },
+                  ] satisfies FunnelStage[]
+                }
+              />
+            </SectionCard>
+          )}
+
+          {funnelTotals && funnelTotals.investimento > 0 && (
+            <Stagger className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <StaggerItem>
+                <StatCard
+                  label="Investimento no período"
+                  value={Math.round(funnelTotals.investimento)}
+                  accent="primary"
+                />
+              </StaggerItem>
+              <StaggerItem>
+                <StatCard
+                  label="CPL médio (R$)"
+                  value={
+                    funnelTotals.novosLeads > 0
+                      ? Math.round(funnelTotals.investimento / funnelTotals.novosLeads)
+                      : 0
+                  }
+                  accent="info"
+                />
+              </StaggerItem>
+              <StaggerItem>
+                <StatCard
+                  label="CPQL médio (R$)"
+                  value={
+                    funnelTotals.sql > 0
+                      ? Math.round(funnelTotals.investimento / funnelTotals.sql)
+                      : 0
+                  }
+                  accent="warning"
+                  tone="warning"
+                />
+              </StaggerItem>
+              <StaggerItem>
+                <StatCard
+                  label="CPRA médio (R$)"
+                  value={
+                    funnelTotals.reuniaoAgendada > 0
+                      ? Math.round(funnelTotals.investimento / funnelTotals.reuniaoAgendada)
+                      : 0
+                  }
+                  accent="success"
+                  tone="success"
+                />
+              </StaggerItem>
+            </Stagger>
+          )}
+
+          {visibleChannels.map((channel) => {
+            const weekly = table.byChannelWeek.get(channel);
+            if (!weekly) return null;
+            const totalLeads = table.weeks.reduce(
+              (sum, w) => sum + (weekly.get(w.key)?.novosLeads ?? 0),
+              0,
+            );
+            const totalSpend = table.weeks.reduce(
+              (sum, w) => sum + (weekly.get(w.key)?.investimento ?? 0),
+              0,
+            );
+            if (totalLeads === 0 && totalSpend === 0 && channel !== "Geral") return null;
+
+            let lastGroup = "";
+
+            return (
+              <SectionCard key={channel} title={channel}>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[720px] border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b border-border/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                        <th className="py-2 pr-4 font-medium">Métrica</th>
+                        {table.weeks.map((w) => (
+                          <th key={w.key} className="py-2 pr-4 text-right font-medium">
+                            {w.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ROWS.map((row) => {
+                        const showGroupHeader = row.group !== lastGroup;
+                        lastGroup = row.group;
+                        return (
+                          <Fragment key={row.label}>
+                            {showGroupHeader && (
+                              <tr key={`${channel}-${row.group}`}>
+                                <td
+                                  colSpan={table.weeks.length + 1}
+                                  className="bg-muted/40 py-1.5 pl-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                                >
+                                  {row.group}
+                                </td>
+                              </tr>
+                            )}
+                            <tr
+                              key={`${channel}-${row.label}`}
+                              className="border-b border-border/40"
+                            >
+                              <td className="py-2 pr-4 text-muted-foreground">{row.label}</td>
+                              {table.weeks.map((w) => {
+                                const counts = weekly.get(w.key) ?? emptyCounts();
+                                return (
+                                  <td
+                                    key={w.key}
+                                    className="py-2 pr-4 text-right font-medium tabular-nums"
+                                  >
+                                    {row.value(counts)}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          </Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </SectionCard>
+            );
+          })}
+        </FadeIn>
+      )}
+    </div>
+  );
+}

@@ -23,7 +23,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { EmptyState, PageHeader, TablePagination, TableSkeleton } from "@/components/hub/primitives";
+import {
+  EmptyState,
+  PageHeader,
+  TablePagination,
+  TableSkeleton,
+} from "@/components/hub/primitives";
 import { FadeIn } from "@/components/hub/motion";
 import { AutomationStatusBadge, HealthBadge, PlatformBadge } from "@/components/hub/badges";
 
@@ -82,7 +87,7 @@ function AutomationsPage() {
         title="Automações"
         subtitle="Inventário de workflows do n8n e cenários do Make"
         actions={
-          <div className="flex items-center gap-1 rounded-lg border border-border/70 bg-muted/30 p-1">
+          <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
             <Button
               size="sm"
               variant={view === "tabela" ? "secondary" : "ghost"}
@@ -101,7 +106,7 @@ function AutomationsPage() {
         }
       />
 
-      <div className="grid gap-3 rounded-xl border border-border/70 bg-card/60 p-3 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 rounded-xl border border-border/60 bg-card/60 p-3 md:grid-cols-2 xl:grid-cols-5">
         <div className="relative xl:col-span-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -167,7 +172,7 @@ function AutomationsPage() {
           }
         />
       ) : view === "tabela" ? (
-        <div className="overflow-hidden rounded-xl border border-border/70 bg-card/60">
+        <div className="overflow-hidden rounded-xl border border-border/60 bg-card/60">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -241,7 +246,7 @@ function AutomationsPage() {
           {filtered.map((a) => (
             <Card
               key={a.id}
-              className="border-border/70 bg-card/70 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-black/5"
+              className="border-border/60 bg-card transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-black/5"
             >
               <CardContent className="space-y-3 py-5">
                 <div className="flex items-start justify-between gap-2">
