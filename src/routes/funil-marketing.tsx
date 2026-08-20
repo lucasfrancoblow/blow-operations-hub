@@ -70,12 +70,16 @@ function fmtDM(iso: string): string {
 
 /** Nunca deixa o range escolhido no filtro exceder o que foi realmente carregado
  * (o range da página) — evita mostrar zero "de mentira" pra dias que nem foram
- * buscados no PipeRun/Supabase ainda. */
+ * buscados no PipeRun/Supabase ainda. Se o filtro do canal ficou de um período
+ * completamente fora do range novo da página (ex: trocou o range lá em cima pra um
+ * mês totalmente diferente do que tinha escolhido no Facebook), o recorte "from > to"
+ * quebraria a tabela — nesse caso volta pro range da página inteiro. */
 function clampRange(inner: DateRange, outer: DateRange): DateRange {
-  return {
+  const clamped = {
     from: inner.from < outer.from ? outer.from : inner.from,
     to: inner.to > outer.to ? outer.to : inner.to,
   };
+  return clamped.from > clamped.to ? outer : clamped;
 }
 
 /** Colunas semana a semana (segunda a domingo), recortadas nas pontas pro range
@@ -244,6 +248,14 @@ function FunilMarketingPage() {
   // página sem afetar o resto. Recorta dentro dos dados já carregados no range global.
   const [channelRanges, setChannelRanges] = useState<Record<string, DateRange>>({});
 
+  // Trocar o range lá em cima é trocar de página, basicamente — os filtros de canal
+  // (Facebook/Google) eram um recorte daquela janela, então não faz sentido manter um
+  // recorte "antigo" grudado quando a janela em si mudou pra outro período.
+  function handleGlobalRangeChange(next: DateRange) {
+    setRange(next);
+    setChannelRanges({});
+  }
+
   const { data, isLoading } = useQuery({
     queryKey: ["piperun", "leads-recentes", range.from, range.to],
     queryFn: () => getLeadsRecentesData({ data: range }),
@@ -330,7 +342,7 @@ function FunilMarketingPage() {
                 ))}
               </SelectContent>
             </Select>
-            <DateRangePicker value={range} onChange={setRange} />
+            <DateRangePicker value={range} onChange={handleGlobalRangeChange} />
           </div>
         }
       />
