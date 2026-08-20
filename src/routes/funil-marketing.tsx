@@ -316,7 +316,9 @@ function FunilMarketingPage() {
   }, [table, channelFilter]);
 
   const visibleChannels = useMemo(() => {
-    const all = CHANNEL_ORDER.concat("Geral" as never);
+    // "Geral" é o resultado final somando tudo — vem primeiro, não depois dos canais
+    // individuais que ele resume.
+    const all = ["Geral", ...CHANNEL_ORDER] as const;
     if (channelFilter === "Todos os canais") return all;
     return all.filter((c) => c === channelFilter);
   }, [channelFilter]);
