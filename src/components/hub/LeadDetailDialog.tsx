@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { KeyValue } from "@/components/hub/primitives";
-import type { LeadRecente } from "@/lib/leads-recentes";
+import { parsePipeRunDate, type LeadRecente } from "@/lib/leads-recentes";
 
 function formatCurrency(value: number): string {
   if (!value) return "—";
@@ -43,7 +43,9 @@ export function LeadDetailDialog({
               <KeyValue label="Valor" value={formatCurrency(lead.value)} />
               <KeyValue
                 label="Criado em"
-                value={new Date(lead.createdAt.replace(" ", "T")).toLocaleString("pt-BR")}
+                value={parsePipeRunDate(lead.createdAt).toLocaleString("pt-BR", {
+                  timeZone: "America/Sao_Paulo",
+                })}
               />
               <KeyValue
                 label="Progresso"

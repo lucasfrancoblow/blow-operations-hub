@@ -17,7 +17,12 @@ import {
 
 import { cn } from "@/lib/utils";
 import { getLeadsRecentesData } from "@/services/leads-recentes-service";
-import { defaultDateRange, type DateRange, type LeadRecente } from "@/lib/leads-recentes";
+import {
+  defaultDateRange,
+  parsePipeRunDate,
+  type DateRange,
+  type LeadRecente,
+} from "@/lib/leads-recentes";
 import { DateRangePicker } from "@/components/hub/DateRangePicker";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -96,7 +101,7 @@ function formatCurrency(value: number): string {
 }
 
 function relativeTime(createdAt: string, now: number): string {
-  const diffMs = now - new Date(createdAt.replace(" ", "T") + "Z").getTime();
+  const diffMs = now - parsePipeRunDate(createdAt).getTime();
   const min = Math.round(diffMs / 60_000);
   if (min < 1) return "agora";
   if (min < 60) return `há ${min} min`;
@@ -199,7 +204,7 @@ function LeadsRecentesPage() {
       novos: filtered.filter((l) => !l.emAndamento).length,
       emAndamento: filtered.filter((l) => l.emAndamento).length,
       ultimasVintQuatroHoras: filtered.filter(
-        (l) => now - new Date(l.createdAt.replace(" ", "T") + "Z").getTime() < 24 * 60 * 60 * 1000,
+        (l) => now - parsePipeRunDate(l.createdAt).getTime() < 24 * 60 * 60 * 1000,
       ).length,
     };
   }, [filtered]);
@@ -618,7 +623,9 @@ function LeadsRecentesPage() {
                           {formatCurrency(lead.value)}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {new Date(lead.createdAt.replace(" ", "T")).toLocaleDateString("pt-BR")}
+                          {parsePipeRunDate(lead.createdAt).toLocaleDateString("pt-BR", {
+                            timeZone: "America/Sao_Paulo",
+                          })}
                         </TableCell>
                         <TableCell>
                           <ProgressoBadge emAndamento={lead.emAndamento} />

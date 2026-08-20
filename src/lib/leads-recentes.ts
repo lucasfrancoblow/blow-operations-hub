@@ -10,6 +10,14 @@ import {
   type PipeRunDeal,
 } from "@/lib/piperun-client";
 
+// O PipeRun devolve created_at no horário de Brasília (sem timezone no texto), não em
+// UTC — tratar como UTC direto (só colando "Z") atrasava o relógio em 3h e fazia leads
+// recém-chegados aparecerem como "há 4h" no radar ao vivo. Brasil não tem mais horário
+// de verão desde 2019, então o offset -03:00 é fixo o ano todo.
+export function parsePipeRunDate(createdAt: string): Date {
+  return new Date(`${createdAt.replace(" ", "T")}-03:00`);
+}
+
 // "Destino" (nome do Form/LP) não existe como campo pronto no PipeRun — é extraído do
 // texto do utm_campaign, com base no padrão observado nos dados reais, ex:
 // "BLOW-MO-LEA-ABO-META-LP-REPASSE" → "LP Repasse"
@@ -182,11 +190,7 @@ export async function loadLeadsRecentesData(
 
   const leads = deals
     .map((d) => toLeadRecente(d, pipelineNames, stageNames))
-    .sort(
-      (a, b) =>
-        new Date(b.createdAt.replace(" ", "T")).getTime() -
-        new Date(a.createdAt.replace(" ", "T")).getTime(),
-    );
+    .sort((a, b) => parsePipeRunDate(b.createdAt).getTime() - parsePipeRunDate(a.createdAt).getTime());
 
   const now = Date.now();
   const summary = {
@@ -194,7 +198,7 @@ export async function loadLeadsRecentesData(
     novos: leads.filter((l) => !l.emAndamento).length,
     emAndamento: leads.filter((l) => l.emAndamento).length,
     ultimasVintQuatroHoras: leads.filter(
-      (l) => now - new Date(l.createdAt.replace(" ", "T") + "Z").getTime() < 24 * 60 * 60 * 1000,
+      (l) => now - parsePipeRunDate(l.createdAt).getTime() < 24 * 60 * 60 * 1000,
     ).length,
   };
 
