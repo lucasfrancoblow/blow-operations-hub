@@ -57,22 +57,64 @@ function addDaysIso(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Semana (segunda a domingo) tem alguma sobreposição com o range informado? */
-function weekOverlapsRange(weekKey: string, range: DateRange): boolean {
-  const sunday = addDaysIso(weekKey, 6);
-  return sunday >= range.from && weekKey <= range.to;
-}
-
-function isoWeekLabel(dateStr: string): { key: string; label: string } {
+function mondayOf(dateStr: string): string {
   const d = new Date(`${dateStr}T00:00:00Z`);
   const day = d.getUTCDay() || 7;
-  const monday = new Date(d);
-  monday.setUTCDate(d.getUTCDate() - day + 1);
-  const sunday = new Date(monday);
-  sunday.setUTCDate(monday.getUTCDate() + 6);
-  const fmt = (x: Date) =>
-    `${String(x.getUTCDate()).padStart(2, "0")}/${String(x.getUTCMonth() + 1).padStart(2, "0")}`;
-  return { key: monday.toISOString().slice(0, 10), label: `${fmt(monday)} – ${fmt(sunday)}` };
+  return addDaysIso(dateStr, -(day - 1));
+}
+
+function fmtDM(iso: string): string {
+  const [, m, d] = iso.split("-");
+  return `${d}/${m}`;
+}
+
+/** Nunca deixa o range escolhido no filtro exceder o que foi realmente carregado
+ * (o range da página) — evita mostrar zero "de mentira" pra dias que nem foram
+ * buscados no PipeRun/Supabase ainda. */
+function clampRange(inner: DateRange, outer: DateRange): DateRange {
+  return {
+    from: inner.from < outer.from ? outer.from : inner.from,
+    to: inner.to > outer.to ? outer.to : inner.to,
+  };
+}
+
+/** Colunas semana a semana (segunda a domingo), recortadas nas pontas pro range
+ * escolhido de verdade — sem isso, a 1ª/última coluna mostrava dias de fora do
+ * período selecionado (ex: escolher 01–19/08 e ver rótulo indo até 23/08, que nem
+ * tinha acontecido ainda). */
+function buildWeekColumns(range: DateRange): Array<{ key: string; label: string; days: string[] }> {
+  const columns: Array<{ key: string; label: string; days: string[] }> = [];
+  let cursor = mondayOf(range.from);
+  while (cursor <= range.to) {
+    const weekSunday = addDaysIso(cursor, 6);
+    const spanStart = cursor < range.from ? range.from : cursor;
+    const spanEnd = weekSunday > range.to ? range.to : weekSunday;
+    const days: string[] = [];
+    for (let d = spanStart; d <= spanEnd; d = addDaysIso(d, 1)) days.push(d);
+    columns.push({
+      key: cursor,
+      label: spanStart === spanEnd ? fmtDM(spanStart) : `${fmtDM(spanStart)} – ${fmtDM(spanEnd)}`,
+      days,
+    });
+    cursor = addDaysIso(cursor, 7);
+  }
+  return columns;
+}
+
+function sumDays(dayMap: Map<string, WeekCounts>, days: string[]): WeekCounts {
+  const total = emptyCounts();
+  for (const day of days) {
+    const c = dayMap.get(day);
+    if (!c) continue;
+    total.novosLeads += c.novosLeads;
+    total.sql += c.sql;
+    total.reuniaoAgendada += c.reuniaoAgendada;
+    total.reuniaoRealizada += c.reuniaoRealizada;
+    total.contratoEnviado += c.contratoEnviado;
+    total.contratoAssinado += c.contratoAssinado;
+    total.investimento += c.investimento;
+  }
+  return total;
 }
 
 interface WeekCounts {
@@ -200,67 +242,46 @@ function FunilMarketingPage() {
   const table = useMemo(() => {
     if (!data) return null;
 
-    const weekMap = new Map<string, { label: string }>();
-    for (const l of data.leads) {
-      const { key, label } = isoWeekLabel(l.createdAt.slice(0, 10));
-      if (!weekMap.has(key)) weekMap.set(key, { label });
-    }
-    const weeks = Array.from(weekMap.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([key, v]) => ({ key, label: v.label }));
-
-    const byChannelWeek = new Map<string, Map<string, WeekCounts>>();
-    for (const ch of [...CHANNEL_ORDER, "Geral"]) byChannelWeek.set(ch, new Map());
+    const byChannelDay = new Map<string, Map<string, WeekCounts>>();
+    for (const ch of [...CHANNEL_ORDER, "Geral"]) byChannelDay.set(ch, new Map());
 
     for (const l of data.leads) {
-      const { key } = isoWeekLabel(l.createdAt.slice(0, 10));
+      const day = l.createdAt.slice(0, 10);
       const ch = channelFor(l);
       for (const target of [ch, "Geral"]) {
-        const m = byChannelWeek.get(target)!;
-        const cur = m.get(key) ?? emptyCounts();
+        const m = byChannelDay.get(target)!;
+        const cur = m.get(day) ?? emptyCounts();
         cur.novosLeads += 1;
         if (l.isSql) cur.sql += 1;
         if (l.isReuniaoAgendada) cur.reuniaoAgendada += 1;
         if (l.isReuniaoRealizada) cur.reuniaoRealizada += 1;
         if (l.isContratoEnviado) cur.contratoEnviado += 1;
         if (l.isContratoAssinado) cur.contratoAssinado += 1;
-        m.set(key, cur);
+        m.set(day, cur);
       }
     }
 
     for (const row of adMetrics ?? []) {
-      const { key } = isoWeekLabel(row.data_referencia);
+      const day = row.data_referencia;
       const ch = adChannelFor(row);
       for (const target of [ch, "Geral"]) {
-        const m = byChannelWeek.get(target);
+        const m = byChannelDay.get(target);
         if (!m) continue;
-        const cur = m.get(key) ?? emptyCounts();
+        const cur = m.get(day) ?? emptyCounts();
         cur.investimento += row.valor_usado ?? 0;
-        m.set(key, cur);
+        m.set(day, cur);
       }
     }
 
-    return { weeks, byChannelWeek };
+    return { byChannelDay };
   }, [data, adMetrics]);
 
   const funnelTotals = useMemo(() => {
     if (!table) return null;
     const target = channelFilter === "Todos os canais" ? "Geral" : channelFilter;
-    const weekly = table.byChannelWeek.get(target);
-    if (!weekly) return null;
-    const total = emptyCounts();
-    for (const w of table.weeks) {
-      const c = weekly.get(w.key);
-      if (!c) continue;
-      total.novosLeads += c.novosLeads;
-      total.sql += c.sql;
-      total.reuniaoAgendada += c.reuniaoAgendada;
-      total.reuniaoRealizada += c.reuniaoRealizada;
-      total.contratoEnviado += c.contratoEnviado;
-      total.contratoAssinado += c.contratoAssinado;
-      total.investimento += c.investimento;
-    }
-    return total;
+    const dayMap = table.byChannelDay.get(target);
+    if (!dayMap) return null;
+    return sumDays(dayMap, Array.from(dayMap.keys()));
   }, [table, channelFilter]);
 
   const visibleChannels = useMemo(() => {
@@ -406,23 +427,19 @@ function FunilMarketingPage() {
           )}
 
           {visibleChannels.map((channel) => {
-            const weekly = table.byChannelWeek.get(channel);
-            if (!weekly) return null;
-            const totalLeads = table.weeks.reduce(
-              (sum, w) => sum + (weekly.get(w.key)?.novosLeads ?? 0),
-              0,
-            );
-            const totalSpend = table.weeks.reduce(
-              (sum, w) => sum + (weekly.get(w.key)?.investimento ?? 0),
-              0,
-            );
-            if (totalLeads === 0 && totalSpend === 0 && channel !== "Geral") return null;
+            const dayMap = table.byChannelDay.get(channel);
+            if (!dayMap) return null;
+
+            const totals = sumDays(dayMap, Array.from(dayMap.keys()));
+            if (totals.novosLeads === 0 && totals.investimento === 0 && channel !== "Geral")
+              return null;
 
             const hasOwnRange = CHANNELS_WITH_OWN_RANGE.has(channel);
-            const channelRange = channelRanges[channel] ?? range;
-            const weeksToShow = hasOwnRange
-              ? table.weeks.filter((w) => weekOverlapsRange(w.key, channelRange))
-              : table.weeks;
+            const channelRange = clampRange(channelRanges[channel] ?? range, range);
+            const columns = buildWeekColumns(channelRange).map((col) => ({
+              ...col,
+              counts: sumDays(dayMap, col.days),
+            }));
 
             let lastGroup = "";
 
@@ -446,61 +463,43 @@ function FunilMarketingPage() {
                     <thead>
                       <tr className="border-b border-border/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
                         <th className="py-2 pr-4 font-medium">Métrica</th>
-                        {weeksToShow.map((w) => (
-                          <th key={w.key} className="py-2 pr-4 text-right font-medium">
-                            {w.label}
+                        {columns.map((col) => (
+                          <th key={col.key} className="py-2 pr-4 text-right font-medium">
+                            {col.label}
                           </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {weeksToShow.length === 0 ? (
-                        <tr>
-                          <td
-                            colSpan={weeksToShow.length + 1}
-                            className="py-6 text-center text-sm text-muted-foreground"
-                          >
-                            Nenhuma semana carregada nesse período — amplie o range no topo da
-                            página.
-                          </td>
-                        </tr>
-                      ) : (
-                        ROWS.map((row) => {
-                          const showGroupHeader = row.group !== lastGroup;
-                          lastGroup = row.group;
-                          return (
-                            <Fragment key={row.label}>
-                              {showGroupHeader && (
-                                <tr key={`${channel}-${row.group}`}>
-                                  <td
-                                    colSpan={weeksToShow.length + 1}
-                                    className="bg-muted/40 py-1.5 pl-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-                                  >
-                                    {row.group}
-                                  </td>
-                                </tr>
-                              )}
-                              <tr
-                                key={`${channel}-${row.label}`}
-                                className="border-b border-border/40"
-                              >
-                                <td className="py-2 pr-4 text-muted-foreground">{row.label}</td>
-                                {weeksToShow.map((w) => {
-                                  const counts = weekly.get(w.key) ?? emptyCounts();
-                                  return (
-                                    <td
-                                      key={w.key}
-                                      className="py-2 pr-4 text-right font-medium tabular-nums"
-                                    >
-                                      {row.value(counts)}
-                                    </td>
-                                  );
-                                })}
+                      {ROWS.map((row) => {
+                        const showGroupHeader = row.group !== lastGroup;
+                        lastGroup = row.group;
+                        return (
+                          <Fragment key={row.label}>
+                            {showGroupHeader && (
+                              <tr key={`${channel}-${row.group}`}>
+                                <td
+                                  colSpan={columns.length + 1}
+                                  className="bg-muted/40 py-1.5 pl-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                                >
+                                  {row.group}
+                                </td>
                               </tr>
-                            </Fragment>
-                          );
-                        })
-                      )}
+                            )}
+                            <tr key={`${channel}-${row.label}`} className="border-b border-border/40">
+                              <td className="py-2 pr-4 text-muted-foreground">{row.label}</td>
+                              {columns.map((col) => (
+                                <td
+                                  key={col.key}
+                                  className="py-2 pr-4 text-right font-medium tabular-nums"
+                                >
+                                  {row.value(col.counts)}
+                                </td>
+                              ))}
+                            </tr>
+                          </Fragment>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
