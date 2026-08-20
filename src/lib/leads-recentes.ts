@@ -19,40 +19,32 @@ export function parsePipeRunDate(createdAt: string): Date {
 }
 
 // "Destino" (nome do Form/LP) não existe como campo pronto no PipeRun — é extraído do
-// texto do utm_campaign, com base no padrão observado nos dados reais, ex:
-// "BLOW-MO-LEA-ABO-META-LP-REPASSE" → "LP Repasse"
-// "BLOW-MO-LEA-ABO-META-FORM-INTERESSES-ESTATICOS" → "Form Interesses"
-// "BLOW-MO-LEA-GOO-LP-GERACAO-DEMANDA-KEYWORD" → "LP Geracao Demanda"
-// Pega os tokens logo depois de "LP"/"FORM" até achar um sufixo de formato/criativo
-// (estático, vídeo, mix...) ou no máximo 3 tokens — isso é uma aproximação da
-// nomenclatura de campanha do time de marketing, não uma taxonomia oficial deles.
-const DESTINO_FORMAT_STOPWORDS = new Set([
-  "ESTATICOS",
-  "ESTATICO",
-  "VIDEOS",
-  "VIDEO",
-  "MIX",
-  "KEYWORD",
-  "KEYWORDS",
-  "MOBILE",
-  "DESKTOP",
-]);
+// utm_campaign. Em vez de tentar adivinhar por um padrão de texto (o que gerava
+// entradas soltas tipo "Form 08 04 26" pra campanha de teste antiga), mapeia direto
+// contra a lista real de campanhas em uso hoje (confirmada com o time em 2026-08-20).
+// Campanha fora dessa lista — teste, antiga, pausada — cai em "Outro".
+const CAMPAIGN_DESTINO_MAP: Record<string, string> = {
+  "BLOW-MO-LEA-ABO-META-LP-RAPHA-MATTOS-ESTATICOS": "LP Rapha Mattos",
+  "BLOW-MO-LEA-ABO-META-LP-RAPHA-MATTOS-VIDEOS": "LP Rapha Mattos",
+  "BLOW-MO-LEA-ABO-META-FORM-LAL-ESTATICOS": "Form Lal",
+  "BLOW-MO-LEA-ABO-META-FORM-LAL-VIDEOS": "Form Lal",
+  "BLOW-MO-LEA-ABO-META-FORM-INTERESSES-VIDEOS": "Form Interesses",
+  "BLOW-MO-LEA-ABO-META-FORM-INTERESSES-ESTATICOS": "Form Interesses",
+  "BLOW-MO-LEA-ABO-META-LP-RMKT-VIDEOS": "LP Rmkt",
+  "BLOW-MO-LEA-ABO-META-LP-RMKT-ESTATICOS": "LP Rmkt",
+  "BLOW-MO-LEA-ABO-META-LP-REPASSE": "LP Repasse",
+  "BLOW-MO-LEA-GOO-LP-SEARCH-INSTITUCIONAL": "LP Search Institucional",
+  "BLOW-MO-LEA-GOO-LP-GERACAO-DEMANDA-KEYWORD": "LP Geração Demanda",
+  "BLOW-MO-LEA-GOO-LP-GERACAO-DEMANDA-MIX": "LP Geração Demanda",
+  "BLOW-MO-LEA-GOO-LP-FUNDO-DE-FUNIL-FRANQUIA-DE-ESCOVARIA": "LP Franquia Escovaria",
+  "BLOW-MO-LEA-GOO-LP-YOUTUBE-RAPHA-MATTOS": "LP Youtube Rapha Mattos",
+  "BLOW-MO-LEA-GOO-LP-FUNDO-DE-FUNIL-FRANQUIA-DE-SALAO-DE-BELEZA": "LP Franquia Salão de Beleza",
+  "BLOW-MO-LEA-GOO-LP-FUNDO-DE-FUNIL-FRANQUIA-DE-ESCOVA-EXPRESS": "LP Franquia Escova Express",
+};
 
 function classifyDestino(utmCampaign: string | null): string {
   if (!utmCampaign) return "Sem campanha";
-  const tokens = utmCampaign.toUpperCase().split(/[-_]/).filter(Boolean);
-  const markerIndex = tokens.findIndex((t) => t === "LP" || t === "FORM");
-  if (markerIndex === -1) return "Outro";
-
-  const nameTokens = [tokens[markerIndex]];
-  for (let i = markerIndex + 1; i < tokens.length && nameTokens.length <= 3; i++) {
-    if (DESTINO_FORMAT_STOPWORDS.has(tokens[i])) break;
-    nameTokens.push(tokens[i]);
-  }
-
-  return nameTokens
-    .map((t) => (t === "LP" ? "LP" : t.charAt(0) + t.slice(1).toLowerCase()))
-    .join(" ");
+  return CAMPAIGN_DESTINO_MAP[utmCampaign.trim().toUpperCase()] ?? "Outro";
 }
 
 // Etapas que ainda não tiveram nenhum trabalho real do time — qualquer etapa fora
