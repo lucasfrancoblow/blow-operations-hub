@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { Zap } from "lucide-react";
@@ -19,18 +19,20 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const router = useRouter();
-  const navigate = useNavigate();
   const { redirect } = Route.useSearch();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
   const mutation = useMutation({
     mutationFn: () => loginFn({ data: { username, password } }),
-    onSuccess: async (result) => {
+    onSuccess: (result) => {
       if (!result.ok) return;
-      await router.invalidate();
-      await navigate({ to: redirect ?? "/" });
+      // Navegação client-side aqui corria com o redirect automático do beforeLoad da
+      // rota raiz (que também dispara ao invalidar, já logado, ainda em /login) —
+      // as duas disputavam e piscava um "página não encontrada" no meio. Um redirect
+      // completo de página evita a corrida: o cookie de sessão já está setado, o
+      // servidor recebe a requisição já autenticado e renderiza direto o destino.
+      window.location.assign(redirect || "/");
     },
   });
 

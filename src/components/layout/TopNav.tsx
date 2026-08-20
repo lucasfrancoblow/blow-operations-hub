@@ -1,4 +1,4 @@
-import { Link, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   AlertTriangle,
@@ -111,14 +111,13 @@ function NavPills({ isAdmin, onNavigate }: { isAdmin: boolean; onNavigate?: () =
 
 export function TopNav({ user }: { user: SessionUser }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const router = useRouter();
-  const navigate = useNavigate();
   const isAdmin = user.role === "admin";
 
   async function handleLogout() {
     await logoutFn();
-    await router.invalidate();
-    await navigate({ to: "/login" });
+    // Redirect completo (não navigate client-side): evita corrida com o redirect
+    // automático do beforeLoad da rota raiz — ver comentário equivalente em login.tsx.
+    window.location.assign("/login");
   }
 
   return (

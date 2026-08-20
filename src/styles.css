@@ -170,6 +170,31 @@
     font-family: var(--font-display);
     letter-spacing: -0.02em;
   }
+
+  /* Scrollbar fino no estilo do site, no lugar da barra grossa padrão do navegador
+     (aparecia em qualquer overflow-x-auto: ticker de leads, tabelas do funil...). */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--color-border);
+    border-radius: 9999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-muted-foreground);
+  }
 }
 
 @utility surface-grid {
