@@ -14,6 +14,8 @@ export interface AdMetricRow {
   resultados: number | null;
   impressoes: number | null;
   cliques_todos: number | null;
+  cliques_link: number | null;
+  visitas_lp: number | null;
 }
 
 /** Mesmo agrupamento de canal usado no Funil de Marketing — casos especiais de nome de
@@ -30,7 +32,7 @@ export async function loadAdMetrics(range: DateRange): Promise<AdMetricRow[] | n
 
   const rows = await supabaseSelect<AdMetricRow>("ad_metrics_daily", {
     select:
-      "data_referencia,canal,campanha_id,campanha,valor_usado,resultados,impressoes,cliques_todos",
+      "data_referencia,canal,campanha_id,campanha,valor_usado,resultados,impressoes,cliques_todos,cliques_link,visitas_lp",
     data_referencia: `gte.${range.from}`,
     order: "data_referencia.asc",
   });

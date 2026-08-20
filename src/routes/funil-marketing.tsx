@@ -113,6 +113,8 @@ function sumDays(dayMap: Map<string, WeekCounts>, days: string[]): WeekCounts {
     total.contratoEnviado += c.contratoEnviado;
     total.contratoAssinado += c.contratoAssinado;
     total.investimento += c.investimento;
+    total.cliquesLink += c.cliquesLink;
+    total.visitasLp += c.visitasLp;
   }
   return total;
 }
@@ -125,6 +127,8 @@ interface WeekCounts {
   contratoEnviado: number;
   contratoAssinado: number;
   investimento: number;
+  cliquesLink: number;
+  visitasLp: number;
 }
 
 function emptyCounts(): WeekCounts {
@@ -136,6 +140,8 @@ function emptyCounts(): WeekCounts {
     contratoEnviado: 0,
     contratoAssinado: 0,
     investimento: 0,
+    cliquesLink: 0,
+    visitasLp: 0,
   };
 }
 
@@ -172,6 +178,17 @@ const ROWS: Array<{
     group: "Topo do Funil",
     value: (c) => costPer(c.investimento, c.reuniaoAgendada),
   },
+  {
+    label: "Visitas LP",
+    group: "Topo do Funil",
+    value: (c) => (c.visitasLp > 0 ? c.visitasLp : "—"),
+  },
+  {
+    label: "Connect Rate",
+    group: "Topo do Funil",
+    value: (c) => pct(c.visitasLp, c.cliquesLink),
+  },
+  { label: "CPV", group: "Topo do Funil", value: (c) => costPer(c.investimento, c.visitasLp) },
   { label: "RR (Reunião Realizada)", group: "Fundo de Funil", value: (c) => c.reuniaoRealizada },
   { label: "Contratos Enviados", group: "Fundo de Funil", value: (c) => c.contratoEnviado },
   { label: "Contratos Assinados", group: "Fundo de Funil", value: (c) => c.contratoAssinado },
@@ -269,6 +286,8 @@ function FunilMarketingPage() {
         if (!m) continue;
         const cur = m.get(day) ?? emptyCounts();
         cur.investimento += row.valor_usado ?? 0;
+        cur.cliquesLink += row.cliques_link ?? 0;
+        cur.visitasLp += row.visitas_lp ?? 0;
         m.set(day, cur);
       }
     }
