@@ -42,7 +42,14 @@ const CAMPAIGN_DESTINO_MAP: Record<string, string> = {
   "BLOW-MO-LEA-GOO-LP-FUNDO-DE-FUNIL-FRANQUIA-DE-ESCOVA-EXPRESS": "LP Franquia Escova Express",
 };
 
-function classifyDestino(utmCampaign: string | null): string {
+// Pipelines com destino próprio independente do utm_campaign — o card já nasce nessa
+// pipeline (id fixo no workflow de criação), então não precisa esperar descobrir o
+// nome exato da campanha que a LP vai mandar pra reconhecer de onde veio.
+const PIPELINE_DESTINOS = new Set(["BLOW ACADEMY"]);
+
+function classifyDestino(utmCampaign: string | null, pipelineName: string): string {
+  const pipelineUpper = pipelineName.trim().toUpperCase();
+  if (PIPELINE_DESTINOS.has(pipelineUpper)) return pipelineName.trim();
   if (!utmCampaign) return "Sem campanha";
   return CAMPAIGN_DESTINO_MAP[utmCampaign.trim().toUpperCase()] ?? "Outro";
 }
@@ -142,7 +149,7 @@ function toLeadRecente(
     stageName,
     ownerName: deal.owner?.name ?? "Sem responsável",
     origin: (deal.origin_id && ORIGIN_LABELS[deal.origin_id]) || "Outra origem",
-    destino: classifyDestino(utmCampaign),
+    destino: classifyDestino(utmCampaign, pipelineName),
     utmCampaign,
     status: DEAL_STATUS_LABELS[deal.status] ?? "Desconhecido",
     value: deal.value,
