@@ -3,6 +3,7 @@ import {
   Outlet,
   Link,
   createRootRouteWithContext,
+  redirect,
   useRouter,
   useRouterState,
   HeadContent,
@@ -17,6 +18,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TopNav } from "@/components/layout/TopNav";
 import { ThemeProvider, THEME_INIT_SCRIPT } from "@/components/theme-provider";
+import { getCurrentUserFn } from "@/services/auth-service";
+import type { SessionUser } from "@/lib/auth";
 
 function NotFoundComponent() {
   return (
@@ -79,6 +82,17 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  beforeLoad: async ({ location }) => {
+    const user = await getCurrentUserFn();
+    const isLoginRoute = location.pathname === "/login";
+    if (!user && !isLoginRoute) {
+      throw redirect({ to: "/login", search: { redirect: location.href } });
+    }
+    if (user && isLoginRoute) {
+      throw redirect({ to: "/" });
+    }
+    return { user };
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -143,18 +157,24 @@ function PageTransition() {
 }
 
 function RootComponent() {
-  const { queryClient } = Route.useRouteContext();
+  const { queryClient, user } = Route.useRouteContext();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isLoginRoute = pathname === "/login";
 
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TooltipProvider delayDuration={200}>
-          <div className="min-h-screen w-full bg-background surface-grid">
-            <TopNav />
-            <main className="mx-auto min-w-0 max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
-              <PageTransition />
-            </main>
-          </div>
+          {isLoginRoute ? (
+            <PageTransition />
+          ) : (
+            <div className="min-h-screen w-full bg-background surface-grid">
+              <TopNav user={user as SessionUser} />
+              <main className="mx-auto min-w-0 max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
+                <PageTransition />
+              </main>
+            </div>
+          )}
           <Toaster position="top-right" />
         </TooltipProvider>
       </ThemeProvider>

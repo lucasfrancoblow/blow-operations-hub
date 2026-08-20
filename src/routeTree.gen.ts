@@ -15,7 +15,9 @@ import { Route as DocumentacaoRouteImport } from './routes/documentacao'
 import { Route as FunilMarketingRouteImport } from './routes/funil-marketing'
 import { Route as IncidentesRouteImport } from './routes/incidentes'
 import { Route as LeadsRecentesRouteImport } from './routes/leads-recentes'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as TarefasRouteImport } from './routes/tarefas'
+import { Route as UsuariosRouteImport } from './routes/usuarios'
 import { Route as AutomacoesIndexRouteImport } from './routes/automacoes.index'
 import { Route as AutomacoesAutomationIdRouteImport } from './routes/automacoes.$automationId'
 
@@ -49,9 +51,19 @@ const LeadsRecentesRoute = LeadsRecentesRouteImport.update({
   path: '/leads-recentes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TarefasRoute = TarefasRouteImport.update({
   id: '/tarefas',
   path: '/tarefas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UsuariosRoute = UsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AutomacoesIndexRoute = AutomacoesIndexRouteImport.update({
@@ -72,7 +84,9 @@ export interface FileRoutesByFullPath {
   '/funil-marketing': typeof FunilMarketingRoute
   '/incidentes': typeof IncidentesRoute
   '/leads-recentes': typeof LeadsRecentesRoute
+  '/login': typeof LoginRoute
   '/tarefas': typeof TarefasRoute
+  '/usuarios': typeof UsuariosRoute
   '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
   '/automacoes/': typeof AutomacoesIndexRoute
 }
@@ -83,7 +97,9 @@ export interface FileRoutesByTo {
   '/funil-marketing': typeof FunilMarketingRoute
   '/incidentes': typeof IncidentesRoute
   '/leads-recentes': typeof LeadsRecentesRoute
+  '/login': typeof LoginRoute
   '/tarefas': typeof TarefasRoute
+  '/usuarios': typeof UsuariosRoute
   '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
   '/automacoes': typeof AutomacoesIndexRoute
 }
@@ -95,7 +111,9 @@ export interface FileRoutesById {
   '/funil-marketing': typeof FunilMarketingRoute
   '/incidentes': typeof IncidentesRoute
   '/leads-recentes': typeof LeadsRecentesRoute
+  '/login': typeof LoginRoute
   '/tarefas': typeof TarefasRoute
+  '/usuarios': typeof UsuariosRoute
   '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
   '/automacoes/': typeof AutomacoesIndexRoute
 }
@@ -108,7 +126,9 @@ export interface FileRouteTypes {
     | '/funil-marketing'
     | '/incidentes'
     | '/leads-recentes'
+    | '/login'
     | '/tarefas'
+    | '/usuarios'
     | '/automacoes/$automationId'
     | '/automacoes/'
   fileRoutesByTo: FileRoutesByTo
@@ -119,7 +139,9 @@ export interface FileRouteTypes {
     | '/funil-marketing'
     | '/incidentes'
     | '/leads-recentes'
+    | '/login'
     | '/tarefas'
+    | '/usuarios'
     | '/automacoes/$automationId'
     | '/automacoes'
   id:
@@ -130,7 +152,9 @@ export interface FileRouteTypes {
     | '/funil-marketing'
     | '/incidentes'
     | '/leads-recentes'
+    | '/login'
     | '/tarefas'
+    | '/usuarios'
     | '/automacoes/$automationId'
     | '/automacoes/'
   fileRoutesById: FileRoutesById
@@ -142,7 +166,9 @@ export interface RootRouteChildren {
   FunilMarketingRoute: typeof FunilMarketingRoute
   IncidentesRoute: typeof IncidentesRoute
   LeadsRecentesRoute: typeof LeadsRecentesRoute
+  LoginRoute: typeof LoginRoute
   TarefasRoute: typeof TarefasRoute
+  UsuariosRoute: typeof UsuariosRoute
   AutomacoesAutomationIdRoute: typeof AutomacoesAutomationIdRoute
   AutomacoesIndexRoute: typeof AutomacoesIndexRoute
 }
@@ -191,11 +217,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LeadsRecentesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tarefas': {
       id: '/tarefas'
       path: '/tarefas'
       fullPath: '/tarefas'
       preLoaderRoute: typeof TarefasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/usuarios': {
+      id: '/usuarios'
+      path: '/usuarios'
+      fullPath: '/usuarios'
+      preLoaderRoute: typeof UsuariosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/automacoes/': {
@@ -222,7 +262,9 @@ const rootRouteChildren: RootRouteChildren = {
   FunilMarketingRoute: FunilMarketingRoute,
   IncidentesRoute: IncidentesRoute,
   LeadsRecentesRoute: LeadsRecentesRoute,
+  LoginRoute: LoginRoute,
   TarefasRoute: TarefasRoute,
+  UsuariosRoute: UsuariosRoute,
   AutomacoesAutomationIdRoute: AutomacoesAutomationIdRoute,
   AutomacoesIndexRoute: AutomacoesIndexRoute,
 }

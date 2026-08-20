@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   AlertTriangle,
@@ -11,6 +11,7 @@ import {
   Search,
   Sun,
   TrendingUp,
+  Users,
   Workflow,
   Zap,
 } from "lucide-react";
@@ -19,6 +20,8 @@ import { toast } from "sonner";
 
 import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
+import type { SessionUser } from "@/lib/auth";
+import { logoutFn } from "@/services/auth-service";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -40,6 +43,14 @@ const NAV_ITEMS = [
   { title: "Incidentes", url: "/incidentes", icon: AlertTriangle },
   { title: "Tarefas", url: "/tarefas", icon: ListTodo },
 ] as const;
+
+const ADMIN_NAV_ITEM = { title: "Usuários", url: "/usuarios", icon: Users } as const;
+
+function initialsFor(username: string): string {
+  const parts = username.split(".").filter(Boolean);
+  const chars = parts.length > 1 ? [parts[0]![0], parts[1]![0]] : [username.slice(0, 2)];
+  return chars.join("").toUpperCase();
+}
 
 function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
@@ -67,14 +78,15 @@ function ThemeToggle() {
   );
 }
 
-function NavPills({ onNavigate }: { onNavigate?: () => void }) {
+function NavPills({ isAdmin, onNavigate }: { isAdmin: boolean; onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const isActive = (url: string, exact?: boolean) =>
     exact ? pathname === url : pathname.startsWith(url);
+  const items = isAdmin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
 
   return (
     <>
-      {NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const active = isActive(item.url, "exact" in item ? item.exact : false);
         return (
           <Link
@@ -97,8 +109,17 @@ function NavPills({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function TopNav() {
+export function TopNav({ user }: { user: SessionUser }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const router = useRouter();
+  const navigate = useNavigate();
+  const isAdmin = user.role === "admin";
+
+  async function handleLogout() {
+    await logoutFn();
+    await router.invalidate();
+    await navigate({ to: "/login" });
+  }
 
   return (
     <header className="sticky top-0 z-20 border-b border-border/60 bg-background/85 backdrop-blur">
@@ -114,7 +135,7 @@ export function TopNav() {
         </Link>
 
         <nav className="hidden items-center gap-1 rounded-full bg-muted/50 p-1 lg:flex">
-          <NavPills />
+          <NavPills isAdmin={isAdmin} />
         </nav>
 
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -126,7 +147,7 @@ export function TopNav() {
           <SheetContent side="left" className="w-64">
             <SheetTitle className="px-4 pt-4">Navegação</SheetTitle>
             <nav className="mt-4 flex flex-col gap-1 px-3">
-              <NavPills onNavigate={() => setMobileOpen(false)} />
+              <NavPills isAdmin={isAdmin} onNavigate={() => setMobileOpen(false)} />
             </nav>
           </SheetContent>
         </Sheet>
@@ -160,14 +181,18 @@ export function TopNav() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="shrink-0 rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-primary/15 text-xs text-primary">LF</AvatarFallback>
+                  <AvatarFallback className="bg-primary/15 text-xs text-primary">
+                    {initialsFor(user.username)}
+                  </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuLabel>
-                <p className="text-sm font-medium">Lucas Franco</p>
-                <p className="text-xs font-normal text-muted-foreground">Operações · BLOW</p>
+                <p className="text-sm font-medium">{user.username}</p>
+                <p className="text-xs font-normal text-muted-foreground">
+                  {user.role === "admin" ? "Admin" : "Membro"} · BLOW
+                </p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
@@ -177,11 +202,7 @@ export function TopNav() {
                 <Link to="/configuracoes">Configurações</Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => toast.info("Sessão simulada — sem autenticação real.")}
-              >
-                Sair
-              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}>Sair</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

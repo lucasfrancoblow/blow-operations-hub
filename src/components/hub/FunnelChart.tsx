@@ -1,5 +1,6 @@
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
+import { AnimatedNumber } from "@/components/hub/motion";
 
 export interface FunnelStage {
   label: string;
@@ -33,20 +34,38 @@ export function FunnelChart({ stages }: { stages: FunnelStage[] }) {
             {i > 0 && (
               <div className="flex flex-col items-center py-1 text-muted-foreground">
                 <ChevronDown className="h-3.5 w-3.5" />
-                {convPct !== null && (
-                  <span className="text-[11px] font-medium tabular-nums">{convPct}%</span>
-                )}
+                <AnimatePresence mode="popLayout">
+                  {convPct !== null && (
+                    <motion.span
+                      key={convPct}
+                      initial={reduce ? undefined : { opacity: 0, y: -4 }}
+                      animate={reduce ? undefined : { opacity: 1, y: 0 }}
+                      exit={reduce ? undefined : { opacity: 0, y: 4 }}
+                      transition={{ duration: 0.25 }}
+                      className="text-[11px] font-medium tabular-nums"
+                    >
+                      {convPct}%
+                    </motion.span>
+                  )}
+                </AnimatePresence>
               </div>
             )}
             <motion.div
+              layout
               initial={reduce ? undefined : { width: 0, opacity: 0 }}
               animate={reduce ? undefined : { width: `${widthPct}%`, opacity: 1 }}
-              transition={{ duration: 0.6, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
+              transition={
+                reduce
+                  ? undefined
+                  : { type: "spring", stiffness: 120, damping: 18, delay: i * 0.06 }
+              }
               style={reduce ? { width: `${widthPct}%` } : undefined}
               className={`relative flex h-11 min-w-[40%] items-center justify-between gap-3 rounded-lg bg-gradient-to-r px-4 text-sm font-medium text-primary-foreground shadow-lg transition-shadow hover:shadow-xl ${ACCENT_CLASS[stage.accent ?? "primary"]}`}
             >
               <span className="truncate">{stage.label}</span>
-              <span className="shrink-0 font-display text-base tabular-nums">{stage.value}</span>
+              <span className="shrink-0 font-display text-base tabular-nums">
+                <AnimatedNumber value={stage.value} />
+              </span>
             </motion.div>
           </div>
         );

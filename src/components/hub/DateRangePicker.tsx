@@ -31,14 +31,21 @@ export function DateRangePicker({
   onChange: (range: DateRange) => void;
 }) {
   const [open, setOpen] = useState(false);
-
-  const selected: DayPickerRange = {
-    from: new Date(`${value.from}T00:00:00`),
-    to: new Date(`${value.to}T00:00:00`),
-  };
+  // Seleção em andamento dentro do popover. Começa vazia toda vez que abre — se
+  // reaproveitássemos o range já confirmado, o primeiro clique cairia "dentro" dele e o
+  // react-day-picker trataria isso como reset instantâneo pra um dia só (o bug relatado:
+  // clicar uma vez virava "19/08 — 19/08"). Vazio força sempre 2 cliques: 1º = início,
+  // 2º = fim, como num calendário de viagem.
+  const [draft, setDraft] = useState<DayPickerRange | undefined>(undefined);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) setDraft(undefined);
+      }}
+    >
       <PopoverTrigger asChild>
         <Button variant="outline" className="justify-start gap-2 font-normal">
           <CalendarDays className="h-4 w-4 text-muted-foreground" />
@@ -68,9 +75,19 @@ export function DateRangePicker({
         <Calendar
           mode="range"
           numberOfMonths={2}
-          selected={selected}
-          defaultMonth={selected.from}
+          selected={draft}
+          defaultMonth={new Date(`${value.from}T00:00:00`)}
           onSelect={(range) => {
+            // O react-day-picker devolve {from: dia, to: dia} já no 1º clique (ele trata
+            // um clique isolado como "range de 1 dia completo"). Se aceitássemos isso como
+            // range final, fechava direto no primeiro clique — daí só guardamos o dia
+            // inicial e esperamos o 2º clique pra virar range de verdade.
+            const startingFresh = !draft || (draft.from && draft.to);
+            if (startingFresh) {
+              setDraft({ from: range?.from, to: undefined });
+              return;
+            }
+            setDraft(range);
             if (range?.from && range?.to) {
               onChange({ from: toISO(range.from), to: toISO(range.to) });
               setOpen(false);

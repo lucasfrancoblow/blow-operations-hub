@@ -47,6 +47,22 @@ function channelFor(lead: LeadRecente): string {
   return "Outros";
 }
 
+// Canais que o time pediu pra poder olhar um período específico, independente do
+// range global da página (ex: comparar só uma semana do Facebook sem afetar o resto).
+const CHANNELS_WITH_OWN_RANGE = new Set(["Facebook Ads", "Google"]);
+
+function addDaysIso(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Semana (segunda a domingo) tem alguma sobreposição com o range informado? */
+function weekOverlapsRange(weekKey: string, range: DateRange): boolean {
+  const sunday = addDaysIso(weekKey, 6);
+  return sunday >= range.from && weekKey <= range.to;
+}
+
 function isoWeekLabel(dateStr: string): { key: string; label: string } {
   const d = new Date(`${dateStr}T00:00:00Z`);
   const day = d.getUTCDay() || 7;
@@ -165,6 +181,9 @@ const CHANNEL_FILTERS = ["Todos os canais", ...CHANNEL_ORDER] as const;
 function FunilMarketingPage() {
   const [range, setRange] = useState<DateRange>(() => defaultDateRange());
   const [channelFilter, setChannelFilter] = useState<string>("Todos os canais");
+  // Período próprio por canal (Facebook/Google) — pra ver uma janela diferente da
+  // página sem afetar o resto. Recorta dentro dos dados já carregados no range global.
+  const [channelRanges, setChannelRanges] = useState<Record<string, DateRange>>({});
 
   const { data, isLoading } = useQuery({
     queryKey: ["piperun", "leads-recentes", range.from, range.to],
@@ -399,16 +418,35 @@ function FunilMarketingPage() {
             );
             if (totalLeads === 0 && totalSpend === 0 && channel !== "Geral") return null;
 
+            const hasOwnRange = CHANNELS_WITH_OWN_RANGE.has(channel);
+            const channelRange = channelRanges[channel] ?? range;
+            const weeksToShow = hasOwnRange
+              ? table.weeks.filter((w) => weekOverlapsRange(w.key, channelRange))
+              : table.weeks;
+
             let lastGroup = "";
 
             return (
-              <SectionCard key={channel} title={channel}>
+              <SectionCard
+                key={channel}
+                title={channel}
+                action={
+                  hasOwnRange ? (
+                    <DateRangePicker
+                      value={channelRange}
+                      onChange={(next) =>
+                        setChannelRanges((prev) => ({ ...prev, [channel]: next }))
+                      }
+                    />
+                  ) : undefined
+                }
+              >
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[720px] border-collapse text-sm">
                     <thead>
                       <tr className="border-b border-border/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
                         <th className="py-2 pr-4 font-medium">Métrica</th>
-                        {table.weeks.map((w) => (
+                        {weeksToShow.map((w) => (
                           <th key={w.key} className="py-2 pr-4 text-right font-medium">
                             {w.label}
                           </th>
@@ -416,41 +454,53 @@ function FunilMarketingPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {ROWS.map((row) => {
-                        const showGroupHeader = row.group !== lastGroup;
-                        lastGroup = row.group;
-                        return (
-                          <Fragment key={row.label}>
-                            {showGroupHeader && (
-                              <tr key={`${channel}-${row.group}`}>
-                                <td
-                                  colSpan={table.weeks.length + 1}
-                                  className="bg-muted/40 py-1.5 pl-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-                                >
-                                  {row.group}
-                                </td>
-                              </tr>
-                            )}
-                            <tr
-                              key={`${channel}-${row.label}`}
-                              className="border-b border-border/40"
-                            >
-                              <td className="py-2 pr-4 text-muted-foreground">{row.label}</td>
-                              {table.weeks.map((w) => {
-                                const counts = weekly.get(w.key) ?? emptyCounts();
-                                return (
+                      {weeksToShow.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={weeksToShow.length + 1}
+                            className="py-6 text-center text-sm text-muted-foreground"
+                          >
+                            Nenhuma semana carregada nesse período — amplie o range no topo da
+                            página.
+                          </td>
+                        </tr>
+                      ) : (
+                        ROWS.map((row) => {
+                          const showGroupHeader = row.group !== lastGroup;
+                          lastGroup = row.group;
+                          return (
+                            <Fragment key={row.label}>
+                              {showGroupHeader && (
+                                <tr key={`${channel}-${row.group}`}>
                                   <td
-                                    key={w.key}
-                                    className="py-2 pr-4 text-right font-medium tabular-nums"
+                                    colSpan={weeksToShow.length + 1}
+                                    className="bg-muted/40 py-1.5 pl-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
                                   >
-                                    {row.value(counts)}
+                                    {row.group}
                                   </td>
-                                );
-                              })}
-                            </tr>
-                          </Fragment>
-                        );
-                      })}
+                                </tr>
+                              )}
+                              <tr
+                                key={`${channel}-${row.label}`}
+                                className="border-b border-border/40"
+                              >
+                                <td className="py-2 pr-4 text-muted-foreground">{row.label}</td>
+                                {weeksToShow.map((w) => {
+                                  const counts = weekly.get(w.key) ?? emptyCounts();
+                                  return (
+                                    <td
+                                      key={w.key}
+                                      className="py-2 pr-4 text-right font-medium tabular-nums"
+                                    >
+                                      {row.value(counts)}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            </Fragment>
+                          );
+                        })
+                      )}
                     </tbody>
                   </table>
                 </div>
