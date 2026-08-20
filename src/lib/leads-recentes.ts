@@ -10,19 +10,41 @@ import {
   type PipeRunDeal,
 } from "@/lib/piperun-client";
 
-// "Destino" (LP vs Forms) não existe como campo pronto no PipeRun — é inferido do texto
-// do utm_campaign, com base no padrão observado nos dados reais (ex:
-// "BLOW-MO-LEA-ABO-META-LP-REPASSE", "BLOW-MO-LEA-ABO-META-FORM-INTERESSES-ESTATICOS").
-// Isso é uma aproximação, não uma taxonomia oficial do time de marketing — ajustar aqui
-// se o time confirmar outros padrões de nomenclatura de campanha.
+// "Destino" (nome do Form/LP) não existe como campo pronto no PipeRun — é extraído do
+// texto do utm_campaign, com base no padrão observado nos dados reais, ex:
+// "BLOW-MO-LEA-ABO-META-LP-REPASSE" → "LP Repasse"
+// "BLOW-MO-LEA-ABO-META-FORM-INTERESSES-ESTATICOS" → "Form Interesses"
+// "BLOW-MO-LEA-GOO-LP-GERACAO-DEMANDA-KEYWORD" → "LP Geracao Demanda"
+// Pega os tokens logo depois de "LP"/"FORM" até achar um sufixo de formato/criativo
+// (estático, vídeo, mix...) ou no máximo 3 tokens — isso é uma aproximação da
+// nomenclatura de campanha do time de marketing, não uma taxonomia oficial deles.
+const DESTINO_FORMAT_STOPWORDS = new Set([
+  "ESTATICOS",
+  "ESTATICO",
+  "VIDEOS",
+  "VIDEO",
+  "MIX",
+  "KEYWORD",
+  "KEYWORDS",
+  "MOBILE",
+  "DESKTOP",
+]);
+
 function classifyDestino(utmCampaign: string | null): string {
   if (!utmCampaign) return "Sem campanha";
-  const c = utmCampaign.toLowerCase();
-  if (c.includes("lp-repasse")) return "LP Repasse";
-  if (c.includes("lp-rapha-mattos") || c.includes("rapha-mattos")) return "LP Rapha Mattos";
-  if (c.includes("lp-")) return "LP (outras)";
-  if (c.includes("form")) return "Forms";
-  return "Outro";
+  const tokens = utmCampaign.toUpperCase().split(/[-_]/).filter(Boolean);
+  const markerIndex = tokens.findIndex((t) => t === "LP" || t === "FORM");
+  if (markerIndex === -1) return "Outro";
+
+  const nameTokens = [tokens[markerIndex]];
+  for (let i = markerIndex + 1; i < tokens.length && nameTokens.length <= 3; i++) {
+    if (DESTINO_FORMAT_STOPWORDS.has(tokens[i])) break;
+    nameTokens.push(tokens[i]);
+  }
+
+  return nameTokens
+    .map((t) => (t === "LP" ? "LP" : t.charAt(0) + t.slice(1).toLowerCase()))
+    .join(" ");
 }
 
 // Etapas que ainda não tiveram nenhum trabalho real do time — qualquer etapa fora
