@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CardsSkeleton, EmptyState, PageHeader, SectionCard } from "@/components/hub/primitives";
+import { AnimatedNumber, Stagger, StaggerItem } from "@/components/hub/motion";
 import {
   CredentialStatusBadge,
   HealthBadge,
@@ -70,7 +71,7 @@ function MetricCard({
   loading?: boolean;
 }) {
   return (
-    <Card className="border-border/70 bg-card/70">
+    <Card className="h-full border-border/70 bg-card/70 transition-shadow hover:shadow-lg hover:shadow-black/5">
       <CardContent className="flex items-start gap-3 py-5">
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tone}`}>
           {icon}
@@ -80,7 +81,9 @@ function MetricCard({
           {loading ? (
             <Skeleton className="mt-2 h-7 w-12" />
           ) : (
-            <p className="mt-0.5 text-2xl font-semibold">{value}</p>
+            <p className="mt-0.5 text-2xl font-semibold">
+              <AnimatedNumber value={value} />
+            </p>
           )}
           <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
         </div>
@@ -145,36 +148,44 @@ function Overview() {
       {overview.isLoading ? (
         <CardsSkeleton />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            label="Automações ativas"
-            value={overview.data?.activeAutomations ?? 0}
-            icon={<Activity className="h-5 w-5 text-primary" />}
-            tone="bg-primary/12"
-            hint="Em execução nas plataformas"
-          />
-          <MetricCard
-            label="Incidentes abertos"
-            value={overview.data?.openIncidents ?? 0}
-            icon={<AlertTriangle className="h-5 w-5 text-warning" />}
-            tone="bg-warning/12"
-            hint="Aberto ou investigando"
-          />
-          <MetricCard
-            label="Incidentes críticos"
-            value={overview.data?.criticalIncidents ?? 0}
-            icon={<ShieldAlert className="h-5 w-5 text-critical" />}
-            tone="bg-critical/12"
-            hint="Impacto direto em operação"
-          />
-          <MetricCard
-            label="Automações saudáveis"
-            value={overview.data?.healthyAutomations ?? 0}
-            icon={<ShieldCheck className="h-5 w-5 text-success" />}
-            tone="bg-success/12"
-            hint="Sem falhas recentes"
-          />
-        </div>
+        <Stagger className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StaggerItem>
+            <MetricCard
+              label="Automações ativas"
+              value={overview.data?.activeAutomations ?? 0}
+              icon={<Activity className="h-5 w-5 text-primary" />}
+              tone="bg-primary/12"
+              hint="Em execução nas plataformas"
+            />
+          </StaggerItem>
+          <StaggerItem>
+            <MetricCard
+              label="Incidentes abertos"
+              value={overview.data?.openIncidents ?? 0}
+              icon={<AlertTriangle className="h-5 w-5 text-warning" />}
+              tone="bg-warning/12"
+              hint="Aberto ou investigando"
+            />
+          </StaggerItem>
+          <StaggerItem>
+            <MetricCard
+              label="Incidentes críticos"
+              value={overview.data?.criticalIncidents ?? 0}
+              icon={<ShieldAlert className="h-5 w-5 text-critical" />}
+              tone="bg-critical/12"
+              hint="Impacto direto em operação"
+            />
+          </StaggerItem>
+          <StaggerItem>
+            <MetricCard
+              label="Automações saudáveis"
+              value={overview.data?.healthyAutomations ?? 0}
+              icon={<ShieldCheck className="h-5 w-5 text-success" />}
+              tone="bg-success/12"
+              hint="Sem falhas recentes"
+            />
+          </StaggerItem>
+        </Stagger>
       )}
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -359,14 +370,7 @@ function Overview() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <SectionCard
-          title="Credenciais próximas de revisão"
-          action={
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/credenciais">Ver todas</Link>
-            </Button>
-          }
-        >
+        <SectionCard title="Credenciais próximas de revisão">
           {credentials.isLoading ? (
             <Skeleton className="h-40 w-full" />
           ) : (
@@ -386,14 +390,7 @@ function Overview() {
           )}
         </SectionCard>
 
-        <SectionCard
-          title="Status geral por sistema"
-          action={
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/sistemas">Detalhes</Link>
-            </Button>
-          }
-        >
+        <SectionCard title="Status geral por sistema">
           {integrations.isLoading ? (
             <Skeleton className="h-40 w-full" />
           ) : (

@@ -29,17 +29,18 @@ import {
   TablePagination,
   TableSkeleton,
 } from "@/components/hub/primitives";
+import { AnimatedNumber, Stagger, StaggerItem } from "@/components/hub/motion";
 import { LeadDetailDialog } from "@/components/hub/LeadDetailDialog";
 
 export const Route = createFileRoute("/leads-recentes")({
   head: () => ({
     meta: [
-      { title: "Leads recentes — hubLOw BLOW" },
+      { title: "Radar de Leads — hubLOw BLOW" },
       {
         name: "description",
         content: "Leads que chegaram nos últimos 14 dias no PipeRun, com o progresso real do CRM.",
       },
-      { property: "og:title", content: "Leads recentes — hubLOw BLOW" },
+      { property: "og:title", content: "Radar de Leads — hubLOw BLOW" },
       {
         property: "og:description",
         content: "Feed em tempo real dos leads que entram no CRM, com progresso automático por etapa.",
@@ -109,7 +110,7 @@ function LeadsRecentesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Leads recentes"
+        title="Radar de Leads"
         subtitle="Últimos 14 dias no PipeRun — dados reais, progresso automático por etapa"
       />
 
@@ -121,57 +122,67 @@ function LeadsRecentesPage() {
         />
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {isLoading ? (
-              Array.from({ length: 4 }).map((_, i) => (
+          {isLoading ? (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, i) => (
                 <Card key={i} className="border-border/70 bg-card/70">
                   <CardContent className="py-5">
                     <div className="h-4 w-24 animate-pulse rounded bg-muted/60" />
                     <div className="mt-2 h-7 w-12 animate-pulse rounded bg-muted/60" />
                   </CardContent>
                 </Card>
-              ))
-            ) : (
-              <>
-                <Card className="border-border/70 bg-card/70">
+              ))}
+            </div>
+          ) : (
+            <Stagger className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <StaggerItem>
+                <Card className="h-full border-border/70 bg-card/70 transition-shadow hover:shadow-lg hover:shadow-black/5">
                   <CardContent className="py-5">
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">
                       Total (14 dias)
                     </p>
-                    <p className="mt-1 text-2xl font-semibold">{data!.summary.total}</p>
+                    <p className="mt-1 text-2xl font-semibold">
+                      <AnimatedNumber value={data!.summary.total} />
+                    </p>
                   </CardContent>
                 </Card>
-                <Card className="border-border/70 bg-card/70">
+              </StaggerItem>
+              <StaggerItem>
+                <Card className="h-full border-border/70 bg-card/70 transition-shadow hover:shadow-lg hover:shadow-black/5">
                   <CardContent className="py-5">
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">
                       Últimas 24h
                     </p>
                     <p className="mt-1 text-2xl font-semibold">
-                      {data!.summary.ultimasVintQuatroHoras}
+                      <AnimatedNumber value={data!.summary.ultimasVintQuatroHoras} />
                     </p>
                   </CardContent>
                 </Card>
-                <Card className="border-border/70 bg-card/70">
+              </StaggerItem>
+              <StaggerItem>
+                <Card className="h-full border-border/70 bg-card/70 transition-shadow hover:shadow-lg hover:shadow-black/5">
                   <CardContent className="py-5">
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">Novos</p>
                     <p className="mt-1 text-2xl font-semibold text-warning">
-                      {data!.summary.novos}
+                      <AnimatedNumber value={data!.summary.novos} />
                     </p>
                   </CardContent>
                 </Card>
-                <Card className="border-border/70 bg-card/70">
+              </StaggerItem>
+              <StaggerItem>
+                <Card className="h-full border-border/70 bg-card/70 transition-shadow hover:shadow-lg hover:shadow-black/5">
                   <CardContent className="py-5">
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">
                       Em andamento
                     </p>
                     <p className="mt-1 text-2xl font-semibold text-success">
-                      {data!.summary.emAndamento}
+                      <AnimatedNumber value={data!.summary.emAndamento} />
                     </p>
                   </CardContent>
                 </Card>
-              </>
-            )}
-          </div>
+              </StaggerItem>
+            </Stagger>
+          )}
 
           <div className="grid gap-3 rounded-xl border border-border/70 bg-card/60 p-3 sm:grid-cols-2 xl:grid-cols-4">
             <Input

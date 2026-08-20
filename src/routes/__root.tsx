@@ -4,10 +4,12 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -16,6 +18,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { ThemeProvider, THEME_INIT_SCRIPT } from "@/components/theme-provider";
 
 function NotFoundComponent() {
   return (
@@ -109,8 +112,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR" className="dark">
+    <html lang="pt-BR" className="dark" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
       <body>
@@ -121,26 +125,46 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function PageTransition() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={pathname}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8 }}
+        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+      >
+        {/* Required: nested routes render here. */}
+        <Outlet />
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider delayDuration={200}>
-        <SidebarProvider>
-          <div className="flex min-h-screen w-full bg-background surface-grid">
-            <AppSidebar />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <AppHeader />
-              <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
-                {/* Required: nested routes render here. */}
-                <Outlet />
-              </main>
+      <ThemeProvider>
+        <TooltipProvider delayDuration={200}>
+          <SidebarProvider>
+            <div className="flex min-h-screen w-full bg-background surface-grid">
+              <AppSidebar />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <AppHeader />
+                <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
+                  <PageTransition />
+                </main>
+              </div>
             </div>
-          </div>
-        </SidebarProvider>
-        <Toaster position="top-right" />
-      </TooltipProvider>
+          </SidebarProvider>
+          <Toaster position="top-right" />
+        </TooltipProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

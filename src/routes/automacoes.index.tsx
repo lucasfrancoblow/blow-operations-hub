@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { EmptyState, PageHeader, TablePagination, TableSkeleton } from "@/components/hub/primitives";
+import { FadeIn } from "@/components/hub/motion";
 import { AutomationStatusBadge, HealthBadge, PlatformBadge } from "@/components/hub/badges";
 
 export const Route = createFileRoute("/automacoes/")({
@@ -236,9 +237,12 @@ function AutomationsPage() {
           />
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <FadeIn className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((a) => (
-            <Card key={a.id} className="border-border/70 bg-card/70 transition-colors hover:border-primary/40">
+            <Card
+              key={a.id}
+              className="border-border/70 bg-card/70 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-black/5"
+            >
               <CardContent className="space-y-3 py-5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -266,7 +270,7 @@ function AutomationsPage() {
               </CardContent>
             </Card>
           ))}
-        </div>
+        </FadeIn>
       )}
     </div>
   );

@@ -11,11 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
-import { Route as CredenciaisRouteImport } from './routes/credenciais'
 import { Route as DocumentacaoRouteImport } from './routes/documentacao'
 import { Route as IncidentesRouteImport } from './routes/incidentes'
 import { Route as LeadsRecentesRouteImport } from './routes/leads-recentes'
-import { Route as SistemasRouteImport } from './routes/sistemas'
 import { Route as TarefasRouteImport } from './routes/tarefas'
 import { Route as AutomacoesIndexRouteImport } from './routes/automacoes.index'
 import { Route as AutomacoesAutomationIdRouteImport } from './routes/automacoes.$automationId'
@@ -28,11 +26,6 @@ const IndexRoute = IndexRouteImport.update({
 const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
   id: '/configuracoes',
   path: '/configuracoes',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CredenciaisRoute = CredenciaisRouteImport.update({
-  id: '/credenciais',
-  path: '/credenciais',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocumentacaoRoute = DocumentacaoRouteImport.update({
@@ -48,11 +41,6 @@ const IncidentesRoute = IncidentesRouteImport.update({
 const LeadsRecentesRoute = LeadsRecentesRouteImport.update({
   id: '/leads-recentes',
   path: '/leads-recentes',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SistemasRoute = SistemasRouteImport.update({
-  id: '/sistemas',
-  path: '/sistemas',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TarefasRoute = TarefasRouteImport.update({
@@ -74,11 +62,9 @@ const AutomacoesAutomationIdRoute = AutomacoesAutomationIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/configuracoes': typeof ConfiguracoesRoute
-  '/credenciais': typeof CredenciaisRoute
   '/documentacao': typeof DocumentacaoRoute
   '/incidentes': typeof IncidentesRoute
   '/leads-recentes': typeof LeadsRecentesRoute
-  '/sistemas': typeof SistemasRoute
   '/tarefas': typeof TarefasRoute
   '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
   '/automacoes/': typeof AutomacoesIndexRoute
@@ -86,11 +72,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/configuracoes': typeof ConfiguracoesRoute
-  '/credenciais': typeof CredenciaisRoute
   '/documentacao': typeof DocumentacaoRoute
   '/incidentes': typeof IncidentesRoute
   '/leads-recentes': typeof LeadsRecentesRoute
-  '/sistemas': typeof SistemasRoute
   '/tarefas': typeof TarefasRoute
   '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
   '/automacoes': typeof AutomacoesIndexRoute
@@ -99,11 +83,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/configuracoes': typeof ConfiguracoesRoute
-  '/credenciais': typeof CredenciaisRoute
   '/documentacao': typeof DocumentacaoRoute
   '/incidentes': typeof IncidentesRoute
   '/leads-recentes': typeof LeadsRecentesRoute
-  '/sistemas': typeof SistemasRoute
   '/tarefas': typeof TarefasRoute
   '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
   '/automacoes/': typeof AutomacoesIndexRoute
@@ -113,11 +95,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/configuracoes'
-    | '/credenciais'
     | '/documentacao'
     | '/incidentes'
     | '/leads-recentes'
-    | '/sistemas'
     | '/tarefas'
     | '/automacoes/$automationId'
     | '/automacoes/'
@@ -125,11 +105,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/configuracoes'
-    | '/credenciais'
     | '/documentacao'
     | '/incidentes'
     | '/leads-recentes'
-    | '/sistemas'
     | '/tarefas'
     | '/automacoes/$automationId'
     | '/automacoes'
@@ -137,11 +115,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/configuracoes'
-    | '/credenciais'
     | '/documentacao'
     | '/incidentes'
     | '/leads-recentes'
-    | '/sistemas'
     | '/tarefas'
     | '/automacoes/$automationId'
     | '/automacoes/'
@@ -150,11 +126,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
-  CredenciaisRoute: typeof CredenciaisRoute
   DocumentacaoRoute: typeof DocumentacaoRoute
   IncidentesRoute: typeof IncidentesRoute
   LeadsRecentesRoute: typeof LeadsRecentesRoute
-  SistemasRoute: typeof SistemasRoute
   TarefasRoute: typeof TarefasRoute
   AutomacoesAutomationIdRoute: typeof AutomacoesAutomationIdRoute
   AutomacoesIndexRoute: typeof AutomacoesIndexRoute
@@ -176,13 +150,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConfiguracoesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/credenciais': {
-      id: '/credenciais'
-      path: '/credenciais'
-      fullPath: '/credenciais'
-      preLoaderRoute: typeof CredenciaisRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/documentacao': {
       id: '/documentacao'
       path: '/documentacao'
@@ -202,13 +169,6 @@ declare module '@tanstack/react-router' {
       path: '/leads-recentes'
       fullPath: '/leads-recentes'
       preLoaderRoute: typeof LeadsRecentesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sistemas': {
-      id: '/sistemas'
-      path: '/sistemas'
-      fullPath: '/sistemas'
-      preLoaderRoute: typeof SistemasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tarefas': {
@@ -238,11 +198,9 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
-  CredenciaisRoute: CredenciaisRoute,
   DocumentacaoRoute: DocumentacaoRoute,
   IncidentesRoute: IncidentesRoute,
   LeadsRecentesRoute: LeadsRecentesRoute,
-  SistemasRoute: SistemasRoute,
   TarefasRoute: TarefasRoute,
   AutomacoesAutomationIdRoute: AutomacoesAutomationIdRoute,
   AutomacoesIndexRoute: AutomacoesIndexRoute,

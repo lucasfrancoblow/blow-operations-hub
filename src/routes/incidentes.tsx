@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EmptyState, PageHeader, TablePagination, TableSkeleton } from "@/components/hub/primitives";
+import { AnimatedNumber, Stagger, StaggerItem } from "@/components/hub/motion";
 import { IncidentStatusBadge, SeverityBadge } from "@/components/hub/badges";
 import { IncidentDetailSheet } from "@/components/hub/IncidentDetailSheet";
 
@@ -103,21 +104,25 @@ function IncidentsPage() {
         subtitle="Falhas capturadas automaticamente pela Central de Erros"
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <Stagger className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
           { label: "Abertos", value: counts.abertos, tone: "text-critical" },
           { label: "Investigando", value: counts.investigando, tone: "text-warning" },
           { label: "Resolvidos", value: counts.resolvidos, tone: "text-success" },
           { label: "Críticos", value: counts.criticos, tone: "text-critical" },
         ].map((c) => (
-          <Card key={c.label} className="border-border/70 bg-card/70">
-            <CardContent className="py-5">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">{c.label}</p>
-              <p className={`mt-1 text-2xl font-semibold ${c.tone}`}>{c.value}</p>
-            </CardContent>
-          </Card>
+          <StaggerItem key={c.label}>
+            <Card className="h-full border-border/70 bg-card/70 transition-shadow hover:shadow-lg hover:shadow-black/5">
+              <CardContent className="py-5">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">{c.label}</p>
+                <p className={`mt-1 text-2xl font-semibold ${c.tone}`}>
+                  <AnimatedNumber value={c.value} />
+                </p>
+              </CardContent>
+            </Card>
+          </StaggerItem>
         ))}
-      </div>
+      </Stagger>
 
       <div className="grid gap-3 rounded-xl border border-border/70 bg-card/60 p-3 md:grid-cols-2 xl:grid-cols-5">
         <div className="relative">

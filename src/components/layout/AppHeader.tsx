@@ -1,7 +1,9 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, Search } from "lucide-react";
+import { Bell, Moon, Search, Sun } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 
+import { useTheme } from "@/components/theme-provider";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,9 +28,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 const labels: Record<string, string> = {
   automacoes: "Automações",
   incidentes: "Incidentes",
-  "leads-recentes": "Leads recentes",
-  sistemas: "Sistemas e integrações",
-  credenciais: "Credenciais",
+  "leads-recentes": "Radar de Leads",
   documentacao: "Documentação",
   configuracoes: "Configurações",
 };
@@ -41,6 +41,33 @@ function useCrumbs() {
     href: "/" + parts.slice(0, i + 1).join("/"),
     last: i === parts.length - 1,
   }));
+}
+
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme();
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="relative shrink-0 overflow-hidden"
+      aria-label="Alternar tema claro/escuro"
+      onClick={toggleTheme}
+    >
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={theme}
+          initial={{ opacity: 0, rotate: -90, scale: 0.6 }}
+          animate={{ opacity: 1, rotate: 0, scale: 1 }}
+          exit={{ opacity: 0, rotate: 90, scale: 0.6 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="flex"
+        >
+          {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+        </motion.span>
+      </AnimatePresence>
+    </Button>
+  );
 }
 
 export function AppHeader() {
@@ -91,6 +118,8 @@ export function AppHeader() {
             }}
           />
         </div>
+
+        <ThemeToggle />
 
         <Button
           variant="ghost"

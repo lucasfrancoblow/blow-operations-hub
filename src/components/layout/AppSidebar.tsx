@@ -4,8 +4,6 @@ import {
   LayoutDashboard,
   Workflow,
   AlertTriangle,
-  Plug,
-  KeyRound,
   BookOpen,
   Settings,
   Inbox,
@@ -33,9 +31,7 @@ const items = [
   { title: "Tarefas", url: "/tarefas", icon: ListTodo },
   { title: "Automações", url: "/automacoes", icon: Workflow },
   { title: "Incidentes", url: "/incidentes", icon: AlertTriangle },
-  { title: "Leads recentes", url: "/leads-recentes", icon: Inbox },
-  { title: "Sistemas e integrações", url: "/sistemas", icon: Plug },
-  { title: "Credenciais", url: "/credenciais", icon: KeyRound },
+  { title: "Radar de Leads", url: "/leads-recentes", icon: Inbox },
   { title: "Documentação", url: "/documentacao", icon: BookOpen },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
 ];
@@ -99,7 +95,7 @@ export function AppSidebar() {
         <SidebarFooter className="border-t border-sidebar-border">
           <p className="px-2 py-1 text-[11px] leading-relaxed text-muted-foreground">
             {n8nLive
-              ? "Automações, incidentes, credenciais e documentação: dados reais do n8n."
+              ? "Automações, incidentes e documentação: dados reais do n8n."
               : "Ambiente de demonstração com dados mockados."}
           </p>
         </SidebarFooter>

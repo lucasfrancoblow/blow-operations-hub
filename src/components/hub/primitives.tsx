@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -42,14 +43,23 @@ export function SectionCard({
   children: ReactNode;
   className?: string;
 }) {
+  const reduce = useReducedMotion();
   return (
-    <Card className={cn("border-border/70 bg-card/70 backdrop-blur", className)}>
-      <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-        <CardTitle className="truncate text-base font-semibold">{title}</CardTitle>
-        {action}
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
+    <motion.div
+      initial={reduce ? undefined : { opacity: 0, y: 12 }}
+      animate={reduce ? undefined : { opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={reduce ? undefined : { y: -2 }}
+      className={cn("h-full", className)}
+    >
+      <Card className="h-full border-border/70 bg-card/70 backdrop-blur transition-shadow hover:shadow-lg hover:shadow-black/5">
+        <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+          <CardTitle className="truncate text-base font-semibold">{title}</CardTitle>
+          {action}
+        </CardHeader>
+        <CardContent>{children}</CardContent>
+      </Card>
+    </motion.div>
   );
 }
 
