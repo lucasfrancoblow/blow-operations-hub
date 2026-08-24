@@ -18,6 +18,13 @@ export function parsePipeRunDate(createdAt: string): Date {
   return new Date(`${createdAt.replace(" ", "T")}-03:00`);
 }
 
+// Dia de hoje em Brasília, no mesmo formato YYYY-MM-DD do prefixo de created_at — dá
+// pra comparar direto como texto, sem reconstruir Date. "en-CA" é só o jeito mais curto
+// de pedir pro Intl formatar em ISO (YYYY-MM-DD) sem montar a string na mão.
+export function todayDateString(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+}
+
 // "Destino" (nome do Form/LP) não existe como campo pronto no PipeRun — é extraído do
 // utm_campaign. Em vez de tentar adivinhar por um padrão de texto (o que gerava
 // entradas soltas tipo "Form 08 04 26" pra campanha de teste antiga), mapeia direto
@@ -125,7 +132,7 @@ export interface LeadsRecentesData {
     total: number;
     novos: number;
     emAndamento: number;
-    ultimasVintQuatroHoras: number;
+    hoje: number;
   };
   byDay: Array<{ date: string; total: number }>;
   byOrigin: Array<{ origin: string; total: number }>;
@@ -191,14 +198,12 @@ export async function loadLeadsRecentesData(
     .map((d) => toLeadRecente(d, pipelineNames, stageNames))
     .sort((a, b) => parsePipeRunDate(b.createdAt).getTime() - parsePipeRunDate(a.createdAt).getTime());
 
-  const now = Date.now();
+  const today = todayDateString();
   const summary = {
     total: leads.length,
     novos: leads.filter((l) => !l.emAndamento).length,
     emAndamento: leads.filter((l) => l.emAndamento).length,
-    ultimasVintQuatroHoras: leads.filter(
-      (l) => now - parsePipeRunDate(l.createdAt).getTime() < 24 * 60 * 60 * 1000,
-    ).length,
+    hoje: leads.filter((l) => l.createdAt.slice(0, 10) === today).length,
   };
 
   const rangeStart = new Date(`${range.from}T00:00:00Z`);

@@ -15,11 +15,11 @@ import {
   YAxis,
 } from "recharts";
 
-import { cn } from "@/lib/utils";
 import { getLeadsRecentesData } from "@/services/leads-recentes-service";
 import {
   defaultDateRange,
   parsePipeRunDate,
+  todayDateString,
   type DateRange,
   type LeadRecente,
 } from "@/lib/leads-recentes";
@@ -78,27 +78,6 @@ const PROGRESSO_FILTERS = [
   { value: "novo", label: "Novos" },
   { value: "andamento", label: "Em andamento" },
 ];
-
-function ProgressoBadge({ emAndamento }: { emAndamento: boolean }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium",
-        emAndamento
-          ? "border-success/30 bg-success/12 text-success"
-          : "border-warning/30 bg-warning/12 text-warning",
-      )}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      {emAndamento ? "Em andamento" : "Novo"}
-    </span>
-  );
-}
-
-function formatCurrency(value: number): string {
-  if (!value) return "—";
-  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
 
 function relativeTime(createdAt: string, now: number): string {
   const diffMs = now - parsePipeRunDate(createdAt).getTime();
@@ -198,14 +177,12 @@ function LeadsRecentesPage() {
   // lista já filtrada, não do agregado bruto do servidor. Sem isso, filtrar por
   // "Google" continuava mostrando o total geral nos números e gráficos acima.
   const filteredSummary = useMemo(() => {
-    const now = Date.now();
+    const today = todayDateString();
     return {
       total: filtered.length,
       novos: filtered.filter((l) => !l.emAndamento).length,
       emAndamento: filtered.filter((l) => l.emAndamento).length,
-      ultimasVintQuatroHoras: filtered.filter(
-        (l) => now - parsePipeRunDate(l.createdAt).getTime() < 24 * 60 * 60 * 1000,
-      ).length,
+      hoje: filtered.filter((l) => l.createdAt.slice(0, 10) === today).length,
     };
   }, [filtered]);
 
@@ -283,8 +260,8 @@ function LeadsRecentesPage() {
               </StaggerItem>
               <StaggerItem>
                 <StatCard
-                  label="Últimas 24h"
-                  value={filteredSummary.ultimasVintQuatroHoras}
+                  label="Hoje"
+                  value={filteredSummary.hoje}
                   accent="primary"
                 />
               </StaggerItem>
@@ -601,9 +578,7 @@ function LeadsRecentesPage() {
                       <TableHead>Origem</TableHead>
                       <TableHead>Destino</TableHead>
                       <TableHead>Responsável</TableHead>
-                      <TableHead>Valor</TableHead>
                       <TableHead>Criado em</TableHead>
-                      <TableHead>Progresso</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -620,15 +595,9 @@ function LeadsRecentesPage() {
                         <TableCell className="text-muted-foreground">{lead.destino}</TableCell>
                         <TableCell className="text-muted-foreground">{lead.ownerName}</TableCell>
                         <TableCell className="text-muted-foreground">
-                          {formatCurrency(lead.value)}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
                           {parsePipeRunDate(lead.createdAt).toLocaleDateString("pt-BR", {
                             timeZone: "America/Sao_Paulo",
                           })}
-                        </TableCell>
-                        <TableCell>
-                          <ProgressoBadge emAndamento={lead.emAndamento} />
                         </TableCell>
                       </TableRow>
                     ))}

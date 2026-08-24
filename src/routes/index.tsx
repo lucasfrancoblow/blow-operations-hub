@@ -81,8 +81,8 @@ function Overview() {
             </StaggerItem>
             <StaggerItem>
               <StatCard
-                label="Últimas 24h"
-                value={leads.data.summary.ultimasVintQuatroHoras}
+                label="Hoje"
+                value={leads.data.summary.hoje}
                 accent="primary"
               />
             </StaggerItem>
