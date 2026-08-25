@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Fragment, useMemo, useState } from "react";
 import { CheckCircle2, Inbox } from "lucide-react";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip as RTooltip } from "recharts";
 
 import { getLeadsRecentesData } from "@/services/leads-recentes-service";
 import { getAdMetricsData } from "@/services/ad-metrics-service";
@@ -38,6 +39,17 @@ export const Route = createFileRoute("/funil-marketing")({
 // Google / Orgânico / Rapha Mattos) — mapeado a partir da origem (UTM) e do funil real do
 // PipeRun, já que não existe um campo "canal" pronto no CRM.
 const CHANNEL_ORDER = ["Facebook Ads", "Google", "Orgânico", "Rapha Mattos", "Outros"] as const;
+
+// Cor fixa por canal (não por posição pós-filtro) — assim tirar/pôr um canal do
+// gráfico nunca "repinta" os outros. Paleta categórica validada (contraste + daltonismo)
+// da design skill, na mesma ordem de --color-chart-1..5 em styles.css.
+const CHANNEL_COLOR: Record<(typeof CHANNEL_ORDER)[number], string> = {
+  "Facebook Ads": "var(--color-chart-1)",
+  Google: "var(--color-chart-2)",
+  Orgânico: "var(--color-chart-3)",
+  "Rapha Mattos": "var(--color-chart-4)",
+  Outros: "var(--color-chart-5)",
+};
 
 function channelFor(lead: LeadRecente): string {
   if (lead.pipelineName.toLowerCase().includes("rapha mattos")) return "Rapha Mattos";
@@ -239,6 +251,82 @@ const ROWS: Array<{
   },
 ];
 
+/** Rosca de composição de leads por canal, com número total no centro e legenda com
+ * valor + % direto no texto (não só cor) — não depende de discriminar cor pra ler o
+ * dado, o que importa pro par menos contrastante da paleta (aqua/amarelo/magenta). */
+function ChannelDonut({
+  data,
+}: {
+  data: Array<{ channel: string; total: number; color: string }>;
+}) {
+  const total = data.reduce((sum, d) => sum + d.total, 0);
+
+  if (total === 0) {
+    return (
+      <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+        Sem leads no período.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-center">
+      <div className="relative h-[180px] w-[180px] shrink-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="total"
+              nameKey="channel"
+              innerRadius={52}
+              outerRadius={80}
+              paddingAngle={2}
+              stroke="var(--color-card)"
+              strokeWidth={2}
+            >
+              {data.map((entry) => (
+                <Cell key={entry.channel} fill={entry.color} />
+              ))}
+            </Pie>
+            <RTooltip
+              formatter={(value: number, _name, item) => [
+                `${value} (${Math.round((value / total) * 100)}%)`,
+                item.payload.channel,
+              ]}
+              contentStyle={{
+                background: "var(--color-popover)",
+                border: "1px solid var(--color-border)",
+                borderRadius: 12,
+                fontSize: 12,
+              }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span className="font-display text-2xl font-semibold tabular-nums">{total}</span>
+          <span className="text-[11px] text-muted-foreground">leads</span>
+        </div>
+      </div>
+
+      <ul className="flex w-full flex-col gap-1.5 sm:w-auto">
+        {data.map((entry) => (
+          <li key={entry.channel} className="flex items-center gap-2 text-sm">
+            <span
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: entry.color }}
+            />
+            <span className="flex-1 text-muted-foreground">{entry.channel}</span>
+            <span className="font-medium tabular-nums">{entry.total}</span>
+            <span className="w-10 text-right text-xs tabular-nums text-muted-foreground">
+              {Math.round((entry.total / total) * 100)}%
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 const CHANNEL_FILTERS = ["Todos os canais", ...CHANNEL_ORDER] as const;
 
 function FunilMarketingPage() {
@@ -315,6 +403,18 @@ function FunilMarketingPage() {
     return sumDays(dayMap, Array.from(dayMap.keys()));
   }, [table, channelFilter]);
 
+  // Composição de "Novos Leads" por canal no período — independe do filtro de canal
+  // da página (que serve pra ver a TABELA de um canal só; a rosca é sempre a foto
+  // geral de "de onde vêm os leads", senão viraria sempre uma fatia de 100%).
+  const channelDonutData = useMemo(() => {
+    if (!table) return [];
+    return CHANNEL_ORDER.map((channel) => {
+      const dayMap = table.byChannelDay.get(channel);
+      const total = dayMap ? sumDays(dayMap, Array.from(dayMap.keys())).novosLeads : 0;
+      return { channel, total, color: CHANNEL_COLOR[channel] };
+    }).filter((d) => d.total > 0);
+  }, [table]);
+
   const visibleChannels = useMemo(() => {
     // "Geral" é o resultado final somando tudo — vem primeiro, não depois dos canais
     // individuais que ele resume.
@@ -378,38 +478,44 @@ function FunilMarketingPage() {
           </div>
 
           {funnelTotals && (
-            <SectionCard
-              title={`Funil — ${channelFilter === "Todos os canais" ? "Geral" : channelFilter}`}
-            >
-              <FunnelChart
-                stages={
-                  [
-                    { label: "Novos Leads", value: funnelTotals.novosLeads, accent: "primary" },
-                    { label: "SQL", value: funnelTotals.sql, accent: "info" },
-                    {
-                      label: "Reunião Agendada",
-                      value: funnelTotals.reuniaoAgendada,
-                      accent: "warning",
-                    },
-                    {
-                      label: "Reunião Realizada",
-                      value: funnelTotals.reuniaoRealizada,
-                      accent: "warning",
-                    },
-                    {
-                      label: "Contrato Enviado",
-                      value: funnelTotals.contratoEnviado,
-                      accent: "success",
-                    },
-                    {
-                      label: "Contrato Assinado",
-                      value: funnelTotals.contratoAssinado,
-                      accent: "success",
-                    },
-                  ] satisfies FunnelStage[]
-                }
-              />
-            </SectionCard>
+            <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
+              <SectionCard
+                title={`Funil — ${channelFilter === "Todos os canais" ? "Geral" : channelFilter}`}
+              >
+                <FunnelChart
+                  stages={
+                    [
+                      { label: "Novos Leads", value: funnelTotals.novosLeads, accent: "primary" },
+                      { label: "SQL", value: funnelTotals.sql, accent: "info" },
+                      {
+                        label: "Reunião Agendada",
+                        value: funnelTotals.reuniaoAgendada,
+                        accent: "warning",
+                      },
+                      {
+                        label: "Reunião Realizada",
+                        value: funnelTotals.reuniaoRealizada,
+                        accent: "warning",
+                      },
+                      {
+                        label: "Contrato Enviado",
+                        value: funnelTotals.contratoEnviado,
+                        accent: "success",
+                      },
+                      {
+                        label: "Contrato Assinado",
+                        value: funnelTotals.contratoAssinado,
+                        accent: "success",
+                      },
+                    ] satisfies FunnelStage[]
+                  }
+                />
+              </SectionCard>
+
+              <SectionCard title="Novos Leads por canal">
+                <ChannelDonut data={channelDonutData} />
+              </SectionCard>
+            </div>
           )}
 
           {funnelTotals && funnelTotals.investimento > 0 && (
@@ -480,6 +586,8 @@ function FunilMarketingPage() {
               <SectionCard
                 key={channel}
                 title={channel}
+                collapsible
+                defaultCollapsed
                 action={
                   hasOwnRange ? (
                     <DateRangePicker

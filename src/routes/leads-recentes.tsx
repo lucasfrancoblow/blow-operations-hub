@@ -17,7 +17,7 @@ import {
 
 import { getLeadsRecentesData } from "@/services/leads-recentes-service";
 import {
-  defaultDateRange,
+  defaultRadarDateRange,
   parsePipeRunDate,
   todayDateString,
   type DateRange,
@@ -145,7 +145,7 @@ function LiveLeadTicker({ leads }: { leads: LeadRecente[] }) {
 }
 
 function LeadsRecentesPage() {
-  const [range, setRange] = useState<DateRange>(() => defaultDateRange());
+  const [range, setRange] = useState<DateRange>(() => defaultRadarDateRange());
 
   const { data, isLoading } = useQuery({
     queryKey: ["piperun", "leads-recentes", range.from, range.to],

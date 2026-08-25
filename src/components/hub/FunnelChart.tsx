@@ -26,8 +26,14 @@ export function FunnelChart({ stages }: { stages: FunnelStage[] }) {
       {stages.map((stage, i) => {
         const widthPct = Math.max(6, (stage.value / max) * 100);
         const prev = i > 0 ? stages[i - 1] : null;
+        const first = stages[0];
         const convPct =
           prev && prev.value > 0 ? Math.round((stage.value / prev.value) * 100) : null;
+        // % sobre o primeiro estágio — sem isso só dava pra ver a queda degrau a
+        // degrau, não "quanto sobrou do total original" (o que mais importa pra
+        // saber se o funil como um todo está saudável).
+        const ofTotalPct =
+          i > 0 && first && first.value > 0 ? Math.round((stage.value / first.value) * 100) : null;
 
         return (
           <div key={stage.label} className="flex w-full flex-col items-center">
@@ -44,7 +50,12 @@ export function FunnelChart({ stages }: { stages: FunnelStage[] }) {
                       transition={{ duration: 0.25 }}
                       className="text-[11px] font-medium tabular-nums"
                     >
-                      {convPct}%
+                      {convPct}%{" "}
+                      {ofTotalPct !== null && (
+                        <span className="font-normal text-muted-foreground/70">
+                          · {ofTotalPct}% do total
+                        </span>
+                      )}
                     </motion.span>
                   )}
                 </AnimatePresence>

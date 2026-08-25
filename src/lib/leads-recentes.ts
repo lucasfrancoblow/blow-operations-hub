@@ -179,6 +179,13 @@ export function defaultDateRange(): DateRange {
   return { from: from.toISOString().slice(0, 10), to: today.toISOString().slice(0, 10) };
 }
 
+/** Range default do Radar de Leads: só hoje (Brasília) — o time quer abrir a tela já
+ * vendo o dia corrente, e filtrar outros períodos manualmente quando precisar. */
+export function defaultRadarDateRange(): DateRange {
+  const today = todayDateString();
+  return { from: today, to: today };
+}
+
 export async function loadLeadsRecentesData(
   range: DateRange = defaultDateRange(),
 ): Promise<LeadsRecentesData | null> {

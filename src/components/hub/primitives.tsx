@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -87,13 +87,22 @@ export function SectionCard({
   action,
   children,
   className,
+  collapsible,
+  defaultCollapsed,
 }: {
   title: string;
   action?: ReactNode;
   children: ReactNode;
   className?: string;
+  /** Quando true, o cabeçalho vira um botão que recolhe/expande o conteúdo. */
+  collapsible?: boolean;
+  /** Só tem efeito com collapsible — começa fechado, usuário expande sob demanda
+   * (usado no Funil de Marketing pra não jogar 5 tabelas gigantes na cara de cara). */
+  defaultCollapsed?: boolean;
 }) {
   const reduce = useReducedMotion();
+  const [collapsed, setCollapsed] = useState(Boolean(collapsible && defaultCollapsed));
+
   return (
     <motion.div
       initial={reduce ? undefined : { opacity: 0, y: 12 }}
@@ -103,11 +112,29 @@ export function SectionCard({
       className={cn("h-full", className)}
     >
       <Card className="h-full border-border/60 bg-card backdrop-blur transition-shadow hover:shadow-lg hover:shadow-black/5">
-        <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-          <CardTitle className="truncate text-base font-semibold">{title}</CardTitle>
-          {action}
+        <CardHeader
+          className={cn(
+            "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2",
+            collapsible && "cursor-pointer select-none",
+          )}
+          onClick={collapsible ? () => setCollapsed((c) => !c) : undefined}
+        >
+          <CardTitle className="flex items-center gap-2 truncate text-base font-semibold">
+            {collapsible && (
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+                  collapsed && "-rotate-90",
+                )}
+              />
+            )}
+            <span className="truncate">{title}</span>
+          </CardTitle>
+          {action && (
+            <div onClick={collapsible ? (e) => e.stopPropagation() : undefined}>{action}</div>
+          )}
         </CardHeader>
-        <CardContent>{children}</CardContent>
+        {!collapsed && <CardContent>{children}</CardContent>}
       </Card>
     </motion.div>
   );
