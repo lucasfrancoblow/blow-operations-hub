@@ -1,7 +1,8 @@
 // Visibilidade por projeto de Tarefas (ver
-// supabase/migrations/0014_create_task_project_access.sql). admin/super_admin
-// bypassam isso inteiro (ver src/lib/page-access.ts) — só "member" precisa de
-// linha aqui pra enxergar um projeto.
+// supabase/migrations/0014_create_task_project_access.sql). Só "super_admin"
+// bypassa isso inteiro (vê tudo sempre) — "admin" continua vendo todas as abas
+// (src/lib/page-access.ts), mas pra projetos é tratado igual "member"/"external":
+// só super_admin decide quem vê qual projeto.
 
 import {
   isSupabaseConfigured,
@@ -28,11 +29,11 @@ export async function listAccessibleProjectIds(userId: string): Promise<string[]
   return rows.map((r) => r.project_id);
 }
 
-/** admin/super_admin não têm restrição por projeto (undefined = sem filtro no
- * store que consumir isso); "member" só vê os projetos liberados pra ele —
- * usado por tasks-service.ts e tickets-service.ts. */
+/** Só super_admin não tem restrição por projeto (undefined = sem filtro no
+ * store que consumir isso); todo o resto — inclusive "admin" — só vê os
+ * projetos liberados pra ele — usado por tasks-service.ts e tickets-service.ts. */
 export async function accessibleProjectIdsFor(user: SessionUser): Promise<string[] | undefined> {
-  if (user.role === "admin" || user.role === "super_admin") return undefined;
+  if (user.role === "super_admin") return undefined;
   return listAccessibleProjectIds(user.id);
 }
 
@@ -47,7 +48,7 @@ export async function listProjectMemberIds(projectId: string): Promise<string[]>
 }
 
 /** Barra a ação se `projectId` não estiver entre os projetos liberados pro
- * usuário (admin/super_admin sempre passam). `null` ("Sem projeto") é sempre
+ * usuário (só super_admin sempre passa). `null` ("Sem projeto") é sempre
  * permitido — mesma regra usada pra filtrar leitura em tasks-store.ts. Usado
  * por qualquer mutação que crie/mova algo pra dentro de um projeto (tasks,
  * anexos, o próprio projeto) — sem isso, esconder um projeto do menu não

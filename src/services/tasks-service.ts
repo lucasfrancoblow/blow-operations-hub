@@ -25,12 +25,13 @@ import { findUserById } from "@/lib/users-store";
 import { sendEmail } from "@/lib/resend-client";
 import type { Task, TaskInput, TaskStatus } from "@/types/tasks";
 
-/** Só admin/super_admin gerenciam quem enxerga qual projeto — é uma ação de
- * controle de acesso, não uma ação normal de uso de Tarefas. */
+/** Só super_admin gerencia quem enxerga qual projeto — é uma ação de
+ * controle de acesso, não uma ação normal de uso de Tarefas. "admin" continua
+ * vendo todas as abas, mas pra projetos é restrito igual "member"/"external". */
 async function requireProjectManager(): Promise<SessionUser> {
   const user = await requireTasksAccess();
-  if (user.role !== "admin" && user.role !== "super_admin") {
-    throw new Error("Só admin/super admin gerenciam acesso a projetos.");
+  if (user.role !== "super_admin") {
+    throw new Error("Só o super admin gerencia acesso a projetos.");
   }
   return user;
 }

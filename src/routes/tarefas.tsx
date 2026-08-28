@@ -48,7 +48,7 @@ export const Route = createFileRoute("/tarefas")({
 function TarefasPage() {
   const queryClient = useQueryClient();
   const { user } = Route.useRouteContext();
-  const isAdminLike = user?.role === "admin" || user?.role === "super_admin";
+  const canManageAccess = user?.role === "super_admin";
   const { project: projectParam } = Route.useSearch();
   const navigate = useNavigate({ from: "/tarefas" });
   const selectedProject = projectParam ?? UNASSIGNED_PROJECT_ID;
@@ -139,7 +139,7 @@ function TarefasPage() {
         projects={projects}
         selected={selectedProject}
         onSelect={selectProject}
-        isAdminLike={isAdminLike}
+        canManageAccess={canManageAccess}
       />
 
       <div className="grid gap-3 rounded-xl border border-border/60 bg-card/60 p-3 sm:grid-cols-3">

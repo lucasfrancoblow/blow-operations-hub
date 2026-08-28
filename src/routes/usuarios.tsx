@@ -125,18 +125,22 @@ function UsuariosPage() {
     pageAccessMutation.mutate({ id: profileTarget.id, pageAccess: next });
   }
 
-  const isEditingMember = profileTarget?.role === "member" || profileTarget?.role === "external";
+  // Abas: só member/external têm restrição (admin sempre vê todas). Projetos:
+  // todo mundo que não é super_admin é restrito — inclusive admin agora.
+  const showsPageAccessSection =
+    profileTarget?.role === "member" || profileTarget?.role === "external";
+  const showsProjectAccessSection = profileTarget != null && profileTarget.role !== "super_admin";
 
   const { data: allProjects = [] } = useQuery({
     queryKey: ["task-projects"],
     queryFn: () => listProjectsFn(),
-    enabled: isEditingMember,
+    enabled: showsProjectAccessSection,
   });
 
   const { data: memberProjectIds = [] } = useQuery({
     queryKey: ["user-project-access", profileTarget?.id],
     queryFn: () => listUserProjectAccessFn({ data: { userId: profileTarget!.id } }),
-    enabled: isEditingMember,
+    enabled: showsProjectAccessSection,
   });
 
   const projectAccessMutation = useMutation({
@@ -438,49 +442,49 @@ function UsuariosPage() {
             </Button>
           </div>
 
-          {isEditingMember && (
-            <>
-              <div className="space-y-2 border-t border-border/60 pt-4">
-                <Label>Abas que ele vê</Label>
-                {PAGE_KEYS.map((key) => (
+          {showsPageAccessSection && (
+            <div className="space-y-2 border-t border-border/60 pt-4">
+              <Label>Abas que ele vê</Label>
+              {PAGE_KEYS.map((key) => (
+                <label
+                  key={key}
+                  className="flex items-center gap-2.5 rounded-md px-1.5 py-1 hover:bg-muted/60"
+                >
+                  <Checkbox
+                    checked={profileTarget?.pageAccess.includes(key) ?? false}
+                    onCheckedChange={(checked) => togglePageAccess(key, checked === true)}
+                  />
+                  <span className="text-sm">{PAGE_LABELS[key]}</span>
+                </label>
+              ))}
+            </div>
+          )}
+
+          {showsProjectAccessSection && (
+            <div className="space-y-2 border-t border-border/60 pt-4">
+              <Label>Projetos de Tarefas que ele vê</Label>
+              {allProjects.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum projeto criado ainda.</p>
+              ) : (
+                allProjects.map((project) => (
                   <label
-                    key={key}
+                    key={project.id}
                     className="flex items-center gap-2.5 rounded-md px-1.5 py-1 hover:bg-muted/60"
                   >
                     <Checkbox
-                      checked={profileTarget?.pageAccess.includes(key) ?? false}
-                      onCheckedChange={(checked) => togglePageAccess(key, checked === true)}
+                      checked={memberProjectIds.includes(project.id)}
+                      onCheckedChange={(checked) =>
+                        projectAccessMutation.mutate({
+                          projectId: project.id,
+                          grant: checked === true,
+                        })
+                      }
                     />
-                    <span className="text-sm">{PAGE_LABELS[key]}</span>
+                    <span className="text-sm">{project.name}</span>
                   </label>
-                ))}
-              </div>
-
-              <div className="space-y-2 border-t border-border/60 pt-4">
-                <Label>Projetos de Tarefas que ele vê</Label>
-                {allProjects.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nenhum projeto criado ainda.</p>
-                ) : (
-                  allProjects.map((project) => (
-                    <label
-                      key={project.id}
-                      className="flex items-center gap-2.5 rounded-md px-1.5 py-1 hover:bg-muted/60"
-                    >
-                      <Checkbox
-                        checked={memberProjectIds.includes(project.id)}
-                        onCheckedChange={(checked) =>
-                          projectAccessMutation.mutate({
-                            projectId: project.id,
-                            grant: checked === true,
-                          })
-                        }
-                      />
-                      <span className="text-sm">{project.name}</span>
-                    </label>
-                  ))
-                )}
-              </div>
-            </>
+                ))
+              )}
+            </div>
           )}
         </DialogContent>
       </Dialog>

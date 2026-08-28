@@ -52,12 +52,13 @@ export function ProjectSwitcher({
   projects,
   selected,
   onSelect,
-  isAdminLike,
+  canManageAccess,
 }: {
   projects: TaskProject[];
   selected: string;
   onSelect: (id: string) => void;
-  isAdminLike: boolean;
+  /** Só super_admin gerencia quem vê qual projeto — "admin" não. */
+  canManageAccess: boolean;
 }) {
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
@@ -184,7 +185,7 @@ export function ProjectSwitcher({
                 <DropdownMenuItem onClick={() => archiveMutation.mutate(project)}>
                   {project.archived ? "Reativar" : "Arquivar"}
                 </DropdownMenuItem>
-                {isAdminLike && (
+                {canManageAccess && (
                   <DropdownMenuItem onClick={() => setAccessTarget(project)}>
                     Gerenciar acesso
                   </DropdownMenuItem>
