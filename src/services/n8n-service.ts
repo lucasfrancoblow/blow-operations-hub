@@ -1,11 +1,18 @@
 import { createServerFn } from "@tanstack/react-start";
 
+import { requireSessionUser } from "@/lib/session";
 import { isN8nConfigured } from "@/lib/n8n-client";
 import { loadN8nOperationalData, type N8nOperationalData } from "@/lib/n8n-metrics";
 
 export type N8nStatus =
   | { configured: false }
-  | { configured: true; ok: true; totalWorkflows: number; activeWorkflows: number; checkedAt: string }
+  | {
+      configured: true;
+      ok: true;
+      totalWorkflows: number;
+      activeWorkflows: number;
+      checkedAt: string;
+    }
   | { configured: true; ok: false; error: string; checkedAt: string };
 
 // Cache em memória do processo do servidor: evita recalcular tudo (workflows +
@@ -24,12 +31,16 @@ async function getCachedOperationalData(): Promise<N8nOperationalData | null> {
 
 /** Payload completo (automações + incidentes + overview) derivado do n8n real, ou null se não configurado. */
 export const getN8nOperationalData = createServerFn({ method: "GET" }).handler(
-  async (): Promise<N8nOperationalData | null> => getCachedOperationalData(),
+  async (): Promise<N8nOperationalData | null> => {
+    await requireSessionUser();
+    return getCachedOperationalData();
+  },
 );
 
 /** Status resumido usado no card de "Sistemas e integrações". */
 export const getN8nStatus = createServerFn({ method: "GET" }).handler(
   async (): Promise<N8nStatus> => {
+    await requireSessionUser();
     if (!isN8nConfigured()) return { configured: false };
 
     const checkedAt = new Date().toISOString();

@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 
-import { requireTasksAccess } from "@/lib/session";
+import { requireSessionUser, requireTasksAccess } from "@/lib/session";
 import type { SessionUser } from "@/lib/auth";
 import { escapeHtml } from "@/lib/html";
 import {
@@ -17,6 +17,8 @@ import {
   grantProjectAccess,
   listAccessibleProjectIds,
   listProjectMemberIds,
+  requireAccessibleProject,
+  requireTaskAccess,
   revokeProjectAccess,
 } from "@/lib/task-project-access-store";
 import { findUserById } from "@/lib/users-store";
@@ -61,7 +63,8 @@ async function notifyAssignee(task: Task): Promise<void> {
 export const createTaskFn = createServerFn({ method: "POST" })
   .validator((input: TaskInput) => input)
   .handler(async ({ data }) => {
-    await requireTasksAccess();
+    const user = await requireTasksAccess();
+    await requireAccessibleProject(user, data.projectId ?? null);
     const task = await createTask(data);
     if (task.assigneeId) await notifyAssignee(task);
   });
@@ -74,11 +77,14 @@ interface UpdateTaskInput {
 export const updateTaskFn = createServerFn({ method: "POST" })
   .validator((input: UpdateTaskInput) => input)
   .handler(async ({ data }) => {
-    await requireTasksAccess();
-    const previous = data.patch.assigneeId !== undefined ? await getTask(data.id) : null;
+    const user = await requireTasksAccess();
+    const current = await requireTaskAccess(user, data.id);
+    if (data.patch.projectId !== undefined) {
+      await requireAccessibleProject(user, data.patch.projectId);
+    }
     await updateTask(data.id, data.patch);
     const newAssigneeId = data.patch.assigneeId;
-    if (newAssigneeId && newAssigneeId !== previous?.assigneeId) {
+    if (newAssigneeId && newAssigneeId !== current.assigneeId) {
       const updated = await getTask(data.id);
       if (updated) await notifyAssignee(updated);
     }
@@ -91,19 +97,25 @@ interface ReorderTasksInput {
 export const reorderTasksFn = createServerFn({ method: "POST" })
   .validator((input: ReorderTasksInput) => input)
   .handler(async ({ data }) => {
-    await requireTasksAccess();
+    const user = await requireTasksAccess();
+    await Promise.all(data.updates.map((u) => requireTaskAccess(user, u.id)));
     await reorderTasks(data.updates);
   });
 
 export const deleteTaskFn = createServerFn({ method: "POST" })
   .validator((input: { id: string }) => input)
   .handler(async ({ data }) => {
-    await requireTasksAccess();
+    const user = await requireTasksAccess();
+    await requireTaskAccess(user, data.id);
     await deleteTask(data.id);
   });
 
+// Não exige requireTasksAccess: quem só tem a aba Chamados (ex.: fornecedor
+// externo) também precisa listar os projetos liberados pra ele pra escolher ao
+// abrir um chamado. O resultado já vem filtrado por accessibleProjectIdsFor,
+// então abrir esse acesso não vaza nada além do que o próprio chamador já vê.
 export const listProjectsFn = createServerFn({ method: "GET" }).handler(async () => {
-  const user = await requireTasksAccess();
+  const user = await requireSessionUser();
   return listTaskProjects(await accessibleProjectIdsFor(user));
 });
 
@@ -125,7 +137,8 @@ interface UpdateProjectInput {
 export const updateProjectFn = createServerFn({ method: "POST" })
   .validator((input: UpdateProjectInput) => input)
   .handler(async ({ data }) => {
-    await requireTasksAccess();
+    const user = await requireTasksAccess();
+    await requireAccessibleProject(user, data.id);
     await updateTaskProject(data.id, data.patch);
   });
 

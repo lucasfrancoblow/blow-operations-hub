@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 
+import { requireTasksAccess } from "@/lib/session";
 import { callClaudeJson } from "@/lib/claude-client";
 import { TASK_PRIORITIES, type TaskPriority } from "@/types/tasks";
 
@@ -15,6 +16,7 @@ function contextPrompt(input: TaskContextInput): string {
 export const suggestSubtasksFn = createServerFn({ method: "POST" })
   .validator((input: TaskContextInput) => input)
   .handler(async ({ data }) => {
+    await requireTasksAccess();
     const result = await callClaudeJson<{ subtasks: string[] }>({
       system:
         "Você ajuda um time de operações a quebrar tarefas técnicas em subtarefas pequenas e acionáveis. Responda em português, com títulos curtos e diretos.",
@@ -34,6 +36,7 @@ export const suggestSubtasksFn = createServerFn({ method: "POST" })
 export const suggestPriorityFn = createServerFn({ method: "POST" })
   .validator((input: TaskContextInput) => input)
   .handler(async ({ data }) => {
+    await requireTasksAccess();
     return callClaudeJson<{ priority: TaskPriority; justification: string }>({
       system: `Você ajuda um time de operações a priorizar tarefas técnicas. Escolha uma prioridade entre exatamente estes valores: ${TASK_PRIORITIES.join(", ")}. Justifique em 1 frase curta, em português.`,
       prompt: `Sugira a prioridade desta tarefa:\n\n${contextPrompt(data)}`,
@@ -53,6 +56,7 @@ export const suggestPriorityFn = createServerFn({ method: "POST" })
 export const summarizeTaskFn = createServerFn({ method: "POST" })
   .validator((input: TaskContextInput) => input)
   .handler(async ({ data }) => {
+    await requireTasksAccess();
     const result = await callClaudeJson<{ summary: string }>({
       system:
         "Você resume tarefas técnicas de um time de operações em 1 a 2 frases curtas e objetivas, em português.",

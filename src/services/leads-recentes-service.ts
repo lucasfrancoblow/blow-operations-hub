@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 
+import { requireSessionUser } from "@/lib/session";
 import {
   defaultDateRange,
   loadLeadsRecentesData,
@@ -18,6 +19,7 @@ const CACHE_TTL_MS = 30_000;
 export const getLeadsRecentesData = createServerFn({ method: "GET" })
   .validator((input?: DateRange) => input ?? defaultDateRange())
   .handler(async ({ data: range }): Promise<LeadsRecentesData | null> => {
+    await requireSessionUser();
     const key = `${range.from}_${range.to}`;
     const cached = cache.get(key);
     if (cached && cached.expiresAt > Date.now()) return cached.data;

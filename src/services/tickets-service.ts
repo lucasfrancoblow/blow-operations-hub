@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { requireChamadosAccess } from "@/lib/session";
 import { escapeHtml } from "@/lib/html";
-import { accessibleProjectIdsFor } from "@/lib/task-project-access-store";
+import { requireAccessibleProject } from "@/lib/task-project-access-store";
 import { createTask, updateTask } from "@/lib/tasks-store";
 import { createTicket, getTicket, listTickets } from "@/lib/task-tickets-store";
 import { listUsers } from "@/lib/users-store";
@@ -66,10 +66,7 @@ export const createTicketFn = createServerFn({ method: "POST" })
   .validator((input: TicketInput) => input)
   .handler(async ({ data }) => {
     const user = await requireChamadosAccess();
-    const allowed = await accessibleProjectIdsFor(user);
-    if (data.projectId && allowed !== undefined && !allowed.includes(data.projectId)) {
-      throw new Error("Você não tem acesso a esse projeto.");
-    }
+    await requireAccessibleProject(user, data.projectId);
 
     const task = await createTask({
       title: data.title,
@@ -111,4 +108,21 @@ export const getTicketFn = createServerFn({ method: "GET" })
       throw new Error("Você não tem acesso a esse chamado.");
     }
     return ticket;
+  });
+
+/** Edição limitada pro solicitante (ou admin/super_admin): só título e
+ * descrição do chamado — status, prioridade, projeto, responsável, prazo,
+ * tags, anexos e exclusão continuam exclusivos de quem tem acesso a Tarefas
+ * de verdade (via TaskDetailSheet). Não exige requireTasksAccess: quem só tem
+ * a aba Chamados também pode corrigir o próprio pedido. */
+export const updateTicketDetailsFn = createServerFn({ method: "POST" })
+  .validator((input: { id: string; title: string; description: string }) => input)
+  .handler(async ({ data }) => {
+    const user = await requireChamadosAccess();
+    const ticket = await getTicket(data.id);
+    if (!ticket) throw new Error("Chamado não encontrado.");
+    if (!isAdminLike(user.role) && ticket.requesterId !== user.id) {
+      throw new Error("Você não tem acesso a esse chamado.");
+    }
+    await updateTask(ticket.taskId, { title: data.title, description: data.description });
   });

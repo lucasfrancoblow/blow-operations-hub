@@ -9,7 +9,9 @@ import {
   supabaseSelect,
   supabaseUpsert,
 } from "@/lib/supabase-client";
+import { getTask } from "@/lib/tasks-store";
 import type { SessionUser } from "@/lib/auth";
+import type { Task } from "@/types/tasks";
 
 interface AccessRow {
   project_id: string;
@@ -42,6 +44,33 @@ export async function listProjectMemberIds(projectId: string): Promise<string[]>
     project_id: `eq.${projectId}`,
   });
   return rows.map((r) => r.user_id);
+}
+
+/** Barra a ação se `projectId` não estiver entre os projetos liberados pro
+ * usuário (admin/super_admin sempre passam). `null` ("Sem projeto") é sempre
+ * permitido — mesma regra usada pra filtrar leitura em tasks-store.ts. Usado
+ * por qualquer mutação que crie/mova algo pra dentro de um projeto (tasks,
+ * anexos, o próprio projeto) — sem isso, esconder um projeto do menu não
+ * impede escrever nele direto pela função de servidor. */
+export async function requireAccessibleProject(
+  user: SessionUser,
+  projectId: string | null,
+): Promise<void> {
+  if (projectId === null) return;
+  const allowed = await accessibleProjectIdsFor(user);
+  if (allowed !== undefined && !allowed.includes(projectId)) {
+    throw new Error("Você não tem acesso a esse projeto.");
+  }
+}
+
+/** Busca a tarefa e confere que o usuário tem acesso ao projeto dela — usado
+ * antes de qualquer leitura/escrita em uma tarefa específica (ou em algo
+ * vinculado a ela, como um anexo) que não passe pelo listTasks já filtrado. */
+export async function requireTaskAccess(user: SessionUser, taskId: string): Promise<Task> {
+  const task = await getTask(taskId);
+  if (!task) throw new Error("Tarefa não encontrada.");
+  await requireAccessibleProject(user, task.projectId);
+  return task;
 }
 
 export async function grantProjectAccess(projectId: string, userId: string): Promise<void> {

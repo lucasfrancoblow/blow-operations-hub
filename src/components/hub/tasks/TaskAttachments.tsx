@@ -19,9 +19,9 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-async function openAttachment(storagePath: string) {
+async function openAttachment(attachmentId: string) {
   try {
-    const url = await getAttachmentUrlFn({ data: { storagePath } });
+    const url = await getAttachmentUrlFn({ data: { attachmentId } });
     window.open(url, "_blank", "noopener,noreferrer");
   } catch (error) {
     toast.error(`Não foi possível abrir o anexo: ${(error as Error).message}`);
@@ -32,7 +32,7 @@ function AttachmentThumbnail({ attachment }: { attachment: TaskAttachment }) {
   const isImage = attachment.contentType.startsWith("image/");
   const { data: previewUrl } = useQuery({
     queryKey: ["task-attachment-preview", attachment.id],
-    queryFn: () => getAttachmentUrlFn({ data: { storagePath: attachment.storagePath } }),
+    queryFn: () => getAttachmentUrlFn({ data: { attachmentId: attachment.id } }),
     enabled: isImage,
     staleTime: 4 * 60 * 1000,
   });
@@ -65,16 +65,12 @@ function AttachmentRow({
 }) {
   return (
     <div className="flex items-center gap-2.5 rounded-lg border border-border/60 bg-card/60 p-2.5">
-      <button
-        type="button"
-        onClick={() => openAttachment(attachment.storagePath)}
-        className="shrink-0"
-      >
+      <button type="button" onClick={() => openAttachment(attachment.id)} className="shrink-0">
         <AttachmentThumbnail attachment={attachment} />
       </button>
       <button
         type="button"
-        onClick={() => openAttachment(attachment.storagePath)}
+        onClick={() => openAttachment(attachment.id)}
         className="min-w-0 flex-1 text-left"
       >
         <p className="truncate text-sm font-medium">{attachment.fileName}</p>

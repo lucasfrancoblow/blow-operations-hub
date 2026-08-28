@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Ticket as TicketIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -46,7 +46,7 @@ import { canAccessPage } from "@/lib/page-access";
 import { cn } from "@/lib/utils";
 import { getMyProfileFn } from "@/services/auth-service";
 import { listProjectsFn } from "@/services/tasks-service";
-import { createTicketFn, listTicketsFn } from "@/services/tickets-service";
+import { createTicketFn, listTicketsFn, updateTicketDetailsFn } from "@/services/tickets-service";
 import type { Ticket } from "@/types/tickets";
 
 export const Route = createFileRoute("/chamados")({
@@ -70,7 +70,7 @@ export const Route = createFileRoute("/chamados")({
 function ChamadosPage() {
   const queryClient = useQueryClient();
   const { user } = Route.useRouteContext();
-  const hasTasksAccess = canAccessPage(user, "tarefas");
+  const isAdminLike = user?.role === "admin" || user?.role === "super_admin";
 
   const { data: tickets = [], isLoading } = useQuery({
     queryKey: ["tickets"],
@@ -95,6 +95,27 @@ function ChamadosPage() {
   const [requesterName, setRequesterName] = useState("");
   const [requesterEmail, setRequesterEmail] = useState("");
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+
+  useEffect(() => {
+    if (selectedTicket) {
+      setEditTitle(selectedTicket.task.title);
+      setEditDescription(selectedTicket.task.description);
+    }
+  }, [selectedTicket]);
+
+  const updateDetailsMutation = useMutation({
+    mutationFn: () =>
+      updateTicketDetailsFn({
+        data: { id: selectedTicket!.id, title: editTitle.trim(), description: editDescription },
+      }),
+    onSuccess: () => {
+      toast.success("Chamado atualizado.");
+      queryClient.invalidateQueries({ queryKey: ["tickets"] });
+    },
+    onError: (error: Error) => toast.error(`Não foi possível salvar: ${error.message}`),
+  });
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -256,7 +277,7 @@ function ChamadosPage() {
         </DialogContent>
       </Dialog>
 
-      {hasTasksAccess ? (
+      {isAdminLike ? (
         <TaskDetailSheet
           task={selectedTicket?.task ?? null}
           open={selectedTicket !== null}
@@ -271,25 +292,56 @@ function ChamadosPage() {
             <SheetHeader>
               <SheetTitle className="text-left">Chamado #{selectedTicket?.ticketNumber}</SheetTitle>
               <SheetDescription className="text-left">
-                {selectedTicket?.task.title}
+                Você pode ajustar o assunto e a descrição — o resto (status, prioridade, responsável
+                etc.) é atualizado pelo time.
               </SheetDescription>
             </SheetHeader>
-            <div className="space-y-4 px-4 pb-8">
-              {selectedTicket && (
-                <>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={cn("h-2 w-2 rounded-full", STATUS_DOT[selectedTicket.task.status])}
-                    />
-                    <span className="text-sm font-medium">{selectedTicket.task.status}</span>
-                    <TaskPriorityBadge value={selectedTicket.task.priority} />
-                  </div>
-                  <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-                    {selectedTicket.task.description || "Sem descrição."}
+            {selectedTicket && (
+              <div className="space-y-4 px-4 pb-8">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn("h-2 w-2 rounded-full", STATUS_DOT[selectedTicket.task.status])}
+                  />
+                  <span className="text-sm font-medium">{selectedTicket.task.status}</span>
+                  <TaskPriorityBadge value={selectedTicket.task.priority} />
+                </div>
+                {selectedTicket.task.project && (
+                  <p className="text-xs text-muted-foreground">
+                    Projeto: {selectedTicket.task.project.name}
                   </p>
-                </>
-              )}
-            </div>
+                )}
+                {selectedTicket.task.assignee && (
+                  <p className="text-xs text-muted-foreground">
+                    Responsável: {selectedTicket.task.assignee.username}
+                  </p>
+                )}
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="ticket-edit-title">Assunto</Label>
+                  <Input
+                    id="ticket-edit-title"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ticket-edit-description">Descrição</Label>
+                  <Textarea
+                    id="ticket-edit-description"
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    rows={5}
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => updateDetailsMutation.mutate()}
+                  disabled={!editTitle.trim() || updateDetailsMutation.isPending}
+                >
+                  Salvar
+                </Button>
+              </div>
+            )}
           </SheetContent>
         </Sheet>
       )}
