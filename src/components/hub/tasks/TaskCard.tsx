@@ -68,9 +68,9 @@ export function TaskCard({
           {task.assignee && (
             <span className="inline-flex items-center gap-1">
               <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-[9px] font-semibold text-primary">
-                {task.assignee.charAt(0).toUpperCase()}
+                {task.assignee.username.charAt(0).toUpperCase()}
               </span>
-              {task.assignee}
+              {task.assignee.username}
             </span>
           )}
           {task.dueDate && (

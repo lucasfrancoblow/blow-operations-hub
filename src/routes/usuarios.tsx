@@ -8,7 +8,9 @@ import {
   createUserFn,
   listUsersFn,
   resetPasswordFn,
+  setTasksAccessFn,
   setUserActiveFn,
+  setUserRoleFn,
 } from "@/services/auth-service";
 import type { UserRole } from "@/lib/auth";
 import { PageHeader, SectionCard } from "@/components/hub/primitives";
@@ -16,7 +18,6 @@ import { FadeIn } from "@/components/hub/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -43,7 +44,7 @@ import {
 
 export const Route = createFileRoute("/usuarios")({
   beforeLoad: ({ context }) => {
-    if (context.user?.role !== "admin") {
+    if (context.user?.role !== "super_admin") {
       throw redirect({ to: "/" });
     }
   },
@@ -80,6 +81,18 @@ function UsuariosPage() {
 
   const toggleActiveMutation = useMutation({
     mutationFn: (input: { id: string; active: boolean }) => setUserActiveFn({ data: input }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY }),
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const toggleTasksAccessMutation = useMutation({
+    mutationFn: (input: { id: string; tasksAccess: boolean }) => setTasksAccessFn({ data: input }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY }),
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const changeRoleMutation = useMutation({
+    mutationFn: (input: { id: string; role: UserRole }) => setUserRoleFn({ data: input }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY }),
     onError: (error: Error) => toast.error(error.message),
   });
@@ -159,6 +172,7 @@ function UsuariosPage() {
                   <TableHead>Usuário</TableHead>
                   <TableHead>Papel</TableHead>
                   <TableHead>Ativo</TableHead>
+                  <TableHead>Acesso a Tarefas</TableHead>
                   <TableHead>Criado em</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
@@ -168,15 +182,36 @@ function UsuariosPage() {
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">{u.username}</TableCell>
                     <TableCell>
-                      <Badge variant={u.role === "admin" ? "default" : "secondary"}>
-                        {u.role === "admin" ? "Admin" : "Membro"}
-                      </Badge>
+                      <Select
+                        value={u.role}
+                        onValueChange={(role) =>
+                          changeRoleMutation.mutate({ id: u.id, role: role as UserRole })
+                        }
+                      >
+                        <SelectTrigger className="h-8 w-[140px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="member">Membro</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="super_admin">Super admin</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell>
                       <Switch
                         checked={u.active}
                         onCheckedChange={(active) =>
                           toggleActiveMutation.mutate({ id: u.id, active })
+                        }
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Switch
+                        checked={u.tasksAccess}
+                        disabled={u.role === "admin" || u.role === "super_admin"}
+                        onCheckedChange={(tasksAccess) =>
+                          toggleTasksAccessMutation.mutate({ id: u.id, tasksAccess })
                         }
                       />
                     </TableCell>

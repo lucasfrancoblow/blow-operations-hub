@@ -43,8 +43,9 @@ const NAV_ITEMS = [
   { title: "Daily Expansão", url: "/daily-expansao", icon: Headphones },
   { title: "Automações", url: "/automacoes", icon: Workflow },
   { title: "Incidentes", url: "/incidentes", icon: AlertTriangle },
-  { title: "Tarefas", url: "/tarefas", icon: ListTodo },
 ] as const;
+
+const TASKS_NAV_ITEM = { title: "Tarefas", url: "/tarefas", icon: ListTodo } as const;
 
 const ADMIN_NAV_ITEM = { title: "Usuários", url: "/usuarios", icon: Users } as const;
 
@@ -80,11 +81,23 @@ function ThemeToggle() {
   );
 }
 
-function NavPills({ isAdmin, onNavigate }: { isAdmin: boolean; onNavigate?: () => void }) {
+function NavPills({
+  isSuperAdmin,
+  showTasks,
+  onNavigate,
+}: {
+  isSuperAdmin: boolean;
+  showTasks: boolean;
+  onNavigate?: () => void;
+}) {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const isActive = (url: string, exact?: boolean) =>
     exact ? pathname === url : pathname.startsWith(url);
-  const items = isAdmin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
+  const items = [
+    ...NAV_ITEMS,
+    ...(showTasks ? [TASKS_NAV_ITEM] : []),
+    ...(isSuperAdmin ? [ADMIN_NAV_ITEM] : []),
+  ];
 
   return (
     <>
@@ -113,7 +126,8 @@ function NavPills({ isAdmin, onNavigate }: { isAdmin: boolean; onNavigate?: () =
 
 export function TopNav({ user }: { user: SessionUser }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const isAdmin = user.role === "admin";
+  const isSuperAdmin = user.role === "super_admin";
+  const showTasks = isSuperAdmin || user.role === "admin" || user.tasksAccess;
 
   async function handleLogout() {
     await logoutFn();
@@ -136,7 +150,7 @@ export function TopNav({ user }: { user: SessionUser }) {
         </Link>
 
         <nav className="hidden items-center gap-1 rounded-full bg-muted/50 p-1 lg:flex">
-          <NavPills isAdmin={isAdmin} />
+          <NavPills isSuperAdmin={isSuperAdmin} showTasks={showTasks} />
         </nav>
 
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -148,7 +162,11 @@ export function TopNav({ user }: { user: SessionUser }) {
           <SheetContent side="left" className="w-64">
             <SheetTitle className="px-4 pt-4">Navegação</SheetTitle>
             <nav className="mt-4 flex flex-col gap-1 px-3">
-              <NavPills isAdmin={isAdmin} onNavigate={() => setMobileOpen(false)} />
+              <NavPills
+                isSuperAdmin={isSuperAdmin}
+                showTasks={showTasks}
+                onNavigate={() => setMobileOpen(false)}
+              />
             </nav>
           </SheetContent>
         </Sheet>
@@ -192,7 +210,12 @@ export function TopNav({ user }: { user: SessionUser }) {
               <DropdownMenuLabel>
                 <p className="text-sm font-medium">{user.username}</p>
                 <p className="text-xs font-normal text-muted-foreground">
-                  {user.role === "admin" ? "Admin" : "Membro"} · BLOW
+                  {user.role === "super_admin"
+                    ? "Super admin"
+                    : user.role === "admin"
+                      ? "Admin"
+                      : "Membro"}{" "}
+                  · BLOW
                 </p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />

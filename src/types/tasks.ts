@@ -23,13 +23,30 @@ export interface TaskReference {
   label: string;
 }
 
+export interface TaskProject {
+  id: string;
+  name: string;
+  color: string;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaskAssignee {
+  id: string;
+  username: string;
+}
+
 export interface Task {
   id: string;
   title: string;
   description: string;
   status: TaskStatus;
   priority: TaskPriority;
-  assignee: string;
+  projectId: string | null;
+  project: Pick<TaskProject, "id" | "name" | "color"> | null;
+  assigneeId: string | null;
+  assignee: TaskAssignee | null;
   tags: string[];
   dueDate: string | null;
   reference: TaskReference | null;
@@ -43,8 +60,20 @@ export interface TaskInput {
   description?: string | undefined;
   status?: TaskStatus | undefined;
   priority?: TaskPriority | undefined;
-  assignee?: string | undefined;
+  projectId?: string | null | undefined;
+  assigneeId?: string | null | undefined;
   tags?: string[] | undefined;
   dueDate?: string | null | undefined;
   reference?: TaskReference | null | undefined;
+}
+
+export interface TaskAttachment {
+  id: string;
+  taskId: string;
+  fileName: string;
+  storagePath: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedBy: TaskAssignee | null;
+  createdAt: string;
 }

@@ -127,3 +127,73 @@ export async function supabaseDelete(table: string, id: string): Promise<void> {
     preferHeader: "return=minimal",
   });
 }
+
+// --- Supabase Storage (anexos de tarefas) -----------------------------------
+// Mesma ideia do restFetch acima, mas contra /storage/v1 em vez de /rest/v1.
+// Upload/leitura dos arquivos em si acontecem direto navegador <-> Storage via
+// URL assinada — o servidor só emite/revoga essas URLs com a service_role key,
+// que nunca chega no navegador.
+
+async function storageFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const config = getConfig();
+  if (!config) {
+    throw new Error("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY não configurados no servidor.");
+  }
+
+  const response = await fetch(`${config.url}/storage/v1${path}`, {
+    ...init,
+    headers: {
+      apikey: config.serviceRoleKey,
+      Authorization: `Bearer ${config.serviceRoleKey}`,
+      "Content-Type": "application/json",
+      ...(init.headers ?? {}),
+    },
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Supabase Storage respondeu ${response.status} em ${path}: ${body}`);
+  }
+
+  const text = await response.text();
+  return (text ? JSON.parse(text) : null) as T;
+}
+
+/** Encoda cada segmento do caminho (preserva as barras que separam as "pastas"). */
+function encodeStoragePath(path: string): string {
+  return path.split("/").map(encodeURIComponent).join("/");
+}
+
+/**
+ * Gera uma URL assinada de upload absoluta — o navegador faz o PUT direto nela,
+ * sem passar pela função serverless (evita o limite de corpo de requisição do Vercel).
+ */
+export async function createSignedUploadUrl(bucket: string, path: string): Promise<string> {
+  const result = await storageFetch<{ url: string }>(
+    `/object/upload/sign/${encodeURIComponent(bucket)}/${encodeStoragePath(path)}`,
+    { method: "POST", body: JSON.stringify({}) },
+  );
+  const config = getConfig();
+  return `${config?.url ?? ""}/storage/v1${result.url}`;
+}
+
+/** Gera uma URL assinada de leitura, de curta duração, pra abrir/baixar um anexo. */
+export async function createSignedUrl(
+  bucket: string,
+  path: string,
+  expiresInSeconds: number,
+): Promise<string> {
+  const result = await storageFetch<{ signedURL: string }>(
+    `/object/sign/${encodeURIComponent(bucket)}/${encodeStoragePath(path)}`,
+    { method: "POST", body: JSON.stringify({ expiresIn: expiresInSeconds }) },
+  );
+  const config = getConfig();
+  return `${config?.url ?? ""}/storage/v1${result.signedURL}`;
+}
+
+/** Remove um objeto do Storage (usado ao excluir um anexo). */
+export async function deleteStorageObject(bucket: string, path: string): Promise<void> {
+  await storageFetch(`/object/${encodeURIComponent(bucket)}/${encodeStoragePath(path)}`, {
+    method: "DELETE",
+  });
+}

@@ -15,6 +15,7 @@ interface AppUserRow {
   password_hash: string;
   role: string;
   active: boolean;
+  tasks_access: boolean;
   created_at: string;
 }
 
@@ -24,6 +25,7 @@ export interface AppUser {
   passwordHash: string;
   role: UserRole;
   active: boolean;
+  tasksAccess: boolean;
   createdAt: string;
 }
 
@@ -34,6 +36,7 @@ function fromRow(row: AppUserRow): AppUser {
     passwordHash: row.password_hash,
     role: row.role as UserRole,
     active: row.active,
+    tasksAccess: row.tasks_access,
     createdAt: row.created_at,
   };
 }
@@ -94,6 +97,28 @@ export async function createUser(input: {
 export async function setUserActive(id: string, active: boolean): Promise<void> {
   requireSupabase();
   await supabaseUpdate("app_users", id, { active, updated_at: new Date().toISOString() });
+}
+
+export async function setUserTasksAccess(id: string, tasksAccess: boolean): Promise<void> {
+  requireSupabase();
+  await supabaseUpdate("app_users", id, {
+    tasks_access: tasksAccess,
+    updated_at: new Date().toISOString(),
+  });
+}
+
+export async function setUserRole(id: string, role: UserRole): Promise<void> {
+  requireSupabase();
+  if (role !== "super_admin") {
+    const superAdmins = await supabaseSelect<{ id: string }>("app_users", {
+      select: "id",
+      role: "eq.super_admin",
+    });
+    if (superAdmins.length === 1 && superAdmins[0]!.id === id) {
+      throw new Error("Não dá pra rebaixar o único super admin — promova outra conta antes.");
+    }
+  }
+  await supabaseUpdate("app_users", id, { role, updated_at: new Date().toISOString() });
 }
 
 export async function setUserPassword(id: string, password: string): Promise<void> {

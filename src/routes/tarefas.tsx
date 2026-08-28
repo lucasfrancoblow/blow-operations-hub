@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { ListTodo, Plus } from "lucide-react";
@@ -18,10 +18,20 @@ import { TaskBoard } from "@/components/hub/tasks/TaskBoard";
 import { TaskMobileList } from "@/components/hub/tasks/TaskMobileList";
 import { TaskDetailSheet } from "@/components/hub/tasks/TaskDetailSheet";
 import { TaskCommandPalette } from "@/components/hub/tasks/TaskCommandPalette";
-import { getTasks, reorderTasksFn, updateTaskFn } from "@/services/tasks-service";
+import { ProjectSwitcher, UNASSIGNED_PROJECT_ID } from "@/components/hub/tasks/ProjectSwitcher";
+import { listActiveUsersFn } from "@/services/auth-service";
+import { getTasks, listProjectsFn, reorderTasksFn, updateTaskFn } from "@/services/tasks-service";
 import { TASK_PRIORITIES, type Task, type TaskStatus } from "@/types/tasks";
 
 export const Route = createFileRoute("/tarefas")({
+  beforeLoad: ({ context }) => {
+    if (context.user?.role !== "admin" && !context.user?.tasksAccess) {
+      throw redirect({ to: "/" });
+    }
+  },
+  validateSearch: (search: Record<string, unknown>) => ({
+    project: typeof search["project"] === "string" ? (search["project"] as string) : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Tarefas — hubLOw BLOW" },
@@ -36,9 +46,23 @@ export const Route = createFileRoute("/tarefas")({
 
 function TarefasPage() {
   const queryClient = useQueryClient();
+  const { project: projectParam } = Route.useSearch();
+  const navigate = useNavigate({ from: "/tarefas" });
+  const selectedProject = projectParam ?? UNASSIGNED_PROJECT_ID;
+
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["tasks"],
     queryFn: () => getTasks(),
+  });
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ["task-projects"],
+    queryFn: () => listProjectsFn(),
+  });
+
+  const { data: users = [] } = useQuery({
+    queryKey: ["assignable-users"],
+    queryFn: () => listActiveUsersFn(),
   });
 
   const [search, setSearch] = useState("");
@@ -49,20 +73,23 @@ function TarefasPage() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [mobileStatus, setMobileStatus] = useState<TaskStatus>("Backlog");
 
-  const assignees = useMemo(
-    () => Array.from(new Set(tasks.map((t) => t.assignee).filter(Boolean))),
-    [tasks],
+  const scopedTasks = useMemo(
+    () =>
+      tasks.filter((t) =>
+        selectedProject === UNASSIGNED_PROJECT_ID ? !t.projectId : t.projectId === selectedProject,
+      ),
+    [tasks, selectedProject],
   );
 
   const filtered = useMemo(
     () =>
-      tasks.filter((t) => {
+      scopedTasks.filter((t) => {
         if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
-        if (assignee !== "todos" && t.assignee !== assignee) return false;
+        if (assignee !== "todos" && t.assigneeId !== assignee) return false;
         if (priority !== "todas" && t.priority !== priority) return false;
         return true;
       }),
-    [tasks, search, assignee, priority],
+    [scopedTasks, search, assignee, priority],
   );
 
   const reorderMutation = useMutation({
@@ -89,6 +116,10 @@ function TarefasPage() {
     setDetailOpen(true);
   }
 
+  function selectProject(id: string) {
+    void navigate({ to: ".", search: { project: id } });
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -100,6 +131,8 @@ function TarefasPage() {
           </Button>
         }
       />
+
+      <ProjectSwitcher projects={projects} selected={selectedProject} onSelect={selectProject} />
 
       <div className="grid gap-3 rounded-xl border border-border/60 bg-card/60 p-3 sm:grid-cols-3">
         <Input
@@ -113,9 +146,9 @@ function TarefasPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos os responsáveis</SelectItem>
-            {assignees.map((a) => (
-              <SelectItem key={a} value={a}>
-                {a}
+            {users.map((u) => (
+              <SelectItem key={u.id} value={u.id}>
+                {u.username}
               </SelectItem>
             ))}
           </SelectContent>
@@ -167,12 +200,17 @@ function TarefasPage() {
         </>
       )}
 
-      <TaskDetailSheet task={selected} open={detailOpen} onOpenChange={setDetailOpen} />
+      <TaskDetailSheet
+        task={selected}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        defaultProjectId={selectedProject === UNASSIGNED_PROJECT_ID ? null : selectedProject}
+      />
 
       <TaskCommandPalette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
-        tasks={tasks}
+        tasks={scopedTasks}
         onCreate={openCreate}
         onSelect={openTask}
       />

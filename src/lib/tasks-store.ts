@@ -1,4 +1,5 @@
-// Persistência das tarefas do backlog interno (ver supabase/migrations/0003_create_tasks.sql).
+// Persistência das tarefas do backlog interno (ver supabase/migrations/0003_create_tasks.sql,
+// 0007_create_task_projects.sql e 0008_add_task_assignee_id.sql).
 
 import {
   isSupabaseConfigured,
@@ -15,7 +16,10 @@ interface TaskRow {
   description: string;
   status: string;
   priority: string;
-  assignee: string;
+  project_id: string | null;
+  project: { id: string; name: string; color: string } | null;
+  assignee_id: string | null;
+  assignee: { id: string; username: string } | null;
   tags: string[];
   due_date: string | null;
   reference: TaskReference | null;
@@ -24,6 +28,10 @@ interface TaskRow {
   updated_at: string;
 }
 
+// Embed via PostgREST (funciona porque project_id/assignee_id são FKs de verdade):
+// já traz nome do projeto e username do responsável sem join manual no código.
+const TASK_SELECT = "*,project:task_projects(id,name,color),assignee:app_users(id,username)";
+
 function fromRow(row: TaskRow): Task {
   return {
     id: row.id,
@@ -31,7 +39,10 @@ function fromRow(row: TaskRow): Task {
     description: row.description ?? "",
     status: row.status as TaskStatus,
     priority: row.priority as TaskPriority,
-    assignee: row.assignee ?? "",
+    projectId: row.project_id,
+    project: row.project,
+    assigneeId: row.assignee_id,
+    assignee: row.assignee,
     tags: row.tags ?? [],
     dueDate: row.due_date,
     reference: row.reference,
@@ -50,7 +61,7 @@ function requireSupabase(): void {
 export async function listTasks(): Promise<Task[]> {
   if (!isSupabaseConfigured()) return [];
   const rows = await supabaseSelect<TaskRow>("tasks", {
-    select: "*",
+    select: TASK_SELECT,
     order: "position.asc,created_at.asc",
   });
   return rows.map(fromRow);
@@ -64,7 +75,8 @@ export async function createTask(input: TaskInput): Promise<void> {
       description: input.description ?? "",
       status: input.status ?? "Backlog",
       priority: input.priority ?? "Média",
-      assignee: input.assignee ?? "",
+      project_id: input.projectId ?? null,
+      assignee_id: input.assigneeId ?? null,
       tags: input.tags ?? [],
       due_date: input.dueDate ?? null,
       reference: input.reference ?? null,
@@ -79,7 +91,8 @@ export async function updateTask(id: string, patch: Partial<TaskInput>): Promise
   if (patch.description !== undefined) row["description"] = patch.description;
   if (patch.status !== undefined) row["status"] = patch.status;
   if (patch.priority !== undefined) row["priority"] = patch.priority;
-  if (patch.assignee !== undefined) row["assignee"] = patch.assignee;
+  if (patch.projectId !== undefined) row["project_id"] = patch.projectId;
+  if (patch.assigneeId !== undefined) row["assignee_id"] = patch.assigneeId;
   if (patch.tags !== undefined) row["tags"] = patch.tags;
   if (patch.dueDate !== undefined) row["due_date"] = patch.dueDate;
   if (patch.reference !== undefined) row["reference"] = patch.reference;

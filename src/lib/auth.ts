@@ -10,12 +10,16 @@ const KEY_LENGTH = 64;
 const SESSION_COOKIE_NAME = "blow_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 dias
 
-export type UserRole = "admin" | "member";
+// super_admin: só quem gerencia usuários (tela "Usuários") — hoje só lucas.franco.
+// admin: papel intermediário, mantém os outros privilégios que já tinha (ex.: ver
+// a aba Tarefas mesmo sem tasks_access), mas não acessa mais a tela "Usuários".
+export type UserRole = "super_admin" | "admin" | "member";
 
 export interface SessionUser {
   id: string;
   username: string;
   role: UserRole;
+  tasksAccess: boolean;
 }
 
 export function hashPassword(password: string): string {

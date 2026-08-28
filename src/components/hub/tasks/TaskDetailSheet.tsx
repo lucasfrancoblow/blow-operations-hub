@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { Loader2, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -22,27 +22,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createTaskFn, deleteTaskFn, updateTaskFn } from "@/services/tasks-service";
+import { cn } from "@/lib/utils";
+import { listActiveUsersFn } from "@/services/auth-service";
+import { createTaskFn, deleteTaskFn, listProjectsFn, updateTaskFn } from "@/services/tasks-service";
 import { suggestPriorityFn, suggestSubtasksFn, summarizeTaskFn } from "@/services/tasks-ai-service";
+import { TaskAttachments } from "@/components/hub/tasks/TaskAttachments";
+import { UNASSIGNED_PROJECT_ID, projectColorDot } from "@/components/hub/tasks/ProjectSwitcher";
 import { TASK_PRIORITIES, TASK_STATUSES, type Task, type TaskInput } from "@/types/tasks";
+
+const UNASSIGNED_USER_ID = "none";
 
 type FormState = {
   title: string;
   description: string;
   status: Task["status"];
   priority: Task["priority"];
-  assignee: string;
+  projectId: string;
+  assigneeId: string;
   tags: string;
   dueDate: string;
 };
 
-function toFormState(task: Task | null): FormState {
+function toFormState(task: Task | null, defaultProjectId: string | null): FormState {
   return {
     title: task?.title ?? "",
     description: task?.description ?? "",
     status: task?.status ?? "Backlog",
     priority: task?.priority ?? "Média",
-    assignee: task?.assignee ?? "",
+    projectId: (task ? task.projectId : defaultProjectId) ?? UNASSIGNED_PROJECT_ID,
+    assigneeId: task?.assigneeId ?? UNASSIGNED_USER_ID,
     tags: task?.tags.join(", ") ?? "",
     dueDate: task?.dueDate ? task.dueDate.slice(0, 10) : "",
   };
@@ -54,7 +62,8 @@ function toInput(form: FormState): TaskInput {
     description: form.description.trim(),
     status: form.status,
     priority: form.priority,
-    assignee: form.assignee.trim(),
+    projectId: form.projectId === UNASSIGNED_PROJECT_ID ? null : form.projectId,
+    assigneeId: form.assigneeId === UNASSIGNED_USER_ID ? null : form.assigneeId,
     tags: form.tags
       .split(",")
       .map((t) => t.trim())
@@ -67,13 +76,27 @@ export function TaskDetailSheet({
   task,
   open,
   onOpenChange,
+  defaultProjectId = null,
 }: {
   task: Task | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  defaultProjectId?: string | null;
 }) {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState<FormState>(() => toFormState(task));
+  const [form, setForm] = useState<FormState>(() => toFormState(task, defaultProjectId));
+
+  const { data: users = [] } = useQuery({
+    queryKey: ["assignable-users"],
+    queryFn: () => listActiveUsersFn(),
+    enabled: open,
+  });
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ["task-projects"],
+    queryFn: () => listProjectsFn(),
+    enabled: open,
+  });
   const [subtasks, setSubtasks] = useState<string[]>([]);
   const [priorityHint, setPriorityHint] = useState<{
     priority: string;
@@ -83,12 +106,12 @@ export function TaskDetailSheet({
 
   useEffect(() => {
     if (open) {
-      setForm(toFormState(task));
+      setForm(toFormState(task, defaultProjectId));
       setSubtasks([]);
       setPriorityHint(null);
       setSummary(null);
     }
-  }, [open, task]);
+  }, [open, task, defaultProjectId]);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
@@ -228,13 +251,49 @@ export function TaskDetailSheet({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Responsável</label>
-              <Input
-                value={form.assignee}
-                onChange={(e) => setForm((f) => ({ ...f, assignee: e.target.value }))}
-                placeholder="Nome"
-              />
+              <label className="text-xs font-medium text-muted-foreground">Projeto</label>
+              <Select
+                value={form.projectId}
+                onValueChange={(v) => setForm((f) => ({ ...f, projectId: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={UNASSIGNED_PROJECT_ID}>Sem projeto</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      <span className="flex items-center gap-2">
+                        <span className={cn("h-2 w-2 rounded-full", projectColorDot(p.color))} />
+                        {p.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Responsável</label>
+              <Select
+                value={form.assigneeId}
+                onValueChange={(v) => setForm((f) => ({ ...f, assigneeId: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={UNASSIGNED_USER_ID}>Ninguém</SelectItem>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.username}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Prazo</label>
               <Input
@@ -243,20 +302,26 @@ export function TaskDetailSheet({
                 onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
               />
             </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">
-              Tags (separadas por vírgula)
-            </label>
-            <Input
-              value={form.tags}
-              onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
-              placeholder="automação, sdr, bug"
-            />
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Tags (separadas por vírgula)
+              </label>
+              <Input
+                value={form.tags}
+                onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
+                placeholder="automação, sdr, bug"
+              />
+            </div>
           </div>
 
           <Separator />
+
+          {isEditing && task ? (
+            <>
+              <TaskAttachments taskId={task.id} />
+              <Separator />
+            </>
+          ) : null}
 
           <section className="space-y-3 rounded-lg border border-primary/25 bg-primary/[0.04] p-3">
             <h4 className="flex items-center gap-1.5 text-sm font-semibold text-primary">
