@@ -67,6 +67,16 @@ export async function listTasks(): Promise<Task[]> {
   return rows.map(fromRow);
 }
 
+export async function getTask(id: string): Promise<Task | null> {
+  if (!isSupabaseConfigured()) return null;
+  const rows = await supabaseSelect<TaskRow>("tasks", {
+    select: TASK_SELECT,
+    id: `eq.${id}`,
+    limit: "1",
+  });
+  return rows[0] ? fromRow(rows[0]) : null;
+}
+
 export async function createTask(input: TaskInput): Promise<void> {
   requireSupabase();
   await supabaseUpsert("tasks", [

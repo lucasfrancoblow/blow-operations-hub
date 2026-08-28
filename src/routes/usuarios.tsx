@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { KeyRound } from "lucide-react";
+import { KeyRound, UserPen } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -10,6 +10,7 @@ import {
   resetPasswordFn,
   setTasksAccessFn,
   setUserActiveFn,
+  setUserProfileFn,
   setUserRoleFn,
 } from "@/services/auth-service";
 import type { UserRole } from "@/lib/auth";
@@ -64,16 +65,26 @@ function UsuariosPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>("member");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [resetTarget, setResetTarget] = useState<{ id: string; username: string } | null>(null);
   const [newPassword, setNewPassword] = useState("");
+  const [profileTarget, setProfileTarget] = useState<{ id: string; username: string } | null>(null);
+  const [profileFullName, setProfileFullName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profilePhone, setProfilePhone] = useState("");
 
   const createMutation = useMutation({
-    mutationFn: () => createUserFn({ data: { username, password, role } }),
+    mutationFn: () => createUserFn({ data: { username, password, role, fullName, email, phone } }),
     onSuccess: () => {
       toast.success(`Usuário "${username}" criado.`);
       setUsername("");
       setPassword("");
       setRole("member");
+      setFullName("");
+      setEmail("");
+      setPhone("");
       queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
     },
     onError: (error: Error) => toast.error(error.message),
@@ -107,6 +118,24 @@ function UsuariosPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const profileMutation = useMutation({
+    mutationFn: () =>
+      setUserProfileFn({
+        data: {
+          id: profileTarget!.id,
+          fullName: profileFullName,
+          email: profileEmail,
+          phone: profilePhone,
+        },
+      }),
+    onSuccess: () => {
+      toast.success(`Contato de "${profileTarget?.username}" atualizado.`);
+      setProfileTarget(null);
+      queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   function handleCreate(e: FormEvent) {
     e.preventDefault();
     if (!username.trim() || !password) return;
@@ -122,7 +151,7 @@ function UsuariosPage() {
 
       <FadeIn className="space-y-6">
         <SectionCard title="Novo usuário">
-          <form onSubmit={handleCreate} className="grid gap-4 sm:grid-cols-[1fr_1fr_160px_auto]">
+          <form onSubmit={handleCreate} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1.5">
               <Label htmlFor="new-username">Usuário</Label>
               <Input
@@ -130,6 +159,34 @@ function UsuariosPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="nome.sobrenome"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-fullname">Nome</Label>
+              <Input
+                id="new-fullname"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Nome completo"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-email">E-mail</Label>
+              <Input
+                id="new-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="pra receber notificações"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-phone">Telefone</Label>
+              <Input
+                id="new-phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="opcional"
               />
             </div>
             <div className="space-y-1.5">
@@ -154,7 +211,7 @@ function UsuariosPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-end">
+            <div className="flex items-end sm:col-span-2 lg:col-span-2">
               <Button type="submit" disabled={createMutation.isPending} className="w-full">
                 Criar
               </Button>
@@ -180,7 +237,14 @@ function UsuariosPage() {
               <TableBody>
                 {(users ?? []).map((u) => (
                   <TableRow key={u.id}>
-                    <TableCell className="font-medium">{u.username}</TableCell>
+                    <TableCell className="font-medium">
+                      {u.username}
+                      {(u.fullName || u.email) && (
+                        <p className="text-xs font-normal text-muted-foreground">
+                          {[u.fullName, u.email].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Select
                         value={u.role}
@@ -223,6 +287,19 @@ function UsuariosPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => {
+                          setProfileTarget({ id: u.id, username: u.username });
+                          setProfileFullName(u.fullName ?? "");
+                          setProfileEmail(u.email ?? "");
+                          setProfilePhone(u.phone ?? "");
+                        }}
+                      >
+                        <UserPen className="mr-1.5 h-3.5 w-3.5" />
+                        Editar contato
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
                           setResetTarget({ id: u.id, username: u.username });
                           setNewPassword("");
                         }}
@@ -260,6 +337,50 @@ function UsuariosPage() {
               disabled={!newPassword || resetPasswordMutation.isPending}
             >
               Salvar nova senha
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={profileTarget !== null}
+        onOpenChange={(open) => !open && setProfileTarget(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar contato de {profileTarget?.username}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="profile-fullname">Nome</Label>
+              <Input
+                id="profile-fullname"
+                value={profileFullName}
+                onChange={(e) => setProfileFullName(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="profile-email">E-mail</Label>
+              <Input
+                id="profile-email"
+                type="email"
+                value={profileEmail}
+                onChange={(e) => setProfileEmail(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="profile-phone">Telefone</Label>
+              <Input
+                id="profile-phone"
+                value={profilePhone}
+                onChange={(e) => setProfilePhone(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => profileMutation.mutate()} disabled={profileMutation.isPending}>
+              Salvar
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -16,6 +16,9 @@ interface AppUserRow {
   role: string;
   active: boolean;
   tasks_access: boolean;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
   created_at: string;
 }
 
@@ -26,6 +29,9 @@ export interface AppUser {
   role: UserRole;
   active: boolean;
   tasksAccess: boolean;
+  fullName: string | null;
+  email: string | null;
+  phone: string | null;
   createdAt: string;
 }
 
@@ -37,6 +43,9 @@ function fromRow(row: AppUserRow): AppUser {
     role: row.role as UserRole,
     active: row.active,
     tasksAccess: row.tasks_access,
+    fullName: row.full_name,
+    email: row.email,
+    phone: row.phone,
     createdAt: row.created_at,
   };
 }
@@ -70,10 +79,23 @@ export async function listUsers(): Promise<AppUser[]> {
   return rows.map(fromRow);
 }
 
+export async function findUserById(id: string): Promise<AppUser | null> {
+  if (!isSupabaseConfigured()) return null;
+  const rows = await supabaseSelect<AppUserRow>("app_users", {
+    select: "*",
+    id: `eq.${id}`,
+    limit: "1",
+  });
+  return rows[0] ? fromRow(rows[0]) : null;
+}
+
 export async function createUser(input: {
   username: string;
   password: string;
   role: UserRole;
+  fullName?: string | undefined;
+  email?: string | undefined;
+  phone?: string | undefined;
 }): Promise<AppUser> {
   requireSupabase();
   const username = normalizeUsername(input.username);
@@ -87,11 +109,27 @@ export async function createUser(input: {
       password_hash: hashPassword(input.password),
       role: input.role,
       active: true,
+      full_name: input.fullName?.trim() || null,
+      email: input.email?.trim() || null,
+      phone: input.phone?.trim() || null,
     },
   ]);
   const created = await findUserByUsername(username);
   if (!created) throw new Error("Usuário criado, mas não foi possível recarregá-lo.");
   return created;
+}
+
+export async function setUserProfile(
+  id: string,
+  patch: { fullName?: string | undefined; email?: string | undefined; phone?: string | undefined },
+): Promise<void> {
+  requireSupabase();
+  await supabaseUpdate("app_users", id, {
+    full_name: patch.fullName?.trim() || null,
+    email: patch.email?.trim() || null,
+    phone: patch.phone?.trim() || null,
+    updated_at: new Date().toISOString(),
+  });
 }
 
 export async function setUserActive(id: string, active: boolean): Promise<void> {

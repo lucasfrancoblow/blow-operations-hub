@@ -12,6 +12,7 @@ import {
   listUsers,
   setUserActive,
   setUserPassword,
+  setUserProfile,
   setUserRole,
   setUserTasksAccess,
 } from "@/lib/users-store";
@@ -86,16 +87,42 @@ export const listUsersFn = createServerFn({ method: "GET" }).handler(async () =>
     role: u.role,
     active: u.active,
     tasksAccess: u.tasksAccess,
+    fullName: u.fullName,
+    email: u.email,
+    phone: u.phone,
     createdAt: u.createdAt,
   }));
 });
 
+interface CreateUserInput {
+  username: string;
+  password: string;
+  role: UserRole;
+  fullName?: string | undefined;
+  email?: string | undefined;
+  phone?: string | undefined;
+}
+
 export const createUserFn = createServerFn({ method: "POST" })
-  .validator((input: { username: string; password: string; role: UserRole }) => input)
+  .validator((input: CreateUserInput) => input)
   .handler(async ({ data }) => {
     await requireSuperAdmin();
     const created = await createUser(data);
     return { id: created.id, username: created.username, role: created.role };
+  });
+
+export const setUserProfileFn = createServerFn({ method: "POST" })
+  .validator(
+    (input: {
+      id: string;
+      fullName?: string | undefined;
+      email?: string | undefined;
+      phone?: string | undefined;
+    }) => input,
+  )
+  .handler(async ({ data }) => {
+    await requireSuperAdmin();
+    await setUserProfile(data.id, data);
   });
 
 export const setUserActiveFn = createServerFn({ method: "POST" })
