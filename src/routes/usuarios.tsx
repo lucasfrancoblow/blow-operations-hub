@@ -13,6 +13,12 @@ import {
   setUserProfileFn,
   setUserRoleFn,
 } from "@/services/auth-service";
+import {
+  grantProjectAccessFn,
+  listProjectsFn,
+  listUserProjectAccessFn,
+  revokeProjectAccessFn,
+} from "@/services/tasks-service";
 import type { UserRole } from "@/lib/auth";
 import { PAGE_KEYS, PAGE_LABELS, type PageKey } from "@/lib/page-access";
 import { PageHeader, SectionCard } from "@/components/hub/primitives";
@@ -72,15 +78,15 @@ function UsuariosPage() {
   const [phone, setPhone] = useState("");
   const [resetTarget, setResetTarget] = useState<{ id: string; username: string } | null>(null);
   const [newPassword, setNewPassword] = useState("");
-  const [profileTarget, setProfileTarget] = useState<{ id: string; username: string } | null>(null);
+  const [profileTarget, setProfileTarget] = useState<{
+    id: string;
+    username: string;
+    role: UserRole;
+    pageAccess: string[];
+  } | null>(null);
   const [profileFullName, setProfileFullName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
   const [profilePhone, setProfilePhone] = useState("");
-  const [accessTarget, setAccessTarget] = useState<{
-    id: string;
-    username: string;
-    pageAccess: string[];
-  } | null>(null);
 
   const createMutation = useMutation({
     mutationFn: () => createUserFn({ data: { username, password, role, fullName, email, phone } }),
@@ -111,13 +117,37 @@ function UsuariosPage() {
   });
 
   function togglePageAccess(key: PageKey, checked: boolean) {
-    if (!accessTarget) return;
+    if (!profileTarget) return;
     const next = checked
-      ? [...accessTarget.pageAccess, key]
-      : accessTarget.pageAccess.filter((p) => p !== key);
-    setAccessTarget({ ...accessTarget, pageAccess: next });
-    pageAccessMutation.mutate({ id: accessTarget.id, pageAccess: next });
+      ? [...profileTarget.pageAccess, key]
+      : profileTarget.pageAccess.filter((p) => p !== key);
+    setProfileTarget({ ...profileTarget, pageAccess: next });
+    pageAccessMutation.mutate({ id: profileTarget.id, pageAccess: next });
   }
+
+  const isEditingMember = profileTarget?.role === "member" || profileTarget?.role === "external";
+
+  const { data: allProjects = [] } = useQuery({
+    queryKey: ["task-projects"],
+    queryFn: () => listProjectsFn(),
+    enabled: isEditingMember,
+  });
+
+  const { data: memberProjectIds = [] } = useQuery({
+    queryKey: ["user-project-access", profileTarget?.id],
+    queryFn: () => listUserProjectAccessFn({ data: { userId: profileTarget!.id } }),
+    enabled: isEditingMember,
+  });
+
+  const projectAccessMutation = useMutation({
+    mutationFn: ({ projectId, grant }: { projectId: string; grant: boolean }) =>
+      grant
+        ? grantProjectAccessFn({ data: { projectId, userId: profileTarget!.id } })
+        : revokeProjectAccessFn({ data: { projectId, userId: profileTarget!.id } }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["user-project-access", profileTarget?.id] }),
+    onError: (error: Error) => toast.error(`Não foi possível atualizar o acesso: ${error.message}`),
+  });
 
   const changeRoleMutation = useMutation({
     mutationFn: (input: { id: string; role: UserRole }) => setUserRoleFn({ data: input }),
@@ -224,6 +254,7 @@ function UsuariosPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="member">Membro</SelectItem>
+                  <SelectItem value="external">Externo</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
@@ -274,6 +305,7 @@ function UsuariosPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="member">Membro</SelectItem>
+                          <SelectItem value="external">Externo</SelectItem>
                           <SelectItem value="admin">Admin</SelectItem>
                           <SelectItem value="super_admin">Super admin</SelectItem>
                         </SelectContent>
@@ -288,23 +320,11 @@ function UsuariosPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      {u.role === "admin" || u.role === "super_admin" ? (
-                        <span className="text-xs text-muted-foreground">Todas (papel)</span>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            setAccessTarget({
-                              id: u.id,
-                              username: u.username,
-                              pageAccess: u.pageAccess,
-                            })
-                          }
-                        >
-                          {u.pageAccess.length} aba{u.pageAccess.length === 1 ? "" : "s"}
-                        </Button>
-                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {u.role === "admin" || u.role === "super_admin"
+                          ? "Todas (papel)"
+                          : `${u.pageAccess.length} aba${u.pageAccess.length === 1 ? "" : "s"}`}
+                      </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {new Date(u.createdAt).toLocaleDateString("pt-BR")}
@@ -314,14 +334,19 @@ function UsuariosPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          setProfileTarget({ id: u.id, username: u.username });
+                          setProfileTarget({
+                            id: u.id,
+                            username: u.username,
+                            role: u.role,
+                            pageAccess: u.pageAccess,
+                          });
                           setProfileFullName(u.fullName ?? "");
                           setProfileEmail(u.email ?? "");
                           setProfilePhone(u.phone ?? "");
                         }}
                       >
                         <UserPen className="mr-1.5 h-3.5 w-3.5" />
-                        Editar contato
+                        Editar perfil
                       </Button>
                       <Button
                         variant="ghost"
@@ -373,9 +398,9 @@ function UsuariosPage() {
         open={profileTarget !== null}
         onOpenChange={(open) => !open && setProfileTarget(null)}
       >
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Editar contato de {profileTarget?.username}</DialogTitle>
+            <DialogTitle>Editar perfil de {profileTarget?.username}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
@@ -404,34 +429,59 @@ function UsuariosPage() {
                 onChange={(e) => setProfilePhone(e.target.value)}
               />
             </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => profileMutation.mutate()} disabled={profileMutation.isPending}>
-              Salvar
+            <Button
+              size="sm"
+              onClick={() => profileMutation.mutate()}
+              disabled={profileMutation.isPending}
+            >
+              Salvar contato
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={accessTarget !== null} onOpenChange={(open) => !open && setAccessTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Abas de {accessTarget?.username}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2 py-2">
-            {PAGE_KEYS.map((key) => (
-              <label
-                key={key}
-                className="flex items-center gap-2.5 rounded-md px-1.5 py-1 hover:bg-muted/60"
-              >
-                <Checkbox
-                  checked={accessTarget?.pageAccess.includes(key) ?? false}
-                  onCheckedChange={(checked) => togglePageAccess(key, checked === true)}
-                />
-                <span className="text-sm">{PAGE_LABELS[key]}</span>
-              </label>
-            ))}
           </div>
+
+          {isEditingMember && (
+            <>
+              <div className="space-y-2 border-t border-border/60 pt-4">
+                <Label>Abas que ele vê</Label>
+                {PAGE_KEYS.map((key) => (
+                  <label
+                    key={key}
+                    className="flex items-center gap-2.5 rounded-md px-1.5 py-1 hover:bg-muted/60"
+                  >
+                    <Checkbox
+                      checked={profileTarget?.pageAccess.includes(key) ?? false}
+                      onCheckedChange={(checked) => togglePageAccess(key, checked === true)}
+                    />
+                    <span className="text-sm">{PAGE_LABELS[key]}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="space-y-2 border-t border-border/60 pt-4">
+                <Label>Projetos de Tarefas que ele vê</Label>
+                {allProjects.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum projeto criado ainda.</p>
+                ) : (
+                  allProjects.map((project) => (
+                    <label
+                      key={project.id}
+                      className="flex items-center gap-2.5 rounded-md px-1.5 py-1 hover:bg-muted/60"
+                    >
+                      <Checkbox
+                        checked={memberProjectIds.includes(project.id)}
+                        onCheckedChange={(checked) =>
+                          projectAccessMutation.mutate({
+                            projectId: project.id,
+                            grant: checked === true,
+                          })
+                        }
+                      />
+                      <span className="text-sm">{project.name}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>

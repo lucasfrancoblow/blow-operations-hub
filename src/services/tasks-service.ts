@@ -15,6 +15,7 @@ import { createTaskProject, listTaskProjects, updateTaskProject } from "@/lib/ta
 import {
   accessibleProjectIdsFor,
   grantProjectAccess,
+  listAccessibleProjectIds,
   listProjectMemberIds,
   revokeProjectAccess,
 } from "@/lib/task-project-access-store";
@@ -133,6 +134,15 @@ export const listProjectMembersFn = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     await requireProjectManager();
     return listProjectMemberIds(data.projectId);
+  });
+
+/** Ids de projeto liberados pra um usuário específico — usado na tela
+ * "Usuários" pra montar o checklist de projetos dentro de "Editar perfil". */
+export const listUserProjectAccessFn = createServerFn({ method: "GET" })
+  .validator((input: { userId: string }) => input)
+  .handler(async ({ data }) => {
+    await requireProjectManager();
+    return listAccessibleProjectIds(data.userId);
   });
 
 export const grantProjectAccessFn = createServerFn({ method: "POST" })

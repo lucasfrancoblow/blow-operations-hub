@@ -13,7 +13,17 @@ const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 dias
 // super_admin: só quem gerencia usuários (tela "Usuários") — hoje só lucas.franco.
 // admin: papel intermediário — sempre vê todas as abas e todos os projetos de
 // Tarefas (bypassa page_access/task_project_access), mas não acessa "Usuários".
-export type UserRole = "super_admin" | "admin" | "member";
+// member/external: mesma restrição granular (page_access + acesso por projeto) —
+// "external" é só uma etiqueta pra separar time interno de fornecedor/terceiro na
+// tela "Usuários"; não muda nenhuma regra de permissão.
+export type UserRole = "super_admin" | "admin" | "member" | "external";
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  super_admin: "Super admin",
+  admin: "Admin",
+  member: "Membro",
+  external: "Externo",
+};
 
 export interface SessionUser {
   id: string;

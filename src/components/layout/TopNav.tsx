@@ -22,7 +22,7 @@ import { toast } from "sonner";
 
 import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
-import type { SessionUser } from "@/lib/auth";
+import { ROLE_LABELS, type SessionUser } from "@/lib/auth";
 import { canAccessPage, type PageKey } from "@/lib/page-access";
 import { logoutFn } from "@/services/auth-service";
 import { Button } from "@/components/ui/button";
@@ -192,12 +192,7 @@ export function TopNav({ user }: { user: SessionUser }) {
               <DropdownMenuLabel>
                 <p className="text-sm font-medium">{user.username}</p>
                 <p className="text-xs font-normal text-muted-foreground">
-                  {user.role === "super_admin"
-                    ? "Super admin"
-                    : user.role === "admin"
-                      ? "Admin"
-                      : "Membro"}{" "}
-                  · BLOW
+                  {ROLE_LABELS[user.role]} · BLOW
                 </p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
