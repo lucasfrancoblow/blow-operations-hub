@@ -3,6 +3,7 @@ import { useState } from "react";
 import {
   AlertTriangle,
   Bell,
+  Headphones,
   Inbox,
   LayoutDashboard,
   ListTodo,
@@ -39,6 +40,7 @@ const NAV_ITEMS = [
   { title: "Visão geral", url: "/", icon: LayoutDashboard, exact: true },
   { title: "Radar de Leads", url: "/leads-recentes", icon: Inbox },
   { title: "Funil de MKT", url: "/funil-marketing", icon: TrendingUp },
+  { title: "Daily Expansão", url: "/daily-expansao", icon: Headphones },
   { title: "Automações", url: "/automacoes", icon: Workflow },
   { title: "Incidentes", url: "/incidentes", icon: AlertTriangle },
   { title: "Tarefas", url: "/tarefas", icon: ListTodo },
