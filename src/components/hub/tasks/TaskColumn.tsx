@@ -7,6 +7,7 @@ import { TaskCard } from "@/components/hub/tasks/TaskCard";
 import type { Task, TaskStatus } from "@/types/tasks";
 
 export const STATUS_DOT: Record<TaskStatus, string> = {
+  "Aguardando aceite": "bg-primary",
   Backlog: "bg-muted-foreground",
   "Em andamento": "bg-info",
   Bloqueado: "bg-critical",

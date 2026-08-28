@@ -111,6 +111,7 @@ export function TaskPriorityBadge({ value }: { value: TaskPriority }) {
 
 export function TaskStatusBadge({ value }: { value: TaskStatus }) {
   const map: Record<TaskStatus, Tone> = {
+    "Aguardando aceite": "brand",
     Backlog: "neutral",
     "Em andamento": "info",
     Bloqueado: "critical",

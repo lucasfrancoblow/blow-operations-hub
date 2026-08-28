@@ -14,11 +14,18 @@ function isAdminLike(role: string): boolean {
   return role === "admin" || role === "super_admin";
 }
 
-/** Avisa admin/super_admin com e-mail cadastrado que um chamado novo chegou
- * (best-effort — sendEmail nunca lança). */
+// Endereço fixo do time de suporte — recebe todo chamado novo além de
+// admin/super_admin com e-mail cadastrado. Mesmo Resend/domínio já configurado
+// (RESEND_API_KEY/RESEND_FROM_EMAIL): enviar pra outro endereço não exige conta nova.
+const SUPPORT_INBOX_EMAIL = "suporte@meublow.com.br";
+
+/** Avisa admin/super_admin com e-mail cadastrado (+ SUPPORT_INBOX_EMAIL) que um
+ * chamado novo chegou (best-effort — sendEmail nunca lança). */
 async function notifyAdminsOfNewTicket(ticket: Ticket, task: Task): Promise<void> {
   const users = await listUsers();
-  const recipients = users.filter((u) => isAdminLike(u.role) && u.email);
+  const adminEmails = users.filter((u) => isAdminLike(u.role) && u.email).map((u) => u.email!);
+  const recipients = [...new Set([...adminEmails, SUPPORT_INBOX_EMAIL])];
+
   const projectLine = task.project
     ? ` no projeto <strong>${escapeHtml(task.project.name)}</strong>`
     : "";
@@ -26,9 +33,9 @@ async function notifyAdminsOfNewTicket(ticket: Ticket, task: Task): Promise<void
     ? escapeHtml(task.description).replace(/\n/g, "<br>")
     : "Sem descrição.";
   await Promise.all(
-    recipients.map((u) =>
+    recipients.map((to) =>
       sendEmail({
-        to: u.email!,
+        to,
         subject: `Novo chamado #${ticket.ticketNumber}: ${task.title}`,
         html: `
           <p>Novo chamado aberto por ${escapeHtml(ticket.requesterName)}${projectLine}.</p>
@@ -38,6 +45,21 @@ async function notifyAdminsOfNewTicket(ticket: Ticket, task: Task): Promise<void
       }),
     ),
   );
+}
+
+/** Confirma pro próprio solicitante que o chamado foi recebido (best-effort —
+ * sendEmail nunca lança). Só dispara se ele informou e-mail. */
+async function notifyRequesterOfNewTicket(ticket: Ticket, task: Task): Promise<void> {
+  if (!ticket.requesterEmail) return;
+  await sendEmail({
+    to: ticket.requesterEmail,
+    subject: `Recebemos seu chamado #${ticket.ticketNumber}: ${task.title}`,
+    html: `
+      <p>Olá, ${escapeHtml(ticket.requesterName)}.</p>
+      <p>Seu chamado <strong>#${ticket.ticketNumber} — ${escapeHtml(task.title)}</strong> foi recebido e nossa equipe já foi avisada.</p>
+      <p>Você pode acompanhar o andamento pela aba Chamados no hubLOw.</p>
+    `,
+  });
 }
 
 export const createTicketFn = createServerFn({ method: "POST" })
@@ -53,6 +75,7 @@ export const createTicketFn = createServerFn({ method: "POST" })
       title: data.title,
       description: data.description,
       projectId: data.projectId,
+      status: "Aguardando aceite",
     });
 
     const ticket = await createTicket({
@@ -68,6 +91,7 @@ export const createTicketFn = createServerFn({ method: "POST" })
     });
 
     await notifyAdminsOfNewTicket(ticket, task);
+    await notifyRequesterOfNewTicket(ticket, task);
 
     return ticket;
   });

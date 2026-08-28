@@ -9,7 +9,6 @@ import {
   ListTodo,
   Menu,
   Moon,
-  Search,
   Sun,
   Ticket,
   TrendingUp,
@@ -26,7 +25,6 @@ import { cn } from "@/lib/utils";
 import type { SessionUser } from "@/lib/auth";
 import { canAccessPage, type PageKey } from "@/lib/page-access";
 import { logoutFn } from "@/services/auth-service";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -148,13 +146,13 @@ export function TopNav({ user }: { user: SessionUser }) {
           </div>
         </Link>
 
-        <nav className="hidden items-center gap-1 rounded-full bg-muted/50 p-1 lg:flex">
+        <nav className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-full bg-muted/50 p-1 lg:flex">
           <NavPills user={user} />
         </nav>
 
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="shrink-0 lg:hidden">
+            <Button variant="ghost" size="icon" className="ml-auto shrink-0 lg:hidden">
               <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
@@ -166,18 +164,7 @@ export function TopNav({ user }: { user: SessionUser }) {
           </SheetContent>
         </Sheet>
 
-        <div className="relative ml-auto hidden w-full max-w-xs md:block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Buscar automações, incidentes..."
-            className="h-9 rounded-full border-border/60 bg-muted/40 pl-9"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") toast.info("Busca global disponível na próxima etapa.");
-            }}
-          />
-        </div>
-
-        <div className="ml-auto flex items-center gap-1 md:ml-2">
+        <div className="flex shrink-0 items-center gap-1">
           <ThemeToggle />
 
           <Button

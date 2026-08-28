@@ -1,13 +1,15 @@
 // Tipos de domínio da ferramenta de Tarefas/Backlog interna do hub.
 // Espelha supabase/migrations/0003_create_tasks.sql.
 
-export type TaskStatus = "Backlog" | "Em andamento" | "Bloqueado" | "Em revisão" | "Concluído";
+export type TaskStatus =
+  "Aguardando aceite" | "Backlog" | "Em andamento" | "Bloqueado" | "Em revisão" | "Concluído";
 
 export type TaskPriority = "Baixa" | "Média" | "Alta" | "Crítica";
 
 export type TaskReferenceType = "lead" | "incidente" | "chamado";
 
 export const TASK_STATUSES: TaskStatus[] = [
+  "Aguardando aceite",
   "Backlog",
   "Em andamento",
   "Bloqueado",
