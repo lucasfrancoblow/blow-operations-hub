@@ -18,10 +18,13 @@ export interface AdMetricRow {
   visitas_lp: number | null;
 }
 
-/** Mesmo agrupamento de canal usado no Funil de Marketing — casos especiais de nome de
- * campanha (Rapha Mattos) prevalecem sobre o canal bruto (meta/google). */
+/** Mesmo agrupamento de canal usado no Funil de Marketing. O investimento de campanhas
+ * "Rapha Mattos" fica dentro do canal bruto (Facebook Ads/Google) — é assim que o time
+ * fecha a conta na planilha "Indicadores Expansão" (confirmado em 2026-08-28: o total
+ * de Facebook Ads inclui o gasto do Rapha Mattos, não é subtraído dele). O funil de
+ * leads do Rapha Mattos continua separado, mas isso é por pipeline no CRM (ver
+ * `channelFor` em funil-marketing.tsx), não por nome de campanha aqui. */
 export function adChannelFor(row: AdMetricRow): string {
-  if ((row.campanha ?? "").toUpperCase().includes("RAPHA-MATTOS")) return "Rapha Mattos";
   if (row.canal === "meta") return "Facebook Ads";
   if (row.canal === "google") return "Google";
   return "Outros";

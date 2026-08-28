@@ -51,6 +51,18 @@ const CHANNEL_COLOR: Record<(typeof CHANNEL_ORDER)[number], string> = {
   Outros: "var(--color-chart-5)",
 };
 
+// Só o funil de expansão/franquia entra aqui — Blow Academy, Sucesso do Franqueado e
+// Implantação também vivem no PipeRun mas são outras iniciativas (curso, franqueado já
+// ativo, onboarding pós-venda), não geração de lead de expansão. Sem esse filtro o
+// "Novos Leads" do Geral contava tudo isso junto — confirmado contra a planilha
+// "Leadings Semanais" pra semana de 20-26/08/2026 (149 negócios no PipeRun no total,
+// 117 só nesses dois funis, 116 na planilha do time).
+const MARKETING_FUNNEL_PIPELINES = new Set(["PRÉ VENDAS", "EXPANSÃO CLOSER", "FUNIL RAPHA MATTOS"]);
+
+function isMarketingFunnelLead(lead: LeadRecente): boolean {
+  return MARKETING_FUNNEL_PIPELINES.has(lead.pipelineName.toUpperCase());
+}
+
 function channelFor(lead: LeadRecente): string {
   if (lead.pipelineName.toLowerCase().includes("rapha mattos")) return "Rapha Mattos";
   if (lead.origin === "Meta (pago)") return "Facebook Ads";
@@ -69,10 +81,15 @@ function addDaysIso(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function mondayOf(dateStr: string): string {
+// O time fecha a semana de quinta a quarta (não segunda a domingo) — conferido contra
+// os rótulos de semana da planilha "Indicadores Expansão" (ex: "13-19", "20-26" de
+// agosto/2026 começam sempre numa quinta). Colunas em Seg-Dom faziam o dashboard
+// mostrar total semanal diferente do que o time via na planilha de referência, mesmo
+// com o dado diário batendo certinho.
+function thursdayOf(dateStr: string): string {
   const d = new Date(`${dateStr}T00:00:00Z`);
-  const day = d.getUTCDay() || 7;
-  return addDaysIso(dateStr, -(day - 1));
+  const day = (d.getUTCDay() - 4 + 7) % 7; // dias desde a última quinta-feira (getUTCDay: Qui=4)
+  return addDaysIso(dateStr, -day);
 }
 
 function fmtDM(iso: string): string {
@@ -94,17 +111,17 @@ function clampRange(inner: DateRange, outer: DateRange): DateRange {
   return clamped.from > clamped.to ? outer : clamped;
 }
 
-/** Colunas semana a semana (segunda a domingo), recortadas nas pontas pro range
- * escolhido de verdade — sem isso, a 1ª/última coluna mostrava dias de fora do
+/** Colunas semana a semana (quinta a quarta, ver thursdayOf), recortadas nas pontas pro
+ * range escolhido de verdade — sem isso, a 1ª/última coluna mostrava dias de fora do
  * período selecionado (ex: escolher 01–19/08 e ver rótulo indo até 23/08, que nem
  * tinha acontecido ainda). */
 function buildWeekColumns(range: DateRange): Array<{ key: string; label: string; days: string[] }> {
   const columns: Array<{ key: string; label: string; days: string[] }> = [];
-  let cursor = mondayOf(range.from);
+  let cursor = thursdayOf(range.from);
   while (cursor <= range.to) {
-    const weekSunday = addDaysIso(cursor, 6);
+    const weekEnd = addDaysIso(cursor, 6);
     const spanStart = cursor < range.from ? range.from : cursor;
-    const spanEnd = weekSunday > range.to ? range.to : weekSunday;
+    const spanEnd = weekEnd > range.to ? range.to : weekEnd;
     const days: string[] = [];
     for (let d = spanStart; d <= spanEnd; d = addDaysIso(d, 1)) days.push(d);
     columns.push({
@@ -363,6 +380,7 @@ function FunilMarketingPage() {
     for (const ch of [...CHANNEL_ORDER, "Geral"]) byChannelDay.set(ch, new Map());
 
     for (const l of data.leads) {
+      if (!isMarketingFunnelLead(l)) continue;
       const day = l.createdAt.slice(0, 10);
       const ch = channelFor(l);
       for (const target of [ch, "Geral"]) {
@@ -525,22 +543,24 @@ function FunilMarketingPage() {
                   label="Investimento no período"
                   value={Math.round(funnelTotals.investimento)}
                   accent="primary"
+                  formatter={money}
                 />
               </StaggerItem>
               <StaggerItem>
                 <StatCard
-                  label="CPL médio (R$)"
+                  label="CPL médio"
                   value={
                     funnelTotals.novosLeads > 0
                       ? Math.round(funnelTotals.investimento / funnelTotals.novosLeads)
                       : 0
                   }
-                  accent="info"
+                  accent="primary"
+                  formatter={money}
                 />
               </StaggerItem>
               <StaggerItem>
                 <StatCard
-                  label="CPQL médio (R$)"
+                  label="CPQL médio"
                   value={
                     funnelTotals.sql > 0
                       ? Math.round(funnelTotals.investimento / funnelTotals.sql)
@@ -548,11 +568,12 @@ function FunilMarketingPage() {
                   }
                   accent="warning"
                   tone="warning"
+                  formatter={money}
                 />
               </StaggerItem>
               <StaggerItem>
                 <StatCard
-                  label="CPRA médio (R$)"
+                  label="CPRA médio"
                   value={
                     funnelTotals.reuniaoAgendada > 0
                       ? Math.round(funnelTotals.investimento / funnelTotals.reuniaoAgendada)
@@ -560,6 +581,7 @@ function FunilMarketingPage() {
                   }
                   accent="success"
                   tone="success"
+                  formatter={money}
                 />
               </StaggerItem>
             </Stagger>
@@ -627,7 +649,10 @@ function FunilMarketingPage() {
                                 </td>
                               </tr>
                             )}
-                            <tr key={`${channel}-${row.label}`} className="border-b border-border/40">
+                            <tr
+                              key={`${channel}-${row.label}`}
+                              className="border-b border-border/40"
+                            >
                               <td className="py-2 pr-4 text-muted-foreground">{row.label}</td>
                               {columns.map((col) => (
                                 <td

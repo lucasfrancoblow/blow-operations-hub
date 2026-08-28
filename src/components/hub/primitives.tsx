@@ -21,12 +21,14 @@ export function StatCard({
   accent,
   tone,
   loading,
+  formatter,
 }: {
   label: string;
   value: number;
   accent: "primary" | "warning" | "critical" | "success";
   tone?: "default" | "warning" | "critical" | "success";
   loading?: boolean;
+  formatter?: (n: number) => string;
 }) {
   const toneClass =
     tone === "warning"
@@ -54,7 +56,7 @@ export function StatCard({
           <Skeleton className="mt-2 h-8 w-14" />
         ) : (
           <p className={cn("mt-0.5 font-display text-3xl font-semibold tabular-nums", toneClass)}>
-            <AnimatedNumber value={value} />
+            <AnimatedNumber value={value} {...(formatter ? { formatter } : {})} />
           </p>
         )}
       </CardContent>

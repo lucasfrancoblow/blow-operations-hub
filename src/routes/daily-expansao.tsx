@@ -24,6 +24,7 @@ import {
   StatCard,
 } from "@/components/hub/primitives";
 import { FadeIn } from "@/components/hub/motion";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/daily-expansao")({
   head: () => ({
@@ -45,45 +46,6 @@ function fmtDM(iso: string): string {
 
 function sum(values: Array<number | null>): number {
   return values.reduce((total: number, v) => total + (v ?? 0), 0);
-}
-
-interface Note {
-  date: string;
-  bloqueio: string | null;
-  compromissoDoDia: string | null;
-}
-
-function lastNotes(rows: Note[], limit = 3): Note[] {
-  return rows
-    .filter((r) => r.bloqueio || r.compromissoDoDia)
-    .slice()
-    .reverse()
-    .slice(0, limit);
-}
-
-function NotesList({ notes }: { notes: Note[] }) {
-  if (notes.length === 0) return null;
-  return (
-    <div className="space-y-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Últimas observações
-      </p>
-      <ul className="space-y-1.5 text-sm">
-        {notes.map((n) => (
-          <li key={n.date} className="flex gap-2">
-            <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
-              {fmtDM(n.date)}
-            </span>
-            <span className="text-muted-foreground">
-              {n.compromissoDoDia}
-              {n.compromissoDoDia && n.bloqueio && " · "}
-              {n.bloqueio && <span className="text-critical">Bloqueio: {n.bloqueio}</span>}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
 }
 
 function SdrSection({
@@ -152,17 +114,20 @@ function SdrSection({
         </div>
 
         <div className="overflow-x-auto rounded-xl border border-border/60">
-          <table className="w-full min-w-[720px] border-collapse text-sm">
+          <table className="w-full min-w-[1080px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border/60 bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="py-2 pl-3 pr-4 font-medium">Data</th>
                 <th className="py-2 pr-4 text-right font-medium">Novos</th>
                 <th className="py-2 pr-4 text-right font-medium">Follow-up</th>
                 <th className="py-2 pr-4 text-right font-medium">Tentativas</th>
+                <th className="py-2 pr-4 text-right font-medium">Tempo médio</th>
                 <th className="py-2 pr-4 text-right font-medium">Contatos ef.</th>
                 <th className="py-2 pr-4 text-right font-medium">SQLs</th>
                 <th className="py-2 pr-4 text-right font-medium">Reuniões</th>
                 <th className="py-2 pr-4 text-right font-medium">Quentes</th>
+                <th className="py-2 pr-4 font-medium">Bloqueio</th>
+                <th className="py-2 pr-4 font-medium">Compromisso do dia</th>
               </tr>
             </thead>
             <tbody>
@@ -178,6 +143,9 @@ function SdrSection({
                     </td>
                     <td className="py-2 pr-4 text-right tabular-nums">{r.tentativas ?? "—"}</td>
                     <td className="py-2 pr-4 text-right tabular-nums">
+                      {r.tempoMedioLigacaoMin != null ? `${r.tempoMedioLigacaoMin} min` : "—"}
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums">
                       {r.contatosEfetivos ?? "—"}
                     </td>
                     <td className="py-2 pr-4 text-right tabular-nums">{r.sqls ?? "—"}</td>
@@ -185,13 +153,20 @@ function SdrSection({
                       {r.reunioesAgendadas ?? "—"}
                     </td>
                     <td className="py-2 pr-4 text-right tabular-nums">{r.leadsQuentes ?? "—"}</td>
+                    <td
+                      className={cn(
+                        "py-2 pr-4",
+                        r.bloqueio ? "text-critical" : "text-muted-foreground",
+                      )}
+                    >
+                      {r.bloqueio ?? "—"}
+                    </td>
+                    <td className="py-2 pr-4 text-muted-foreground">{r.compromissoDoDia ?? "—"}</td>
                   </tr>
                 ))}
             </tbody>
           </table>
         </div>
-
-        <NotesList notes={lastNotes(rows)} />
       </div>
     </SectionCard>
   );
@@ -263,7 +238,7 @@ function CloserSection({ rows }: { rows: CloserDayMetrics[] }) {
         </div>
 
         <div className="overflow-x-auto rounded-xl border border-border/60">
-          <table className="w-full min-w-[840px] border-collapse text-sm">
+          <table className="w-full min-w-[1400px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border/60 bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="py-2 pl-3 pr-4 font-medium">Data</th>
@@ -271,8 +246,14 @@ function CloserSection({ rows }: { rows: CloserDayMetrics[] }) {
                 <th className="py-2 pr-4 text-right font-medium">Reuniões real.</th>
                 <th className="py-2 pr-4 text-right font-medium">No-shows</th>
                 <th className="py-2 pr-4 text-right font-medium">Oport. geradas</th>
+                <th className="py-2 pr-4 text-right font-medium">RoGa realizado</th>
+                <th className="py-2 pr-4 text-right font-medium">Follow-ups prev.</th>
                 <th className="py-2 pr-4 text-right font-medium">Follow-ups real.</th>
                 <th className="py-2 pr-4 text-right font-medium">Vendas</th>
+                <th className="py-2 pr-4 text-right font-medium">Forecast semana</th>
+                <th className="py-2 pr-4 text-right font-medium">Oport. prioritárias</th>
+                <th className="py-2 pr-4 font-medium">Bloqueio</th>
+                <th className="py-2 pr-4 font-medium">Compromisso do dia</th>
               </tr>
             </thead>
             <tbody>
@@ -292,17 +273,32 @@ function CloserSection({ rows }: { rows: CloserDayMetrics[] }) {
                     <td className="py-2 pr-4 text-right tabular-nums">
                       {r.oportunidadesGeradas ?? "—"}
                     </td>
+                    <td className="py-2 pr-4 text-right tabular-nums">{r.rogaRealizado ?? "—"}</td>
+                    <td className="py-2 pr-4 text-right tabular-nums">
+                      {r.followUpsPrevistos ?? "—"}
+                    </td>
                     <td className="py-2 pr-4 text-right tabular-nums">
                       {r.followUpsRealizados ?? "—"}
                     </td>
                     <td className="py-2 pr-4 text-right tabular-nums">{r.vendas ?? "—"}</td>
+                    <td className="py-2 pr-4 text-right tabular-nums">{r.forecastSemana ?? "—"}</td>
+                    <td className="py-2 pr-4 text-right tabular-nums">
+                      {r.oportunidadesPrioritarias ?? "—"}
+                    </td>
+                    <td
+                      className={cn(
+                        "py-2 pr-4",
+                        r.bloqueio ? "text-critical" : "text-muted-foreground",
+                      )}
+                    >
+                      {r.bloqueio ?? "—"}
+                    </td>
+                    <td className="py-2 pr-4 text-muted-foreground">{r.compromissoDoDia ?? "—"}</td>
                   </tr>
                 ))}
             </tbody>
           </table>
         </div>
-
-        <NotesList notes={lastNotes(rows)} />
       </div>
     </SectionCard>
   );
