@@ -8,18 +8,20 @@ import {
   createUserFn,
   listUsersFn,
   resetPasswordFn,
-  setTasksAccessFn,
   setUserActiveFn,
+  setUserPageAccessFn,
   setUserProfileFn,
   setUserRoleFn,
 } from "@/services/auth-service";
 import type { UserRole } from "@/lib/auth";
+import { PAGE_KEYS, PAGE_LABELS, type PageKey } from "@/lib/page-access";
 import { PageHeader, SectionCard } from "@/components/hub/primitives";
 import { FadeIn } from "@/components/hub/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -74,6 +76,11 @@ function UsuariosPage() {
   const [profileFullName, setProfileFullName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
   const [profilePhone, setProfilePhone] = useState("");
+  const [accessTarget, setAccessTarget] = useState<{
+    id: string;
+    username: string;
+    pageAccess: string[];
+  } | null>(null);
 
   const createMutation = useMutation({
     mutationFn: () => createUserFn({ data: { username, password, role, fullName, email, phone } }),
@@ -96,11 +103,21 @@ function UsuariosPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const toggleTasksAccessMutation = useMutation({
-    mutationFn: (input: { id: string; tasksAccess: boolean }) => setTasksAccessFn({ data: input }),
+  const pageAccessMutation = useMutation({
+    mutationFn: (input: { id: string; pageAccess: string[] }) =>
+      setUserPageAccessFn({ data: input }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY }),
     onError: (error: Error) => toast.error(error.message),
   });
+
+  function togglePageAccess(key: PageKey, checked: boolean) {
+    if (!accessTarget) return;
+    const next = checked
+      ? [...accessTarget.pageAccess, key]
+      : accessTarget.pageAccess.filter((p) => p !== key);
+    setAccessTarget({ ...accessTarget, pageAccess: next });
+    pageAccessMutation.mutate({ id: accessTarget.id, pageAccess: next });
+  }
 
   const changeRoleMutation = useMutation({
     mutationFn: (input: { id: string; role: UserRole }) => setUserRoleFn({ data: input }),
@@ -229,7 +246,7 @@ function UsuariosPage() {
                   <TableHead>Usuário</TableHead>
                   <TableHead>Papel</TableHead>
                   <TableHead>Ativo</TableHead>
-                  <TableHead>Acesso a Tarefas</TableHead>
+                  <TableHead>Abas liberadas</TableHead>
                   <TableHead>Criado em</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
@@ -271,13 +288,23 @@ function UsuariosPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Switch
-                        checked={u.tasksAccess}
-                        disabled={u.role === "admin" || u.role === "super_admin"}
-                        onCheckedChange={(tasksAccess) =>
-                          toggleTasksAccessMutation.mutate({ id: u.id, tasksAccess })
-                        }
-                      />
+                      {u.role === "admin" || u.role === "super_admin" ? (
+                        <span className="text-xs text-muted-foreground">Todas (papel)</span>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setAccessTarget({
+                              id: u.id,
+                              username: u.username,
+                              pageAccess: u.pageAccess,
+                            })
+                          }
+                        >
+                          {u.pageAccess.length} aba{u.pageAccess.length === 1 ? "" : "s"}
+                        </Button>
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {new Date(u.createdAt).toLocaleDateString("pt-BR")}
@@ -383,6 +410,28 @@ function UsuariosPage() {
               Salvar
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={accessTarget !== null} onOpenChange={(open) => !open && setAccessTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Abas de {accessTarget?.username}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            {PAGE_KEYS.map((key) => (
+              <label
+                key={key}
+                className="flex items-center gap-2.5 rounded-md px-1.5 py-1 hover:bg-muted/60"
+              >
+                <Checkbox
+                  checked={accessTarget?.pageAccess.includes(key) ?? false}
+                  onCheckedChange={(checked) => togglePageAccess(key, checked === true)}
+                />
+                <span className="text-sm">{PAGE_LABELS[key]}</span>
+              </label>
+            ))}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

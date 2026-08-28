@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Headphones } from "lucide-react";
@@ -15,6 +15,7 @@ import {
 import { getDailyExpansaoData } from "@/services/daily-expansao-service";
 import { defaultDateRange, type DateRange } from "@/lib/leads-recentes";
 import type { CloserDayMetrics, SdrDayMetrics } from "@/lib/daily-expansao";
+import { canAccessPage } from "@/lib/page-access";
 import { DateRangePicker } from "@/components/hub/DateRangePicker";
 import {
   CardsSkeleton,
@@ -27,6 +28,11 @@ import { FadeIn } from "@/components/hub/motion";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/daily-expansao")({
+  beforeLoad: ({ context }) => {
+    if (!canAccessPage(context.user, "daily-expansao")) {
+      throw redirect({ to: "/" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Daily Expansão — hubLOw BLOW" },

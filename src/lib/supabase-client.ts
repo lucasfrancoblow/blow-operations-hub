@@ -105,6 +105,22 @@ export async function supabaseUpsert<T>(table: string, rows: T[]): Promise<void>
   });
 }
 
+/** Insere linhas e devolve as linhas criadas (com id/defaults gerados pelo banco).
+ * `params` vira query string (ex.: `{ select: "*,embed(...)" }` pra já trazer embeds). */
+export async function supabaseInsertReturning<T, R = T>(
+  table: string,
+  rows: T[],
+  params: Record<string, string> = {},
+): Promise<R[]> {
+  assertSafeIdentifier(table, "Nome de tabela");
+  if (rows.length === 0) return [];
+  return restFetch<R[]>(`/${table}`, new URLSearchParams(params), {
+    method: "POST",
+    body: JSON.stringify(rows),
+    preferHeader: "return=representation",
+  });
+}
+
 /** Atualiza parcialmente uma linha por id (PATCH). */
 export async function supabaseUpdate<T extends object>(
   table: string,
@@ -123,6 +139,19 @@ export async function supabaseUpdate<T extends object>(
 export async function supabaseDelete(table: string, id: string): Promise<void> {
   assertSafeIdentifier(table, "Nome de tabela");
   await restFetch(`/${table}`, new URLSearchParams({ id: `eq.${id}` }), {
+    method: "DELETE",
+    preferHeader: "return=minimal",
+  });
+}
+
+/** Remove linhas por filtros arbitrários — pra tabelas sem chave primária "id"
+ * simples (ex.: chave composta, como em task_project_access). */
+export async function supabaseDeleteWhere(
+  table: string,
+  filters: Record<string, string>,
+): Promise<void> {
+  assertSafeIdentifier(table, "Nome de tabela");
+  await restFetch(`/${table}`, new URLSearchParams(filters), {
     method: "DELETE",
     preferHeader: "return=minimal",
   });

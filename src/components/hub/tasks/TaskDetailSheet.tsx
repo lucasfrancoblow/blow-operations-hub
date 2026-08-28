@@ -180,7 +180,7 @@ export function TaskDetailSheet({
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
         <SheetHeader>
           <SheetTitle className="text-left text-lg">
-            {isEditing ? "Editar tarefa" : "Nova tarefa"}
+            {isEditing && task ? `Tarefa #${task.taskNumber}` : "Nova tarefa"}
           </SheetTitle>
           <SheetDescription className="text-left">
             {isEditing

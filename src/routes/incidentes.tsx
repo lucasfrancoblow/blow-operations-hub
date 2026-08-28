@@ -1,8 +1,9 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AlertTriangle, Search } from "lucide-react";
 
+import { canAccessPage } from "@/lib/page-access";
 import { hubService, queryKeys } from "@/services/hub-service";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,11 @@ import { IncidentStatusBadge, SeverityBadge } from "@/components/hub/badges";
 import { IncidentDetailSheet } from "@/components/hub/IncidentDetailSheet";
 
 export const Route = createFileRoute("/incidentes")({
+  beforeLoad: ({ context }) => {
+    if (!canAccessPage(context.user, "incidentes")) {
+      throw redirect({ to: "/" });
+    }
+  },
   validateSearch: (search: Record<string, unknown>) => ({
     incidente:
       typeof search["incidente"] === "string" ? (search["incidente"] as string) : undefined,

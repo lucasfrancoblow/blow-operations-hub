@@ -1,9 +1,10 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ArrowRight, BookOpen, ExternalLink, KeyRound, Pencil } from "lucide-react";
 
+import { canAccessPage } from "@/lib/page-access";
 import { hubService, queryKeys } from "@/services/hub-service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,6 +35,11 @@ import { IncidentDetailSheet } from "@/components/hub/IncidentDetailSheet";
 import type { Incident } from "@/types/hub";
 
 export const Route = createFileRoute("/automacoes/$automationId")({
+  beforeLoad: ({ context }) => {
+    if (!canAccessPage(context.user, "automacoes")) {
+      throw redirect({ to: "/" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Detalhe da automação — hubLOw BLOW" },

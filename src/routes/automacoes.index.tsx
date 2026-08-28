@@ -1,8 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { LayoutGrid, Rows3, Search, Workflow } from "lucide-react";
 
+import { canAccessPage } from "@/lib/page-access";
 import { hubService, queryKeys } from "@/services/hub-service";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,11 @@ import { FadeIn } from "@/components/hub/motion";
 import { AutomationStatusBadge, HealthBadge, PlatformBadge } from "@/components/hub/badges";
 
 export const Route = createFileRoute("/automacoes/")({
+  beforeLoad: ({ context }) => {
+    if (!canAccessPage(context.user, "automacoes")) {
+      throw redirect({ to: "/" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Automações — hubLOw BLOW" },

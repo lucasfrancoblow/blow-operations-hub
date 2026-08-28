@@ -19,13 +19,14 @@ import { TaskMobileList } from "@/components/hub/tasks/TaskMobileList";
 import { TaskDetailSheet } from "@/components/hub/tasks/TaskDetailSheet";
 import { TaskCommandPalette } from "@/components/hub/tasks/TaskCommandPalette";
 import { ProjectSwitcher, UNASSIGNED_PROJECT_ID } from "@/components/hub/tasks/ProjectSwitcher";
+import { canAccessPage } from "@/lib/page-access";
 import { listActiveUsersFn } from "@/services/auth-service";
 import { getTasks, listProjectsFn, reorderTasksFn, updateTaskFn } from "@/services/tasks-service";
 import { TASK_PRIORITIES, type Task, type TaskStatus } from "@/types/tasks";
 
 export const Route = createFileRoute("/tarefas")({
   beforeLoad: ({ context }) => {
-    if (context.user?.role !== "admin" && !context.user?.tasksAccess) {
+    if (!canAccessPage(context.user, "tarefas")) {
       throw redirect({ to: "/" });
     }
   },
@@ -46,6 +47,8 @@ export const Route = createFileRoute("/tarefas")({
 
 function TarefasPage() {
   const queryClient = useQueryClient();
+  const { user } = Route.useRouteContext();
+  const isAdminLike = user?.role === "admin" || user?.role === "super_admin";
   const { project: projectParam } = Route.useSearch();
   const navigate = useNavigate({ from: "/tarefas" });
   const selectedProject = projectParam ?? UNASSIGNED_PROJECT_ID;
@@ -132,7 +135,12 @@ function TarefasPage() {
         }
       />
 
-      <ProjectSwitcher projects={projects} selected={selectedProject} onSelect={selectProject} />
+      <ProjectSwitcher
+        projects={projects}
+        selected={selectedProject}
+        onSelect={selectProject}
+        isAdminLike={isAdminLike}
+      />
 
       <div className="grid gap-3 rounded-xl border border-border/60 bg-card/60 p-3 sm:grid-cols-3">
         <Input

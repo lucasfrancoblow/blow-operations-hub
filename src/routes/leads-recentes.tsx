@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { canAccessPage } from "@/lib/page-access";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
@@ -53,6 +54,11 @@ import { Stagger, StaggerItem } from "@/components/hub/motion";
 import { LeadDetailDialog } from "@/components/hub/LeadDetailDialog";
 
 export const Route = createFileRoute("/leads-recentes")({
+  beforeLoad: ({ context }) => {
+    if (!canAccessPage(context.user, "leads-recentes")) {
+      throw redirect({ to: "/" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Radar de Leads — hubLOw BLOW" },
@@ -259,11 +265,7 @@ function LeadsRecentesPage() {
                 <StatCard label="Total no período" value={filteredSummary.total} accent="primary" />
               </StaggerItem>
               <StaggerItem>
-                <StatCard
-                  label="Hoje"
-                  value={filteredSummary.hoje}
-                  accent="primary"
-                />
+                <StatCard label="Hoje" value={filteredSummary.hoje} accent="primary" />
               </StaggerItem>
               <StaggerItem>
                 <StatCard

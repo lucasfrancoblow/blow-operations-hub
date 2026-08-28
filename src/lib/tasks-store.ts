@@ -4,14 +4,15 @@
 import {
   isSupabaseConfigured,
   supabaseDelete,
+  supabaseInsertReturning,
   supabaseSelect,
   supabaseUpdate,
-  supabaseUpsert,
 } from "@/lib/supabase-client";
 import type { Task, TaskInput, TaskPriority, TaskReference, TaskStatus } from "@/types/tasks";
 
 interface TaskRow {
   id: string;
+  task_number: number;
   title: string;
   description: string;
   status: string;
@@ -35,6 +36,7 @@ const TASK_SELECT = "*,project:task_projects(id,name,color),assignee:app_users(i
 function fromRow(row: TaskRow): Task {
   return {
     id: row.id,
+    taskNumber: row.task_number,
     title: row.title,
     description: row.description ?? "",
     status: row.status as TaskStatus,
@@ -58,12 +60,24 @@ function requireSupabase(): void {
   }
 }
 
-export async function listTasks(): Promise<Task[]> {
+/**
+ * `accessibleProjectIds` — quando informado (usuário "member"), só devolve
+ * tarefas sem projeto ("Sem projeto", sempre visível) ou dentro de um desses
+ * projetos. `undefined` = sem filtro (admin/super_admin, que veem tudo).
+ */
+export async function listTasks(accessibleProjectIds?: string[]): Promise<Task[]> {
   if (!isSupabaseConfigured()) return [];
-  const rows = await supabaseSelect<TaskRow>("tasks", {
+  const filters: Record<string, string> = {
     select: TASK_SELECT,
     order: "position.asc,created_at.asc",
-  });
+  };
+  if (accessibleProjectIds) {
+    filters["or"] =
+      accessibleProjectIds.length > 0
+        ? `(project_id.is.null,project_id.in.(${accessibleProjectIds.join(",")}))`
+        : "(project_id.is.null)";
+  }
+  const rows = await supabaseSelect<TaskRow>("tasks", filters);
   return rows.map(fromRow);
 }
 
@@ -77,21 +91,27 @@ export async function getTask(id: string): Promise<Task | null> {
   return rows[0] ? fromRow(rows[0]) : null;
 }
 
-export async function createTask(input: TaskInput): Promise<void> {
+export async function createTask(input: TaskInput): Promise<Task> {
   requireSupabase();
-  await supabaseUpsert("tasks", [
-    {
-      title: input.title,
-      description: input.description ?? "",
-      status: input.status ?? "Backlog",
-      priority: input.priority ?? "Média",
-      project_id: input.projectId ?? null,
-      assignee_id: input.assigneeId ?? null,
-      tags: input.tags ?? [],
-      due_date: input.dueDate ?? null,
-      reference: input.reference ?? null,
-    },
-  ]);
+  const [row] = await supabaseInsertReturning<Record<string, unknown>, TaskRow>(
+    "tasks",
+    [
+      {
+        title: input.title,
+        description: input.description ?? "",
+        status: input.status ?? "Backlog",
+        priority: input.priority ?? "Média",
+        project_id: input.projectId ?? null,
+        assignee_id: input.assigneeId ?? null,
+        tags: input.tags ?? [],
+        due_date: input.dueDate ?? null,
+        reference: input.reference ?? null,
+      },
+    ],
+    { select: TASK_SELECT },
+  );
+  if (!row) throw new Error("Tarefa criada, mas não foi possível recarregá-la.");
+  return fromRow(row);
 }
 
 export async function updateTask(id: string, patch: Partial<TaskInput>): Promise<void> {

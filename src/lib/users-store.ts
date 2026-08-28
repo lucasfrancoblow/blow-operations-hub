@@ -15,7 +15,7 @@ interface AppUserRow {
   password_hash: string;
   role: string;
   active: boolean;
-  tasks_access: boolean;
+  page_access: string[];
   full_name: string | null;
   email: string | null;
   phone: string | null;
@@ -28,7 +28,7 @@ export interface AppUser {
   passwordHash: string;
   role: UserRole;
   active: boolean;
-  tasksAccess: boolean;
+  pageAccess: string[];
   fullName: string | null;
   email: string | null;
   phone: string | null;
@@ -42,7 +42,7 @@ function fromRow(row: AppUserRow): AppUser {
     passwordHash: row.password_hash,
     role: row.role as UserRole,
     active: row.active,
-    tasksAccess: row.tasks_access,
+    pageAccess: row.page_access ?? [],
     fullName: row.full_name,
     email: row.email,
     phone: row.phone,
@@ -137,10 +137,10 @@ export async function setUserActive(id: string, active: boolean): Promise<void> 
   await supabaseUpdate("app_users", id, { active, updated_at: new Date().toISOString() });
 }
 
-export async function setUserTasksAccess(id: string, tasksAccess: boolean): Promise<void> {
+export async function setUserPageAccess(id: string, pageAccess: string[]): Promise<void> {
   requireSupabase();
   await supabaseUpdate("app_users", id, {
-    tasks_access: tasksAccess,
+    page_access: pageAccess,
     updated_at: new Date().toISOString(),
   });
 }

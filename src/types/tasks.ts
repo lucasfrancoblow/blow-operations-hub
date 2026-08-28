@@ -39,6 +39,7 @@ export interface TaskAssignee {
 
 export interface Task {
   id: string;
+  taskNumber: number;
   title: string;
   description: string;
   status: TaskStatus;

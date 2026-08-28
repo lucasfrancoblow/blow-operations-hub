@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { MoreHorizontal, Plus } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +21,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { createProjectFn, updateProjectFn } from "@/services/tasks-service";
+import { listActiveUsersFn } from "@/services/auth-service";
+import {
+  createProjectFn,
+  grantProjectAccessFn,
+  listProjectMembersFn,
+  revokeProjectAccessFn,
+  updateProjectFn,
+} from "@/services/tasks-service";
 import type { TaskProject } from "@/types/tasks";
 
 export const UNASSIGNED_PROJECT_ID = "none";
@@ -44,14 +52,17 @@ export function ProjectSwitcher({
   projects,
   selected,
   onSelect,
+  isAdminLike,
 }: {
   projects: TaskProject[];
   selected: string;
   onSelect: (id: string) => void;
+  isAdminLike: boolean;
 }) {
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<TaskProject | null>(null);
+  const [accessTarget, setAccessTarget] = useState<TaskProject | null>(null);
   const [name, setName] = useState("");
   const [color, setColor] = useState<string>(PROJECT_COLORS[0].id);
 
@@ -82,6 +93,28 @@ export function ProjectSwitcher({
     onSuccess: invalidate,
     onError: (error: Error) =>
       toast.error(`Não foi possível atualizar o projeto: ${error.message}`),
+  });
+
+  const { data: users = [] } = useQuery({
+    queryKey: ["assignable-users"],
+    queryFn: () => listActiveUsersFn(),
+    enabled: accessTarget !== null,
+  });
+
+  const { data: memberIds = [] } = useQuery({
+    queryKey: ["project-access", accessTarget?.id],
+    queryFn: () => listProjectMembersFn({ data: { projectId: accessTarget!.id } }),
+    enabled: accessTarget !== null,
+  });
+
+  const accessMutation = useMutation({
+    mutationFn: ({ userId, grant }: { userId: string; grant: boolean }) =>
+      grant
+        ? grantProjectAccessFn({ data: { projectId: accessTarget!.id, userId } })
+        : revokeProjectAccessFn({ data: { projectId: accessTarget!.id, userId } }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["project-access", accessTarget?.id] }),
+    onError: (error: Error) => toast.error(`Não foi possível atualizar o acesso: ${error.message}`),
   });
 
   const visibleProjects = projects.filter((p) => !p.archived || p.id === selected);
@@ -151,6 +184,11 @@ export function ProjectSwitcher({
                 <DropdownMenuItem onClick={() => archiveMutation.mutate(project)}>
                   {project.archived ? "Reativar" : "Arquivar"}
                 </DropdownMenuItem>
+                {isAdminLike && (
+                  <DropdownMenuItem onClick={() => setAccessTarget(project)}>
+                    Gerenciar acesso
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -234,6 +272,36 @@ export function ProjectSwitcher({
               Salvar
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={accessTarget !== null} onOpenChange={(open) => !open && setAccessTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Quem vê "{accessTarget?.name}"</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Oculto por padrão — marque quem, além de admin/super admin, pode ver este projeto.
+          </p>
+          <div className="max-h-80 space-y-2 overflow-y-auto py-2">
+            {users.map((u) => {
+              const checked = memberIds.includes(u.id);
+              return (
+                <label
+                  key={u.id}
+                  className="flex items-center gap-2.5 rounded-md px-1.5 py-1 hover:bg-muted/60"
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={(value) =>
+                      accessMutation.mutate({ userId: u.id, grant: value === true })
+                    }
+                  />
+                  <span className="text-sm">{u.username}</span>
+                </label>
+              );
+            })}
+          </div>
         </DialogContent>
       </Dialog>
     </>

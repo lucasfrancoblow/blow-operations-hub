@@ -15,6 +15,7 @@ import {
   Users,
   Workflow,
   Zap,
+  type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
@@ -22,6 +23,7 @@ import { toast } from "sonner";
 import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 import type { SessionUser } from "@/lib/auth";
+import { canAccessPage, type PageKey } from "@/lib/page-access";
 import { logoutFn } from "@/services/auth-service";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -36,16 +38,22 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
+// Visão Geral não tem pageKey: é a home, sempre visível pra quem está logado.
 const NAV_ITEMS = [
-  { title: "Visão geral", url: "/", icon: LayoutDashboard, exact: true },
-  { title: "Radar de Leads", url: "/leads-recentes", icon: Inbox },
-  { title: "Funil de MKT", url: "/funil-marketing", icon: TrendingUp },
-  { title: "Daily Expansão", url: "/daily-expansao", icon: Headphones },
-  { title: "Automações", url: "/automacoes", icon: Workflow },
-  { title: "Incidentes", url: "/incidentes", icon: AlertTriangle },
-] as const;
-
-const TASKS_NAV_ITEM = { title: "Tarefas", url: "/tarefas", icon: ListTodo } as const;
+  { title: "Visão geral", url: "/", icon: LayoutDashboard, exact: true, pageKey: null },
+  { title: "Radar de Leads", url: "/leads-recentes", icon: Inbox, pageKey: "leads-recentes" },
+  { title: "Funil de MKT", url: "/funil-marketing", icon: TrendingUp, pageKey: "funil-marketing" },
+  { title: "Daily Expansão", url: "/daily-expansao", icon: Headphones, pageKey: "daily-expansao" },
+  { title: "Automações", url: "/automacoes", icon: Workflow, pageKey: "automacoes" },
+  { title: "Incidentes", url: "/incidentes", icon: AlertTriangle, pageKey: "incidentes" },
+  { title: "Tarefas", url: "/tarefas", icon: ListTodo, pageKey: "tarefas" },
+] as const satisfies ReadonlyArray<{
+  title: string;
+  url: string;
+  icon: LucideIcon;
+  exact?: boolean;
+  pageKey: PageKey | null;
+}>;
 
 const ADMIN_NAV_ITEM = { title: "Usuários", url: "/usuarios", icon: Users } as const;
 
@@ -81,22 +89,13 @@ function ThemeToggle() {
   );
 }
 
-function NavPills({
-  isSuperAdmin,
-  showTasks,
-  onNavigate,
-}: {
-  isSuperAdmin: boolean;
-  showTasks: boolean;
-  onNavigate?: () => void;
-}) {
+function NavPills({ user, onNavigate }: { user: SessionUser; onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const isActive = (url: string, exact?: boolean) =>
     exact ? pathname === url : pathname.startsWith(url);
   const items = [
-    ...NAV_ITEMS,
-    ...(showTasks ? [TASKS_NAV_ITEM] : []),
-    ...(isSuperAdmin ? [ADMIN_NAV_ITEM] : []),
+    ...NAV_ITEMS.filter((item) => item.pageKey === null || canAccessPage(user, item.pageKey)),
+    ...(user.role === "super_admin" ? [ADMIN_NAV_ITEM] : []),
   ];
 
   return (
@@ -126,8 +125,6 @@ function NavPills({
 
 export function TopNav({ user }: { user: SessionUser }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const isSuperAdmin = user.role === "super_admin";
-  const showTasks = isSuperAdmin || user.role === "admin" || user.tasksAccess;
 
   async function handleLogout() {
     await logoutFn();
@@ -150,7 +147,7 @@ export function TopNav({ user }: { user: SessionUser }) {
         </Link>
 
         <nav className="hidden items-center gap-1 rounded-full bg-muted/50 p-1 lg:flex">
-          <NavPills isSuperAdmin={isSuperAdmin} showTasks={showTasks} />
+          <NavPills user={user} />
         </nav>
 
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -162,11 +159,7 @@ export function TopNav({ user }: { user: SessionUser }) {
           <SheetContent side="left" className="w-64">
             <SheetTitle className="px-4 pt-4">Navegação</SheetTitle>
             <nav className="mt-4 flex flex-col gap-1 px-3">
-              <NavPills
-                isSuperAdmin={isSuperAdmin}
-                showTasks={showTasks}
-                onNavigate={() => setMobileOpen(false)}
-              />
+              <NavPills user={user} onNavigate={() => setMobileOpen(false)} />
             </nav>
           </SheetContent>
         </Sheet>

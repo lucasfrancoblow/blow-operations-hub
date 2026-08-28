@@ -49,7 +49,9 @@ export function TaskCard({
         dragOverlay && "rotate-2 border-primary/50 shadow-lg shadow-primary/20",
       )}
     >
-      <p className="text-sm font-medium leading-snug text-foreground">{task.title}</p>
+      <p className="text-sm font-medium leading-snug text-foreground">
+        <span className="text-muted-foreground">#{task.taskNumber}</span> {task.title}
+      </p>
 
       <div className="flex flex-wrap items-center gap-1.5">
         <TaskPriorityBadge value={task.priority} />

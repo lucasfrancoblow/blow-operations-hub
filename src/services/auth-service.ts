@@ -3,47 +3,35 @@
 // que o próprio TanStack Start gerencia (ver getSessionConfig em @/lib/auth).
 
 import { createServerFn } from "@tanstack/react-start";
-import { getSession, updateSession, clearSession } from "@tanstack/react-start/server";
+import { updateSession, clearSession } from "@tanstack/react-start/server";
 
 import { getSessionConfig, verifyPassword, type SessionUser, type UserRole } from "@/lib/auth";
+import { getSessionUser, requireSessionUser } from "@/lib/session";
 import {
   createUser,
   findUserByUsername,
   listUsers,
   setUserActive,
+  setUserPageAccess,
   setUserPassword,
   setUserProfile,
   setUserRole,
-  setUserTasksAccess,
 } from "@/lib/users-store";
 
 // Só o super admin gerencia usuários (tela "Usuários") — "admin" continua existindo
-// só pros outros privilégios que já tinha (ex.: ver a aba Tarefas sempre).
+// só pros outros privilégios que já tinha (ex.: ver todas as abas/projetos sempre).
 async function requireSuperAdmin(): Promise<SessionUser> {
-  const session = await getSession<SessionUser>(getSessionConfig());
-  const { id, username, role, tasksAccess } = session.data;
-  if (!id || !username || role !== "super_admin") {
+  const user = await requireSessionUser();
+  if (user.role !== "super_admin") {
     throw new Error("Só o super admin pode fazer isso.");
   }
-  return { id, username, role, tasksAccess: tasksAccess ?? true };
-}
-
-async function requireUser(): Promise<SessionUser> {
-  const session = await getSession<SessionUser>(getSessionConfig());
-  const { id, username, role, tasksAccess } = session.data;
-  if (!id || !username || !role) {
-    throw new Error("É preciso estar logado.");
-  }
-  return { id, username, role, tasksAccess: tasksAccess ?? true };
+  return user;
 }
 
 export const getCurrentUserFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<SessionUser | null> => {
     try {
-      const session = await getSession<SessionUser>(getSessionConfig());
-      const { id, username, role, tasksAccess } = session.data;
-      if (!id || !username || !role) return null;
-      return { id, username, role, tasksAccess: tasksAccess ?? true };
+      return await getSessionUser();
     } catch {
       return null;
     }
@@ -61,7 +49,7 @@ export const loginFn = createServerFn({ method: "POST" })
       id: user.id,
       username: user.username,
       role: user.role,
-      tasksAccess: user.tasksAccess,
+      pageAccess: user.pageAccess,
     });
     return { ok: true };
   });
@@ -69,7 +57,7 @@ export const loginFn = createServerFn({ method: "POST" })
 /** Lista mínima de usuários ativos pra alimentar o seletor de responsável nas
  * tarefas — qualquer usuário logado pode ver (não é admin-only como listUsersFn). */
 export const listActiveUsersFn = createServerFn({ method: "GET" }).handler(async () => {
-  await requireUser();
+  await requireSessionUser();
   const users = await listUsers();
   return users.filter((u) => u.active).map((u) => ({ id: u.id, username: u.username }));
 });
@@ -86,7 +74,7 @@ export const listUsersFn = createServerFn({ method: "GET" }).handler(async () =>
     username: u.username,
     role: u.role,
     active: u.active,
-    tasksAccess: u.tasksAccess,
+    pageAccess: u.pageAccess,
     fullName: u.fullName,
     email: u.email,
     phone: u.phone,
@@ -132,11 +120,11 @@ export const setUserActiveFn = createServerFn({ method: "POST" })
     await setUserActive(data.id, data.active);
   });
 
-export const setTasksAccessFn = createServerFn({ method: "POST" })
-  .validator((input: { id: string; tasksAccess: boolean }) => input)
+export const setUserPageAccessFn = createServerFn({ method: "POST" })
+  .validator((input: { id: string; pageAccess: string[] }) => input)
   .handler(async ({ data }) => {
     await requireSuperAdmin();
-    await setUserTasksAccess(data.id, data.tasksAccess);
+    await setUserPageAccess(data.id, data.pageAccess);
   });
 
 export const resetPasswordFn = createServerFn({ method: "POST" })

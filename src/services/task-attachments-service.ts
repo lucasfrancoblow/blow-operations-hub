@@ -4,9 +4,8 @@
 
 import { randomUUID } from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
-import { getSession } from "@tanstack/react-start/server";
 
-import { getSessionConfig, type SessionUser } from "@/lib/auth";
+import { requireTasksAccess } from "@/lib/session";
 import { createSignedUploadUrl, createSignedUrl } from "@/lib/supabase-client";
 import {
   TASK_ATTACHMENTS_BUCKET,
@@ -19,15 +18,6 @@ const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024; // 25MB
 // 5min: dá margem tanto pro clique de abrir/baixar quanto pra miniatura de imagem
 // ficar visível enquanto o painel de anexos estiver aberto.
 const SIGNED_URL_TTL_SECONDS = 300;
-
-async function requireSessionUser(): Promise<SessionUser> {
-  const session = await getSession<SessionUser>(getSessionConfig());
-  const { id, username, role, tasksAccess } = session.data;
-  if (!id || !username || !role) {
-    throw new Error("É preciso estar logado.");
-  }
-  return { id, username, role, tasksAccess: tasksAccess ?? true };
-}
 
 function sanitizeFileName(name: string): string {
   return name.replace(/[^\w.-]+/g, "_").slice(-140);
@@ -43,7 +33,7 @@ interface CreateUploadInput {
 export const createAttachmentUploadFn = createServerFn({ method: "POST" })
   .validator((input: CreateUploadInput) => input)
   .handler(async ({ data }) => {
-    await requireSessionUser();
+    await requireTasksAccess();
     if (data.sizeBytes > MAX_ATTACHMENT_BYTES) {
       throw new Error(
         `Arquivo maior que o limite de ${MAX_ATTACHMENT_BYTES / 1024 / 1024}MB por anexo.`,
@@ -65,7 +55,7 @@ interface ConfirmUploadInput {
 export const confirmAttachmentFn = createServerFn({ method: "POST" })
   .validator((input: ConfirmUploadInput) => input)
   .handler(async ({ data }) => {
-    const user = await requireSessionUser();
+    const user = await requireTasksAccess();
     await createTaskAttachment({
       taskId: data.taskId,
       fileName: data.fileName,
@@ -79,20 +69,20 @@ export const confirmAttachmentFn = createServerFn({ method: "POST" })
 export const listAttachmentsFn = createServerFn({ method: "GET" })
   .validator((input: { taskId: string }) => input)
   .handler(async ({ data }) => {
-    await requireSessionUser();
+    await requireTasksAccess();
     return listTaskAttachments(data.taskId);
   });
 
 export const getAttachmentUrlFn = createServerFn({ method: "POST" })
   .validator((input: { storagePath: string }) => input)
   .handler(async ({ data }) => {
-    await requireSessionUser();
+    await requireTasksAccess();
     return createSignedUrl(TASK_ATTACHMENTS_BUCKET, data.storagePath, SIGNED_URL_TTL_SECONDS);
   });
 
 export const deleteAttachmentFn = createServerFn({ method: "POST" })
   .validator((input: { id: string }) => input)
   .handler(async ({ data }) => {
-    await requireSessionUser();
+    await requireTasksAccess();
     await deleteTaskAttachment(data.id);
   });

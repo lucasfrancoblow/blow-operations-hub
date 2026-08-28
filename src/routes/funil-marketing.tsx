@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Fragment, useMemo, useState } from "react";
 import { CheckCircle2, Inbox } from "lucide-react";
@@ -8,6 +8,7 @@ import { getLeadsRecentesData } from "@/services/leads-recentes-service";
 import { getAdMetricsData } from "@/services/ad-metrics-service";
 import { adChannelFor } from "@/lib/ad-metrics";
 import { defaultDateRange, type DateRange, type LeadRecente } from "@/lib/leads-recentes";
+import { canAccessPage } from "@/lib/page-access";
 import { DateRangePicker } from "@/components/hub/DateRangePicker";
 import { EmptyState, PageHeader, SectionCard, StatCard } from "@/components/hub/primitives";
 import { FadeIn, Stagger, StaggerItem } from "@/components/hub/motion";
@@ -22,6 +23,11 @@ import {
 } from "@/components/ui/select";
 
 export const Route = createFileRoute("/funil-marketing")({
+  beforeLoad: ({ context }) => {
+    if (!canAccessPage(context.user, "funil-marketing")) {
+      throw redirect({ to: "/" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Funil de Marketing — hubLOw BLOW" },
