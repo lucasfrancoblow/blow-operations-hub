@@ -12,6 +12,7 @@ export const PAGE_KEYS = [
   "automacoes",
   "incidentes",
   "tarefas",
+  "chamados",
 ] as const;
 
 export type PageKey = (typeof PAGE_KEYS)[number];
@@ -23,6 +24,7 @@ export const PAGE_LABELS: Record<PageKey, string> = {
   automacoes: "Automações",
   incidentes: "Incidentes",
   tarefas: "Tarefas",
+  chamados: "Chamados",
 };
 
 function isAdminLike(role: SessionUser["role"] | undefined): boolean {

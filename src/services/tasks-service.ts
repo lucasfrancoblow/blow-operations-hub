@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { requireTasksAccess } from "@/lib/session";
 import type { SessionUser } from "@/lib/auth";
+import { escapeHtml } from "@/lib/html";
 import {
   createTask,
   deleteTask,
@@ -12,21 +13,14 @@ import {
 } from "@/lib/tasks-store";
 import { createTaskProject, listTaskProjects, updateTaskProject } from "@/lib/task-projects-store";
 import {
+  accessibleProjectIdsFor,
   grantProjectAccess,
-  listAccessibleProjectIds,
   listProjectMemberIds,
   revokeProjectAccess,
 } from "@/lib/task-project-access-store";
 import { findUserById } from "@/lib/users-store";
 import { sendEmail } from "@/lib/resend-client";
 import type { Task, TaskInput, TaskStatus } from "@/types/tasks";
-
-/** admin/super_admin não têm restrição por projeto (undefined = sem filtro no store);
- * "member" só vê os projetos liberados explicitamente pra ele. */
-async function accessibleProjectIdsFor(user: SessionUser): Promise<string[] | undefined> {
-  if (user.role === "admin" || user.role === "super_admin") return undefined;
-  return listAccessibleProjectIds(user.id);
-}
 
 /** Só admin/super_admin gerenciam quem enxerga qual projeto — é uma ação de
  * controle de acesso, não uma ação normal de uso de Tarefas. */
@@ -42,15 +36,6 @@ export const getTasks = createServerFn({ method: "GET" }).handler(async (): Prom
   const user = await requireTasksAccess();
   return listTasks(await accessibleProjectIdsFor(user));
 });
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
 
 /** Avisa por e-mail quem acabou de virar responsável por uma tarefa (best-effort:
  * sendEmail nunca lança, então isso nunca derruba a criação/atualização em si). */

@@ -11,6 +11,7 @@ import {
   Moon,
   Search,
   Sun,
+  Ticket,
   TrendingUp,
   Users,
   Workflow,
@@ -47,6 +48,7 @@ const NAV_ITEMS = [
   { title: "Automações", url: "/automacoes", icon: Workflow, pageKey: "automacoes" },
   { title: "Incidentes", url: "/incidentes", icon: AlertTriangle, pageKey: "incidentes" },
   { title: "Tarefas", url: "/tarefas", icon: ListTodo, pageKey: "tarefas" },
+  { title: "Chamados", url: "/chamados", icon: Ticket, pageKey: "chamados" },
 ] as const satisfies ReadonlyArray<{
   title: string;
   url: string;

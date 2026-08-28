@@ -9,6 +9,7 @@ import { getSessionConfig, verifyPassword, type SessionUser, type UserRole } fro
 import { getSessionUser, requireSessionUser } from "@/lib/session";
 import {
   createUser,
+  findUserById,
   findUserByUsername,
   listUsers,
   setUserActive,
@@ -60,6 +61,14 @@ export const listActiveUsersFn = createServerFn({ method: "GET" }).handler(async
   await requireSessionUser();
   const users = await listUsers();
   return users.filter((u) => u.active).map((u) => ({ id: u.id, username: u.username }));
+});
+
+/** Nome/e-mail do próprio usuário logado — usado pra pré-preencher o formulário
+ * de abrir chamado (não expõe nada além disso, ao contrário de listUsersFn). */
+export const getMyProfileFn = createServerFn({ method: "GET" }).handler(async () => {
+  const session = await requireSessionUser();
+  const profile = await findUserById(session.id);
+  return { fullName: profile?.fullName ?? null, email: profile?.email ?? null };
 });
 
 export const logoutFn = createServerFn({ method: "POST" }).handler(async () => {

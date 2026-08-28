@@ -10,7 +10,7 @@ import {
 } from "@/lib/supabase-client";
 import type { Task, TaskInput, TaskPriority, TaskReference, TaskStatus } from "@/types/tasks";
 
-interface TaskRow {
+export interface TaskRow {
   id: string;
   task_number: number;
   title: string;
@@ -31,9 +31,10 @@ interface TaskRow {
 
 // Embed via PostgREST (funciona porque project_id/assignee_id são FKs de verdade):
 // já traz nome do projeto e username do responsável sem join manual no código.
-const TASK_SELECT = "*,project:task_projects(id,name,color),assignee:app_users(id,username)";
+// Exportado: task-tickets-store.ts reusa pra embutir a tarefa vinculada de um chamado.
+export const TASK_SELECT = "*,project:task_projects(id,name,color),assignee:app_users(id,username)";
 
-function fromRow(row: TaskRow): Task {
+export function fromRow(row: TaskRow): Task {
   return {
     id: row.id,
     taskNumber: row.task_number,

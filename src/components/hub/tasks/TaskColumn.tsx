@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { TaskCard } from "@/components/hub/tasks/TaskCard";
 import type { Task, TaskStatus } from "@/types/tasks";
 
-const STATUS_DOT: Record<TaskStatus, string> = {
+export const STATUS_DOT: Record<TaskStatus, string> = {
   Backlog: "bg-muted-foreground",
   "Em andamento": "bg-info",
   Bloqueado: "bg-critical",

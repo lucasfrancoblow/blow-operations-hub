@@ -5,7 +5,7 @@
 import { getSession } from "@tanstack/react-start/server";
 
 import { getSessionConfig, type SessionUser } from "@/lib/auth";
-import { canAccessPage } from "@/lib/page-access";
+import { canAccessPage, type PageKey } from "@/lib/page-access";
 
 export async function getSessionUser(): Promise<SessionUser | null> {
   const session = await getSession<SessionUser>(getSessionConfig());
@@ -20,13 +20,21 @@ export async function requireSessionUser(): Promise<SessionUser> {
   return user;
 }
 
-/** Usado por qualquer server function ligada a Tarefas (tasks, projetos, anexos)
- * — fecha a brecha de hoje onde esconder a aba no menu não impedia chamar a
- * função direto. */
-export async function requireTasksAccess(): Promise<SessionUser> {
+/** Usado por qualquer server function ligada a uma aba controlável (tasks,
+ * chamados, projetos, anexos) — fecha a brecha de hoje onde esconder a aba no
+ * menu não impedia chamar a função direto. */
+export async function requirePageAccess(key: PageKey): Promise<SessionUser> {
   const user = await requireSessionUser();
-  if (!canAccessPage(user, "tarefas")) {
-    throw new Error("Você não tem acesso a Tarefas.");
+  if (!canAccessPage(user, key)) {
+    throw new Error("Você não tem acesso a essa página.");
   }
   return user;
+}
+
+export async function requireTasksAccess(): Promise<SessionUser> {
+  return requirePageAccess("tarefas");
+}
+
+export async function requireChamadosAccess(): Promise<SessionUser> {
+  return requirePageAccess("chamados");
 }

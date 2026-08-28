@@ -9,6 +9,7 @@ import {
   supabaseSelect,
   supabaseUpsert,
 } from "@/lib/supabase-client";
+import type { SessionUser } from "@/lib/auth";
 
 interface AccessRow {
   project_id: string;
@@ -23,6 +24,14 @@ export async function listAccessibleProjectIds(userId: string): Promise<string[]
     user_id: `eq.${userId}`,
   });
   return rows.map((r) => r.project_id);
+}
+
+/** admin/super_admin não têm restrição por projeto (undefined = sem filtro no
+ * store que consumir isso); "member" só vê os projetos liberados pra ele —
+ * usado por tasks-service.ts e tickets-service.ts. */
+export async function accessibleProjectIdsFor(user: SessionUser): Promise<string[] | undefined> {
+  if (user.role === "admin" || user.role === "super_admin") return undefined;
+  return listAccessibleProjectIds(user.id);
 }
 
 /** Ids de usuário liberados pra ver um projeto (pra montar a lista de "quem já tem acesso"). */

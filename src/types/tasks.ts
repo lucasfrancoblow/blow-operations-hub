@@ -5,7 +5,7 @@ export type TaskStatus = "Backlog" | "Em andamento" | "Bloqueado" | "Em revisão
 
 export type TaskPriority = "Baixa" | "Média" | "Alta" | "Crítica";
 
-export type TaskReferenceType = "lead" | "incidente";
+export type TaskReferenceType = "lead" | "incidente" | "chamado";
 
 export const TASK_STATUSES: TaskStatus[] = [
   "Backlog",

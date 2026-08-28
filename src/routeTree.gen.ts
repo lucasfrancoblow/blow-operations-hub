@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ChamadosRouteImport } from './routes/chamados'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as DailyExpansaoRouteImport } from './routes/daily-expansao'
 import { Route as DocumentacaoRouteImport } from './routes/documentacao'
@@ -25,6 +26,11 @@ import { Route as AutomacoesAutomationIdRouteImport } from './routes/automacoes.
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChamadosRoute = ChamadosRouteImport.update({
+  id: '/chamados',
+  path: '/chamados',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
@@ -85,6 +91,7 @@ const AutomacoesAutomationIdRoute = AutomacoesAutomationIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/chamados': typeof ChamadosRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/daily-expansao': typeof DailyExpansaoRoute
   '/documentacao': typeof DocumentacaoRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/chamados': typeof ChamadosRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/daily-expansao': typeof DailyExpansaoRoute
   '/documentacao': typeof DocumentacaoRoute
@@ -114,6 +122,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/chamados': typeof ChamadosRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/daily-expansao': typeof DailyExpansaoRoute
   '/documentacao': typeof DocumentacaoRoute
@@ -130,6 +139,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/chamados'
     | '/configuracoes'
     | '/daily-expansao'
     | '/documentacao'
@@ -144,6 +154,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/chamados'
     | '/configuracoes'
     | '/daily-expansao'
     | '/documentacao'
@@ -158,6 +169,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/chamados'
     | '/configuracoes'
     | '/daily-expansao'
     | '/documentacao'
@@ -173,6 +185,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ChamadosRoute: typeof ChamadosRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
   DailyExpansaoRoute: typeof DailyExpansaoRoute
   DocumentacaoRoute: typeof DocumentacaoRoute
@@ -193,6 +206,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chamados': {
+      id: '/chamados'
+      path: '/chamados'
+      fullPath: '/chamados'
+      preLoaderRoute: typeof ChamadosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/configuracoes': {
@@ -277,6 +297,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ChamadosRoute: ChamadosRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
   DailyExpansaoRoute: DailyExpansaoRoute,
   DocumentacaoRoute: DocumentacaoRoute,
