@@ -15,8 +15,10 @@ import {
 } from "@/components/ui/select";
 import { EmptyState, PageHeader } from "@/components/hub/primitives";
 import { displayName } from "@/lib/display-name";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TaskBoard } from "@/components/hub/tasks/TaskBoard";
 import { TaskMobileList } from "@/components/hub/tasks/TaskMobileList";
+import { TaskBacklogList } from "@/components/hub/tasks/TaskBacklogList";
 import { TaskDetailSheet } from "@/components/hub/tasks/TaskDetailSheet";
 import { TaskCommandPalette } from "@/components/hub/tasks/TaskCommandPalette";
 import { ProjectSwitcher, UNASSIGNED_PROJECT_ID } from "@/components/hub/tasks/ProjectSwitcher";
@@ -33,6 +35,7 @@ export const Route = createFileRoute("/tarefas")({
   },
   validateSearch: (search: Record<string, unknown>) => ({
     project: typeof search["project"] === "string" ? (search["project"] as string) : undefined,
+    view: search["view"] === "backlog" ? ("backlog" as const) : undefined,
   }),
   head: () => ({
     meta: [
@@ -50,9 +53,10 @@ function TarefasPage() {
   const queryClient = useQueryClient();
   const { user } = Route.useRouteContext();
   const canManageAccess = user?.role === "super_admin";
-  const { project: projectParam } = Route.useSearch();
+  const { project: projectParam, view: viewParam } = Route.useSearch();
   const navigate = useNavigate({ from: "/tarefas" });
   const selectedProject = projectParam ?? UNASSIGNED_PROJECT_ID;
+  const view = viewParam ?? "board";
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["tasks"],
@@ -121,7 +125,14 @@ function TarefasPage() {
   }
 
   function selectProject(id: string) {
-    void navigate({ to: ".", search: { project: id } });
+    void navigate({ to: ".", search: { project: id, view: viewParam } });
+  }
+
+  function selectView(next: "board" | "backlog") {
+    void navigate({
+      to: ".",
+      search: { project: projectParam, view: next === "backlog" ? "backlog" : undefined },
+    });
   }
 
   return (
@@ -142,6 +153,13 @@ function TarefasPage() {
         onSelect={selectProject}
         canManageAccess={canManageAccess}
       />
+
+      <Tabs value={view} onValueChange={(v) => selectView(v as "board" | "backlog")}>
+        <TabsList>
+          <TabsTrigger value="board">Board</TabsTrigger>
+          <TabsTrigger value="backlog">Backlogs</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       <div className="grid gap-3 rounded-xl border border-border/60 bg-card/60 p-3 sm:grid-cols-3">
         <Input
@@ -187,6 +205,12 @@ function TarefasPage() {
               <Plus className="h-4 w-4" /> Nova tarefa
             </Button>
           }
+        />
+      ) : view === "backlog" ? (
+        <TaskBacklogList
+          tasks={filtered}
+          onOpenTask={openTask}
+          onReorder={(updates) => reorderMutation.mutate(updates)}
         />
       ) : (
         <>

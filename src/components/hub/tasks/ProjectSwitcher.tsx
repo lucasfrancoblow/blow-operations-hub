@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { MoreHorizontal, Plus } from "lucide-react";
+import { FileText, MoreHorizontal, Plus } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { displayName } from "@/lib/display-name";
+import { renderSafeMarkdown } from "@/lib/markdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -65,6 +67,9 @@ export function ProjectSwitcher({
   const [createOpen, setCreateOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<TaskProject | null>(null);
   const [accessTarget, setAccessTarget] = useState<TaskProject | null>(null);
+  const [docsTarget, setDocsTarget] = useState<TaskProject | null>(null);
+  const [docsText, setDocsText] = useState("");
+  const [docsPreview, setDocsPreview] = useState(false);
   const [name, setName] = useState("");
   const [color, setColor] = useState<string>(PROJECT_COLORS[0].id);
 
@@ -95,6 +100,18 @@ export function ProjectSwitcher({
     onSuccess: invalidate,
     onError: (error: Error) =>
       toast.error(`Não foi possível atualizar a User Story: ${error.message}`),
+  });
+
+  const docsMutation = useMutation({
+    mutationFn: () =>
+      updateProjectFn({ data: { id: docsTarget!.id, patch: { documentation: docsText } } }),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Documentação salva.");
+      setDocsTarget(null);
+    },
+    onError: (error: Error) =>
+      toast.error(`Não foi possível salvar a documentação: ${error.message}`),
   });
 
   const { data: users = [] } = useQuery({
@@ -185,6 +202,15 @@ export function ProjectSwitcher({
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => archiveMutation.mutate(project)}>
                   {project.archived ? "Reativar" : "Arquivar"}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setDocsTarget(project);
+                    setDocsText(project.documentation ?? "");
+                    setDocsPreview(false);
+                  }}
+                >
+                  <FileText className="mr-1.5 h-3.5 w-3.5" /> Documentação
                 </DropdownMenuItem>
                 {canManageAccess && (
                   <DropdownMenuItem onClick={() => setAccessTarget(project)}>
@@ -304,6 +330,57 @@ export function ProjectSwitcher({
               );
             })}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={docsTarget !== null} onOpenChange={(open) => !open && setDocsTarget(null)}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Documentação de "{docsTarget?.name}"</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant={docsPreview ? "outline" : "secondary"}
+              size="sm"
+              onClick={() => setDocsPreview(false)}
+            >
+              Editar
+            </Button>
+            <Button
+              type="button"
+              variant={docsPreview ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setDocsPreview(true)}
+            >
+              Visualizar
+            </Button>
+          </div>
+          {docsPreview ? (
+            <div
+              className="min-h-48 max-h-96 overflow-y-auto rounded-md border border-border/60 bg-muted/20 p-3"
+              dangerouslySetInnerHTML={{
+                __html:
+                  renderSafeMarkdown(docsText) ||
+                  "<p class='text-sm text-muted-foreground'>Sem conteúdo ainda.</p>",
+              }}
+            />
+          ) : (
+            <Textarea
+              value={docsText}
+              onChange={(e) => setDocsText(e.target.value)}
+              placeholder={
+                "Contexto, decisões, links...\n\nUse **negrito**, *itálico*, # Título, - item de lista."
+              }
+              rows={14}
+              className="font-mono text-sm"
+            />
+          )}
+          <DialogFooter>
+            <Button onClick={() => docsMutation.mutate()} disabled={docsMutation.isPending}>
+              Salvar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

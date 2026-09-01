@@ -26,6 +26,8 @@ export interface TaskRow {
   created_by: string | null;
   creator: EmbeddedUser | null;
   tags: string[];
+  story_points: number | null;
+  estimated_hours: number | null;
   due_date: string | null;
   reference: TaskReference | null;
   position: number;
@@ -59,6 +61,8 @@ export function fromRow(row: TaskRow): Task {
     assignee: fromEmbeddedUser(row.assignee),
     createdBy: fromEmbeddedUser(row.creator),
     tags: row.tags ?? [],
+    storyPoints: row.story_points,
+    estimatedHours: row.estimated_hours,
     dueDate: row.due_date,
     reference: row.reference,
     position: row.position,
@@ -120,6 +124,8 @@ export async function createTask(input: TaskInput, createdBy: string | null): Pr
         assignee_id: input.assigneeId ?? null,
         created_by: createdBy,
         tags: input.tags ?? [],
+        story_points: input.storyPoints ?? null,
+        estimated_hours: input.estimatedHours ?? null,
         due_date: input.dueDate ?? null,
         reference: input.reference ?? null,
       },
@@ -140,6 +146,8 @@ export async function updateTask(id: string, patch: Partial<TaskInput>): Promise
   if (patch.projectId !== undefined) row["project_id"] = patch.projectId;
   if (patch.assigneeId !== undefined) row["assignee_id"] = patch.assigneeId;
   if (patch.tags !== undefined) row["tags"] = patch.tags;
+  if (patch.storyPoints !== undefined) row["story_points"] = patch.storyPoints;
+  if (patch.estimatedHours !== undefined) row["estimated_hours"] = patch.estimatedHours;
   if (patch.dueDate !== undefined) row["due_date"] = patch.dueDate;
   if (patch.reference !== undefined) row["reference"] = patch.reference;
   await supabaseUpdate("tasks", id, row);

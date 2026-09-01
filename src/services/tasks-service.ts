@@ -162,7 +162,7 @@ export const createProjectFn = createServerFn({ method: "POST" })
 
 interface UpdateProjectInput {
   id: string;
-  patch: Partial<{ name: string; color: string; archived: boolean }>;
+  patch: Partial<{ name: string; color: string; archived: boolean; documentation: string | null }>;
 }
 
 export const updateProjectFn = createServerFn({ method: "POST" })

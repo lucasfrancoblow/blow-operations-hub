@@ -30,6 +30,7 @@ export interface TaskProject {
   name: string;
   color: string;
   archived: boolean;
+  documentation: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -53,6 +54,8 @@ export interface Task {
   assignee: TaskAssignee | null;
   createdBy: TaskAssignee | null;
   tags: string[];
+  storyPoints: number | null;
+  estimatedHours: number | null;
   dueDate: string | null;
   reference: TaskReference | null;
   position: number;
@@ -68,6 +71,8 @@ export interface TaskInput {
   projectId?: string | null | undefined;
   assigneeId?: string | null | undefined;
   tags?: string[] | undefined;
+  storyPoints?: number | null | undefined;
+  estimatedHours?: number | null | undefined;
   dueDate?: string | null | undefined;
   reference?: TaskReference | null | undefined;
 }

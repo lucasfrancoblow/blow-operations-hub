@@ -13,6 +13,7 @@ interface TaskProjectRow {
   name: string;
   color: string;
   archived: boolean;
+  documentation: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -23,6 +24,7 @@ function fromRow(row: TaskProjectRow): TaskProject {
     name: row.name,
     color: row.color,
     archived: row.archived,
+    documentation: row.documentation,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -62,7 +64,7 @@ export async function createTaskProject(input: {
 
 export async function updateTaskProject(
   id: string,
-  patch: Partial<{ name: string; color: string; archived: boolean }>,
+  patch: Partial<{ name: string; color: string; archived: boolean; documentation: string | null }>,
 ): Promise<void> {
   requireSupabase();
   await supabaseUpdate("task_projects", id, {
