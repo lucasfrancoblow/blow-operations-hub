@@ -5,12 +5,12 @@ import { Loader2, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -305,17 +305,17 @@ export function TaskDetailSheet({
   );
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-3xl">
-        <SheetHeader className="space-y-3 pb-0">
-          <SheetTitle className="sr-only">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-4xl">
+        <DialogHeader className="space-y-3 pb-0">
+          <DialogTitle className="sr-only">
             {isEditing && task ? `Tarefa #${task.taskNumber}` : "Nova tarefa"}
-          </SheetTitle>
-          <SheetDescription className="sr-only">
+          </DialogTitle>
+          <DialogDescription className="sr-only">
             {isEditing
               ? "Atualize os detalhes da tarefa."
               : "Descreva a tarefa e defina os campos iniciais."}
-          </SheetDescription>
+          </DialogDescription>
 
           <Input
             value={form.title}
@@ -429,7 +429,7 @@ export function TaskDetailSheet({
               </Select>
             </div>
           </div>
-        </SheetHeader>
+        </DialogHeader>
 
         <Separator className="my-4" />
 
@@ -541,7 +541,7 @@ export function TaskDetailSheet({
             </Button>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
