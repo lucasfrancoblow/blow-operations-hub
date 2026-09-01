@@ -136,7 +136,7 @@ export function TopNav({ user }: { user: SessionUser }) {
 
   return (
     <header className="sticky top-0 z-20 border-b border-border/60 bg-background/85 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-[1600px] items-center gap-2 px-3 sm:px-6">
+      <div className="mx-auto flex h-16 items-center gap-2 px-3 sm:px-6">
         <Link to="/" className="mr-1 flex shrink-0 items-center gap-2.5">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <Zap className="h-4.5 w-4.5" />
