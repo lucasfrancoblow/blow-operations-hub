@@ -39,10 +39,15 @@ export function TaskBoard({
   tasks,
   onOpenTask,
   onReorder,
+  onQuickCreate,
 }: {
   tasks: Task[];
   onOpenTask: (task: Task) => void;
   onReorder: (updates: Array<{ id: string; status: TaskStatus; position: number }>) => void;
+  /** Chamado só a partir da primeira coluna (igual Azure: "add items in the
+   * first column") — que aqui é "Aguardando aceite", já batendo com a regra
+   * de toda tarefa nova nascer aguardando aceite. */
+  onQuickCreate?: (title: string) => void;
 }) {
   const [columns, setColumns] = useState<Columns>(() => groupByStatus(tasks));
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -130,12 +135,13 @@ export function TaskBoard({
       onDragEnd={handleDragEnd}
     >
       <div className="flex gap-4 overflow-x-auto pb-2">
-        {TASK_STATUSES.map((status) => (
+        {TASK_STATUSES.map((status, index) => (
           <TaskColumn
             key={status}
             status={status}
             tasks={columns[status]}
             onOpenTask={onOpenTask}
+            onQuickCreate={index === 0 ? onQuickCreate : undefined}
           />
         ))}
       </div>

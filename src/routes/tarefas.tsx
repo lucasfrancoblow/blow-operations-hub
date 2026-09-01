@@ -25,13 +25,14 @@ import { ProjectSwitcher, UNASSIGNED_PROJECT_ID } from "@/components/hub/tasks/P
 import { canAccessPage } from "@/lib/page-access";
 import { listActiveUsersFn } from "@/services/auth-service";
 import {
+  createTaskFn,
   getTasks,
   listProjectsFn,
   reorderBacklogFn,
   reorderTasksFn,
   updateTaskFn,
 } from "@/services/tasks-service";
-import { TASK_PRIORITIES, type Task, type TaskStatus } from "@/types/tasks";
+import { TASK_PRIORITIES, TASK_STATUSES, type Task, type TaskStatus } from "@/types/tasks";
 
 export const Route = createFileRoute("/tarefas")({
   beforeLoad: ({ context }) => {
@@ -117,6 +118,19 @@ function TarefasPage() {
     mutationFn: (updates: Array<{ id: string; backlogPosition: number }>) =>
       reorderBacklogFn({ data: { updates } }),
     onError: (error: Error) => toast.error(`Não foi possível reordenar: ${error.message}`),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+  });
+
+  const quickCreateMutation = useMutation({
+    mutationFn: (title: string) =>
+      createTaskFn({
+        data: {
+          title,
+          status: TASK_STATUSES[0],
+          projectId: selectedProject === UNASSIGNED_PROJECT_ID ? null : selectedProject,
+        },
+      }),
+    onError: (error: Error) => toast.error(`Não foi possível criar a tarefa: ${error.message}`),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
   });
 
@@ -208,7 +222,7 @@ function TarefasPage() {
         </Select>
       </div>
 
-      {!isLoading && filtered.length === 0 ? (
+      {!isLoading && filtered.length === 0 && view === "backlog" ? (
         <EmptyState
           icon={<ListTodo className="h-5 w-5" />}
           title="Nenhuma tarefa encontrada"
@@ -232,6 +246,7 @@ function TarefasPage() {
               tasks={filtered}
               onOpenTask={openTask}
               onReorder={(updates) => reorderMutation.mutate(updates)}
+              onQuickCreate={(title) => quickCreateMutation.mutate(title)}
             />
           </div>
           <div className="md:hidden">

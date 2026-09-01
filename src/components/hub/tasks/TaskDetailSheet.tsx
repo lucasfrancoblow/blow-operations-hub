@@ -403,6 +403,31 @@ export function TaskDetailSheet({
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-1">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                User Story
+              </span>
+              <Select
+                value={form.projectId}
+                onValueChange={(v) => setForm((f) => ({ ...f, projectId: v }))}
+              >
+                <SelectTrigger className="h-7 w-fit gap-1.5 border-none bg-transparent px-0 text-sm shadow-none focus:ring-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={UNASSIGNED_PROJECT_ID}>Sem User Story</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      <span className="flex items-center gap-2">
+                        <span className={cn("h-2 w-2 rounded-full", projectColorDot(p.color))} />
+                        {p.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </SheetHeader>
 
@@ -446,29 +471,6 @@ export function TaskDetailSheet({
                   {TASK_PRIORITIES.map((p) => (
                     <SelectItem key={p} value={p}>
                       {p}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <FieldLabel>User Story</FieldLabel>
-              <Select
-                value={form.projectId}
-                onValueChange={(v) => setForm((f) => ({ ...f, projectId: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={UNASSIGNED_PROJECT_ID}>Sem User Story</SelectItem>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      <span className="flex items-center gap-2">
-                        <span className={cn("h-2 w-2 rounded-full", projectColorDot(p.color))} />
-                        {p.name}
-                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>

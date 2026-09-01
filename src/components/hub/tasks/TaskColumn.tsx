@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { AnimatePresence } from "motion/react";
+import { Plus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 import { TaskCard } from "@/components/hub/tasks/TaskCard";
 import type { Task, TaskStatus } from "@/types/tasks";
 
@@ -19,12 +22,27 @@ export function TaskColumn({
   status,
   tasks,
   onOpenTask,
+  onQuickCreate,
 }: {
   status: TaskStatus;
   tasks: Task[];
   onOpenTask: (task: Task) => void;
+  /** Só a primeira coluna recebe isso — ver comentário em TaskBoard.tsx. */
+  onQuickCreate?: ((title: string) => void) | undefined;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
+  const [adding, setAdding] = useState(false);
+  const [quickTitle, setQuickTitle] = useState("");
+
+  function submitQuickCreate() {
+    const title = quickTitle.trim();
+    if (!title) {
+      setAdding(false);
+      return;
+    }
+    onQuickCreate?.(title);
+    setQuickTitle("");
+  }
 
   return (
     <div className="flex w-72 shrink-0 flex-col gap-3">
@@ -48,6 +66,37 @@ export function TaskColumn({
               <TaskCard key={task.id} task={task} onOpen={onOpenTask} />
             ))}
           </AnimatePresence>
+
+          {onQuickCreate ? (
+            adding ? (
+              <Input
+                autoFocus
+                value={quickTitle}
+                onChange={(e) => setQuickTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submitQuickCreate();
+                  if (e.key === "Escape") {
+                    setQuickTitle("");
+                    setAdding(false);
+                  }
+                }}
+                onBlur={() => {
+                  submitQuickCreate();
+                  setAdding(false);
+                }}
+                placeholder="Título da tarefa"
+                className="h-8 bg-card text-sm"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAdding(true)}
+                className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-sm font-medium text-primary hover:bg-primary/10"
+              >
+                <Plus className="h-3.5 w-3.5" /> Nova tarefa
+              </button>
+            )
+          ) : null}
         </div>
       </SortableContext>
     </div>
