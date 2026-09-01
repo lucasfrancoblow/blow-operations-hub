@@ -38,7 +38,7 @@ export function TaskComments({ taskId }: { taskId: string }) {
 
   return (
     <div className="space-y-3">
-      <label className="text-xs font-medium text-muted-foreground">Comentários</label>
+      <label className="text-sm font-semibold text-foreground">Comentários</label>
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando comentários...</p>
@@ -47,7 +47,7 @@ export function TaskComments({ taskId }: { taskId: string }) {
       ) : (
         <div className="space-y-2.5">
           {comments.map((c) => (
-            <div key={c.id} className="rounded-lg border border-border/60 bg-card/60 p-2.5">
+            <div key={c.id} className="rounded-lg border border-border/60 bg-muted/40 p-2.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-medium">{displayName(c.author)}</span>
                 <span className="text-[11px] text-muted-foreground">

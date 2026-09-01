@@ -65,7 +65,7 @@ function AttachmentRow({
   deleting: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-lg border border-border/60 bg-card/60 p-2.5">
+    <div className="flex items-center gap-2.5 rounded-lg border border-border/60 bg-muted/40 p-2.5">
       <button type="button" onClick={() => openAttachment(attachment.id)} className="shrink-0">
         <AttachmentThumbnail attachment={attachment} />
       </button>
@@ -142,7 +142,7 @@ export function TaskAttachments({ taskId }: { taskId: string }) {
   return (
     <div className="space-y-2.5">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-medium text-muted-foreground">Anexos</label>
+        <label className="text-sm font-semibold text-foreground">Anexos</label>
         <input
           ref={inputRef}
           type="file"

@@ -227,8 +227,12 @@ export function TaskDetailSheet({
             {isEditing && task ? (
               <>
                 <span>#{task.taskNumber}</span>
-                <span>·</span>
-                <span>Aberto por {displayName(task.createdBy)}</span>
+                {task.createdBy ? (
+                  <>
+                    <span>·</span>
+                    <span>Aberto por {displayName(task.createdBy)}</span>
+                  </>
+                ) : null}
                 {form.status === ACCEPT_STATUS ? (
                   <Button
                     type="button"
@@ -355,7 +359,7 @@ export function TaskDetailSheet({
             </section>
           </div>
 
-          <div className="space-y-4 sm:border-l sm:border-border/60 sm:pl-5">
+          <div className="space-y-4 rounded-lg bg-muted/30 p-3 sm:border-l sm:border-border/60 sm:bg-transparent sm:p-0 sm:pl-5">
             <div className="space-y-1.5">
               <FieldLabel>Status</FieldLabel>
               <Select
