@@ -40,10 +40,12 @@ import {
 import { EmptyState, PageHeader } from "@/components/hub/primitives";
 import { TaskPriorityBadge } from "@/components/hub/badges";
 import { TaskDetailSheet } from "@/components/hub/tasks/TaskDetailSheet";
+import { TaskComments } from "@/components/hub/tasks/TaskComments";
 import { STATUS_DOT } from "@/components/hub/tasks/TaskColumn";
 import { UNASSIGNED_PROJECT_ID } from "@/components/hub/tasks/ProjectSwitcher";
 import { canAccessPage } from "@/lib/page-access";
 import { cn } from "@/lib/utils";
+import { displayName } from "@/lib/display-name";
 import { getMyProfileFn } from "@/services/auth-service";
 import { listProjectsFn } from "@/services/tasks-service";
 import { createTicketFn, listTicketsFn, updateTicketDetailsFn } from "@/services/tickets-service";
@@ -151,7 +153,7 @@ function ChamadosPage() {
     <div className="space-y-6">
       <PageHeader
         title="Chamados"
-        subtitle="Abra um chamado técnico — vira uma tarefa dentro do projeto certo na hora."
+        subtitle="Abra um chamado técnico — vira uma tarefa dentro da User Story certa na hora."
         actions={
           <Button size="sm" onClick={openCreate}>
             <Plus className="h-4 w-4" /> Novo chamado
@@ -175,7 +177,7 @@ function ChamadosPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Chamado</TableHead>
-              <TableHead>Projeto</TableHead>
+              <TableHead>User Story</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Solicitante</TableHead>
               <TableHead>Aberto em</TableHead>
@@ -187,7 +189,7 @@ function ChamadosPage() {
                 <TableCell className="font-medium">
                   <span className="text-muted-foreground">#{t.ticketNumber}</span> {t.task.title}
                 </TableCell>
-                <TableCell>{t.task.project?.name ?? "Sem projeto"}</TableCell>
+                <TableCell>{t.task.project?.name ?? "Sem User Story"}</TableCell>
                 <TableCell>
                   <span className="inline-flex items-center gap-1.5">
                     <span className={cn("h-2 w-2 rounded-full", STATUS_DOT[t.task.status])} />
@@ -211,13 +213,13 @@ function ChamadosPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Projeto</Label>
+              <Label>User Story</Label>
               <Select value={projectId} onValueChange={setProjectId}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={UNASSIGNED_PROJECT_ID}>Sem projeto</SelectItem>
+                  <SelectItem value={UNASSIGNED_PROJECT_ID}>Sem User Story</SelectItem>
                   {projects.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name}
@@ -307,12 +309,12 @@ function ChamadosPage() {
                 </div>
                 {selectedTicket.task.project && (
                   <p className="text-xs text-muted-foreground">
-                    Projeto: {selectedTicket.task.project.name}
+                    User Story: {selectedTicket.task.project.name}
                   </p>
                 )}
                 {selectedTicket.task.assignee && (
                   <p className="text-xs text-muted-foreground">
-                    Responsável: {selectedTicket.task.assignee.username}
+                    Responsável: {displayName(selectedTicket.task.assignee)}
                   </p>
                 )}
 
@@ -340,6 +342,8 @@ function ChamadosPage() {
                 >
                   Salvar
                 </Button>
+
+                <TaskComments taskId={selectedTicket.task.id} />
               </div>
             )}
           </SheetContent>

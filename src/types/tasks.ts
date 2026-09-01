@@ -37,6 +37,7 @@ export interface TaskProject {
 export interface TaskAssignee {
   id: string;
   username: string;
+  fullName: string | null;
 }
 
 export interface Task {
@@ -50,6 +51,7 @@ export interface Task {
   project: Pick<TaskProject, "id" | "name" | "color"> | null;
   assigneeId: string | null;
   assignee: TaskAssignee | null;
+  createdBy: TaskAssignee | null;
   tags: string[];
   dueDate: string | null;
   reference: TaskReference | null;

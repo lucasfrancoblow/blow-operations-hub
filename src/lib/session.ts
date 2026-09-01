@@ -9,9 +9,9 @@ import { canAccessPage, type PageKey } from "@/lib/page-access";
 
 export async function getSessionUser(): Promise<SessionUser | null> {
   const session = await getSession<SessionUser>(getSessionConfig());
-  const { id, username, role, pageAccess } = session.data;
+  const { id, username, fullName, role, pageAccess } = session.data;
   if (!id || !username || !role) return null;
-  return { id, username, role, pageAccess: pageAccess ?? [] };
+  return { id, username, fullName: fullName ?? null, role, pageAccess: pageAccess ?? [] };
 }
 
 export async function requireSessionUser(): Promise<SessionUser> {

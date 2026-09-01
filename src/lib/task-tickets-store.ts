@@ -64,6 +64,19 @@ export async function getTicket(id: string): Promise<Ticket | null> {
   return rows[0] ? fromRow(rows[0]) : null;
 }
 
+/** Chamado vinculado a uma tarefa, se houver — usado pra checar se quem está
+ * comentando numa tarefa é o solicitante do chamado por trás dela (fornecedor
+ * sem acesso a Tarefas). */
+export async function getTicketByTaskId(taskId: string): Promise<Ticket | null> {
+  if (!isSupabaseConfigured()) return null;
+  const rows = await supabaseSelect<TicketRow>("task_tickets", {
+    select: TICKET_SELECT,
+    task_id: `eq.${taskId}`,
+    limit: "1",
+  });
+  return rows[0] ? fromRow(rows[0]) : null;
+}
+
 export async function createTicket(input: {
   taskId: string;
   channel: TicketChannel;

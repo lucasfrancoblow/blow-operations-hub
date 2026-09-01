@@ -61,12 +61,32 @@ async function notifyAssignee(task: Task): Promise<void> {
   });
 }
 
+/** Avisa por e-mail quem abriu a tarefa que o status mudou — só se quem abriu
+ * não foi quem mexeu agora (best-effort: sendEmail nunca lança). */
+async function notifyCreatorOfStatusChange(
+  previous: Task,
+  newStatus: TaskStatus,
+  actingUserId: string,
+): Promise<void> {
+  if (!previous.createdBy || previous.createdBy.id === actingUserId) return;
+  const creator = await findUserById(previous.createdBy.id);
+  if (!creator?.email) return;
+  await sendEmail({
+    to: creator.email,
+    subject: `Tarefa #${previous.taskNumber} mudou de status: ${newStatus}`,
+    html: `
+      <p>A tarefa <strong>#${previous.taskNumber} — ${escapeHtml(previous.title)}</strong> que você abriu mudou de status.</p>
+      <p><strong>${escapeHtml(previous.status)}</strong> → <strong>${escapeHtml(newStatus)}</strong></p>
+    `,
+  });
+}
+
 export const createTaskFn = createServerFn({ method: "POST" })
   .validator((input: TaskInput) => input)
   .handler(async ({ data }) => {
     const user = await requireTasksAccess();
     await requireAccessibleProject(user, data.projectId ?? null);
-    const task = await createTask(data);
+    const task = await createTask(data, user.id);
     if (task.assigneeId) await notifyAssignee(task);
   });
 
@@ -89,6 +109,9 @@ export const updateTaskFn = createServerFn({ method: "POST" })
       const updated = await getTask(data.id);
       if (updated) await notifyAssignee(updated);
     }
+    if (data.patch.status !== undefined && data.patch.status !== current.status) {
+      await notifyCreatorOfStatusChange(current, data.patch.status, user.id);
+    }
   });
 
 interface ReorderTasksInput {
@@ -99,8 +122,15 @@ export const reorderTasksFn = createServerFn({ method: "POST" })
   .validator((input: ReorderTasksInput) => input)
   .handler(async ({ data }) => {
     const user = await requireTasksAccess();
-    await Promise.all(data.updates.map((u) => requireTaskAccess(user, u.id)));
+    const previousTasks = await Promise.all(data.updates.map((u) => requireTaskAccess(user, u.id)));
     await reorderTasks(data.updates);
+    await Promise.all(
+      data.updates.map((u, i) => {
+        const previous = previousTasks[i]!;
+        if (previous.status === u.status) return;
+        return notifyCreatorOfStatusChange(previous, u.status, user.id);
+      }),
+    );
   });
 
 export const deleteTaskFn = createServerFn({ method: "POST" })

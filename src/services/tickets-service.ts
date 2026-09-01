@@ -68,12 +68,15 @@ export const createTicketFn = createServerFn({ method: "POST" })
     const user = await requireChamadosAccess();
     await requireAccessibleProject(user, data.projectId);
 
-    const task = await createTask({
-      title: data.title,
-      description: data.description,
-      projectId: data.projectId,
-      status: "Aguardando aceite",
-    });
+    const task = await createTask(
+      {
+        title: data.title,
+        description: data.description,
+        projectId: data.projectId,
+        status: "Aguardando aceite",
+      },
+      user.id,
+    );
 
     const ticket = await createTicket({
       taskId: task.id,

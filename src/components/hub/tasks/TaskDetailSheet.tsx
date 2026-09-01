@@ -23,14 +23,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { displayName } from "@/lib/display-name";
 import { listActiveUsersFn } from "@/services/auth-service";
 import { createTaskFn, deleteTaskFn, listProjectsFn, updateTaskFn } from "@/services/tasks-service";
 import { suggestPriorityFn, suggestSubtasksFn, summarizeTaskFn } from "@/services/tasks-ai-service";
 import { TaskAttachments } from "@/components/hub/tasks/TaskAttachments";
+import { TaskComments } from "@/components/hub/tasks/TaskComments";
 import { UNASSIGNED_PROJECT_ID, projectColorDot } from "@/components/hub/tasks/ProjectSwitcher";
 import { TASK_PRIORITIES, TASK_STATUSES, type Task, type TaskInput } from "@/types/tasks";
 
 const UNASSIGNED_USER_ID = "none";
+const ACCEPT_STATUS: Task["status"] = "Aguardando aceite";
+const ACCEPTED_STATUS: Task["status"] = "Backlog";
 
 type FormState = {
   title: string;
@@ -251,7 +255,7 @@ export function TaskDetailSheet({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Projeto</label>
+              <label className="text-xs font-medium text-muted-foreground">User Story</label>
               <Select
                 value={form.projectId}
                 onValueChange={(v) => setForm((f) => ({ ...f, projectId: v }))}
@@ -260,7 +264,7 @@ export function TaskDetailSheet({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={UNASSIGNED_PROJECT_ID}>Sem projeto</SelectItem>
+                  <SelectItem value={UNASSIGNED_PROJECT_ID}>Sem User Story</SelectItem>
                   {projects.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       <span className="flex items-center gap-2">
@@ -285,13 +289,34 @@ export function TaskDetailSheet({
                   <SelectItem value={UNASSIGNED_USER_ID}>Ninguém</SelectItem>
                   {users.map((u) => (
                     <SelectItem key={u.id} value={u.id}>
-                      {u.username}
+                      {displayName(u)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
+
+          {isEditing && task ? (
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span>Aberto por {displayName(task.createdBy)}</span>
+              {form.status === ACCEPT_STATUS ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  disabled={updateMutation.isPending}
+                  onClick={() => {
+                    setForm((f) => ({ ...f, status: ACCEPTED_STATUS }));
+                    updateMutation.mutate({ ...toInput(form), status: ACCEPTED_STATUS });
+                  }}
+                >
+                  Aceitar tarefa
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -319,6 +344,8 @@ export function TaskDetailSheet({
           {isEditing && task ? (
             <>
               <TaskAttachments taskId={task.id} />
+              <Separator />
+              <TaskComments taskId={task.id} />
               <Separator />
             </>
           ) : null}

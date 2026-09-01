@@ -10,6 +10,8 @@ import {
 } from "@/lib/supabase-client";
 import type { Task, TaskInput, TaskPriority, TaskReference, TaskStatus } from "@/types/tasks";
 
+type EmbeddedUser = { id: string; username: string; full_name: string | null };
+
 export interface TaskRow {
   id: string;
   task_number: number;
@@ -20,7 +22,9 @@ export interface TaskRow {
   project_id: string | null;
   project: { id: string; name: string; color: string } | null;
   assignee_id: string | null;
-  assignee: { id: string; username: string } | null;
+  assignee: EmbeddedUser | null;
+  created_by: string | null;
+  creator: EmbeddedUser | null;
   tags: string[];
   due_date: string | null;
   reference: TaskReference | null;
@@ -29,10 +33,17 @@ export interface TaskRow {
   updated_at: string;
 }
 
-// Embed via PostgREST (funciona porque project_id/assignee_id são FKs de verdade):
-// já traz nome do projeto e username do responsável sem join manual no código.
+function fromEmbeddedUser(user: EmbeddedUser | null) {
+  return user ? { id: user.id, username: user.username, fullName: user.full_name } : null;
+}
+
+// Embed via PostgREST (funciona porque project_id/assignee_id/created_by são FKs de
+// verdade): já traz nome do projeto, responsável e quem abriu, sem join manual.
 // Exportado: task-tickets-store.ts reusa pra embutir a tarefa vinculada de um chamado.
-export const TASK_SELECT = "*,project:task_projects(id,name,color),assignee:app_users(id,username)";
+// "assignee"/"creator" desambiguados pelo nome da coluna (tasks tem 2 FKs pra
+// app_users agora — sem isso o PostgREST recusa o embed por ambiguidade).
+export const TASK_SELECT =
+  "*,project:task_projects(id,name,color),assignee:app_users!assignee_id(id,username,full_name),creator:app_users!created_by(id,username,full_name)";
 
 export function fromRow(row: TaskRow): Task {
   return {
@@ -45,7 +56,8 @@ export function fromRow(row: TaskRow): Task {
     projectId: row.project_id,
     project: row.project,
     assigneeId: row.assignee_id,
-    assignee: row.assignee,
+    assignee: fromEmbeddedUser(row.assignee),
+    createdBy: fromEmbeddedUser(row.creator),
     tags: row.tags ?? [],
     dueDate: row.due_date,
     reference: row.reference,
@@ -92,7 +104,9 @@ export async function getTask(id: string): Promise<Task | null> {
   return rows[0] ? fromRow(rows[0]) : null;
 }
 
-export async function createTask(input: TaskInput): Promise<Task> {
+// createdBy nunca vem do TaskInput (que é preenchido a partir do que o client manda)
+// — é sempre o id de quem está logado, passado à parte pelo service layer.
+export async function createTask(input: TaskInput, createdBy: string | null): Promise<Task> {
   requireSupabase();
   const [row] = await supabaseInsertReturning<Record<string, unknown>, TaskRow>(
     "tasks",
@@ -100,10 +114,11 @@ export async function createTask(input: TaskInput): Promise<Task> {
       {
         title: input.title,
         description: input.description ?? "",
-        status: input.status ?? "Backlog",
+        status: input.status ?? "Aguardando aceite",
         priority: input.priority ?? "Média",
         project_id: input.projectId ?? null,
         assignee_id: input.assigneeId ?? null,
+        created_by: createdBy,
         tags: input.tags ?? [],
         due_date: input.dueDate ?? null,
         reference: input.reference ?? null,

@@ -28,6 +28,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 export interface SessionUser {
   id: string;
   username: string;
+  fullName: string | null;
   role: UserRole;
   /** Chaves de página liberadas pra esse usuário (ver src/lib/page-access.ts) — só
    * relevante pra "member"; admin/super_admin sempre têm acesso a tudo. */

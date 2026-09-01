@@ -462,9 +462,9 @@ function UsuariosPage() {
 
           {showsProjectAccessSection && (
             <div className="space-y-2 border-t border-border/60 pt-4">
-              <Label>Projetos de Tarefas que ele vê</Label>
+              <Label>User Stories de Tarefas que ele vê</Label>
               {allProjects.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nenhum projeto criado ainda.</p>
+                <p className="text-sm text-muted-foreground">Nenhuma User Story criada ainda.</p>
               ) : (
                 allProjects.map((project) => (
                   <label

@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import { CalendarClock, Link2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { displayName } from "@/lib/display-name";
 import { TaskPriorityBadge } from "@/components/hub/badges";
 import type { Task } from "@/types/tasks";
 
@@ -70,9 +71,9 @@ export function TaskCard({
           {task.assignee && (
             <span className="inline-flex items-center gap-1">
               <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-[9px] font-semibold text-primary">
-                {task.assignee.username.charAt(0).toUpperCase()}
+                {displayName(task.assignee).charAt(0).toUpperCase()}
               </span>
-              {task.assignee.username}
+              {displayName(task.assignee)}
             </span>
           )}
           {task.dueDate && (

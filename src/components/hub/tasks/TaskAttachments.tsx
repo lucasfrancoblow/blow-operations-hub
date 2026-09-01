@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { FileText, ImageIcon, Loader2, Paperclip, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { displayName } from "@/lib/display-name";
 import {
   confirmAttachmentFn,
   createAttachmentUploadFn,
@@ -76,7 +77,7 @@ function AttachmentRow({
         <p className="truncate text-sm font-medium">{attachment.fileName}</p>
         <p className="text-xs text-muted-foreground">
           {formatBytes(attachment.sizeBytes)}
-          {attachment.uploadedBy ? ` · ${attachment.uploadedBy.username}` : ""}
+          {attachment.uploadedBy ? ` · ${displayName(attachment.uploadedBy)}` : ""}
         </p>
       </button>
       <Button

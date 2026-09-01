@@ -49,6 +49,7 @@ export const loginFn = createServerFn({ method: "POST" })
     await updateSession<SessionUser>(getSessionConfig(), {
       id: user.id,
       username: user.username,
+      fullName: user.fullName,
       role: user.role,
       pageAccess: user.pageAccess,
     });
@@ -60,7 +61,9 @@ export const loginFn = createServerFn({ method: "POST" })
 export const listActiveUsersFn = createServerFn({ method: "GET" }).handler(async () => {
   await requireSessionUser();
   const users = await listUsers();
-  return users.filter((u) => u.active).map((u) => ({ id: u.id, username: u.username }));
+  return users
+    .filter((u) => u.active)
+    .map((u) => ({ id: u.id, username: u.username, fullName: u.fullName }));
 });
 
 /** Nome/e-mail do próprio usuário logado — usado pra pré-preencher o formulário

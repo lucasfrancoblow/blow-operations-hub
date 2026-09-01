@@ -22,6 +22,7 @@ import { toast } from "sonner";
 
 import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
+import { displayName } from "@/lib/display-name";
 import { ROLE_LABELS, type SessionUser } from "@/lib/auth";
 import { canAccessPage, type PageKey } from "@/lib/page-access";
 import { logoutFn } from "@/services/auth-service";
@@ -57,9 +58,9 @@ const NAV_ITEMS = [
 
 const ADMIN_NAV_ITEM = { title: "Usuários", url: "/usuarios", icon: Users } as const;
 
-function initialsFor(username: string): string {
-  const parts = username.split(".").filter(Boolean);
-  const chars = parts.length > 1 ? [parts[0]![0], parts[1]![0]] : [username.slice(0, 2)];
+function initialsFor(name: string): string {
+  const parts = name.split(/[.\s]+/).filter(Boolean);
+  const chars = parts.length > 1 ? [parts[0]![0], parts[1]![0]] : [name.slice(0, 2)];
   return chars.join("").toUpperCase();
 }
 
@@ -183,14 +184,14 @@ export function TopNav({ user }: { user: SessionUser }) {
               <Button variant="ghost" size="icon" className="shrink-0 rounded-full">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback className="bg-primary/15 text-xs text-primary">
-                    {initialsFor(user.username)}
+                    {initialsFor(displayName(user))}
                   </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuLabel>
-                <p className="text-sm font-medium">{user.username}</p>
+                <p className="text-sm font-medium">{displayName(user)}</p>
                 <p className="text-xs font-normal text-muted-foreground">
                   {ROLE_LABELS[user.role]} · BLOW
                 </p>

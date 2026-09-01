@@ -21,11 +21,11 @@ interface TaskAttachmentRow {
   content_type: string;
   size_bytes: number;
   uploaded_by: string | null;
-  uploader: { id: string; username: string } | null;
+  uploader: { id: string; username: string; full_name: string | null } | null;
   created_at: string;
 }
 
-const ATTACHMENT_SELECT = "*,uploader:app_users(id,username)";
+const ATTACHMENT_SELECT = "*,uploader:app_users(id,username,full_name)";
 
 function fromRow(row: TaskAttachmentRow): TaskAttachment {
   return {
@@ -35,7 +35,9 @@ function fromRow(row: TaskAttachmentRow): TaskAttachment {
     storagePath: row.storage_path,
     contentType: row.content_type,
     sizeBytes: row.size_bytes,
-    uploadedBy: row.uploader,
+    uploadedBy: row.uploader
+      ? { id: row.uploader.id, username: row.uploader.username, fullName: row.uploader.full_name }
+      : null,
     createdAt: row.created_at,
   };
 }

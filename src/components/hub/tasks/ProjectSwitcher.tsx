@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
+import { displayName } from "@/lib/display-name";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -75,7 +76,7 @@ export function ProjectSwitcher({
       invalidate();
       setCreateOpen(false);
     },
-    onError: (error: Error) => toast.error(`Não foi possível criar o projeto: ${error.message}`),
+    onError: (error: Error) => toast.error(`Não foi possível criar a User Story: ${error.message}`),
   });
 
   const renameMutation = useMutation({
@@ -93,7 +94,7 @@ export function ProjectSwitcher({
       updateProjectFn({ data: { id: project.id, patch: { archived: !project.archived } } }),
     onSuccess: invalidate,
     onError: (error: Error) =>
-      toast.error(`Não foi possível atualizar o projeto: ${error.message}`),
+      toast.error(`Não foi possível atualizar a User Story: ${error.message}`),
   });
 
   const { data: users = [] } = useQuery({
@@ -139,7 +140,7 @@ export function ProjectSwitcher({
               : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
         >
-          Sem projeto
+          Sem User Story
         </button>
 
         {visibleProjects.map((project) => (
@@ -208,7 +209,7 @@ export function ProjectSwitcher({
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Novo projeto</DialogTitle>
+            <DialogTitle>Nova User Story</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
@@ -245,7 +246,7 @@ export function ProjectSwitcher({
               onClick={() => createMutation.mutate()}
               disabled={!name.trim() || createMutation.isPending}
             >
-              Criar projeto
+              Criar User Story
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -254,7 +255,7 @@ export function ProjectSwitcher({
       <Dialog open={renameTarget !== null} onOpenChange={(open) => !open && setRenameTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Renomear projeto</DialogTitle>
+            <DialogTitle>Renomear User Story</DialogTitle>
           </DialogHeader>
           <div className="space-y-1.5 py-2">
             <Label htmlFor="project-rename">Nome</Label>
@@ -282,7 +283,7 @@ export function ProjectSwitcher({
             <DialogTitle>Quem vê "{accessTarget?.name}"</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Oculto por padrão — marque quem, além de admin/super admin, pode ver este projeto.
+            Oculto por padrão — marque quem, além do super admin, pode ver esta User Story.
           </p>
           <div className="max-h-80 space-y-2 overflow-y-auto py-2">
             {users.map((u) => {
@@ -298,7 +299,7 @@ export function ProjectSwitcher({
                       accessMutation.mutate({ userId: u.id, grant: value === true })
                     }
                   />
-                  <span className="text-sm">{u.username}</span>
+                  <span className="text-sm">{displayName(u)}</span>
                 </label>
               );
             })}

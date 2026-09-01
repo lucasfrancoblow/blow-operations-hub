@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EmptyState, PageHeader } from "@/components/hub/primitives";
+import { displayName } from "@/lib/display-name";
 import { TaskBoard } from "@/components/hub/tasks/TaskBoard";
 import { TaskMobileList } from "@/components/hub/tasks/TaskMobileList";
 import { TaskDetailSheet } from "@/components/hub/tasks/TaskDetailSheet";
@@ -156,7 +157,7 @@ function TarefasPage() {
             <SelectItem value="todos">Todos os responsáveis</SelectItem>
             {users.map((u) => (
               <SelectItem key={u.id} value={u.id}>
-                {u.username}
+                {displayName(u)}
               </SelectItem>
             ))}
           </SelectContent>
