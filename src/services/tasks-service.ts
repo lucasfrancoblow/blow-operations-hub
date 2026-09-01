@@ -63,7 +63,9 @@ async function notifyAssignee(task: Task): Promise<void> {
 }
 
 /** Avisa por e-mail quem abriu a tarefa que o status mudou — só se quem abriu
- * não foi quem mexeu agora (best-effort: sendEmail nunca lança). */
+ * não foi quem mexeu agora (best-effort: sendEmail nunca lança). Sair de
+ * "Aguardando aceite" ganha um e-mail específico de aceite/recusa; qualquer
+ * outra mudança de status usa o aviso genérico. */
 async function notifyCreatorOfStatusChange(
   previous: Task,
   newStatus: TaskStatus,
@@ -72,6 +74,22 @@ async function notifyCreatorOfStatusChange(
   if (!previous.createdBy || previous.createdBy.id === actingUserId) return;
   const creator = await findUserById(previous.createdBy.id);
   if (!creator?.email) return;
+
+  if (previous.status === "Aguardando aceite" && newStatus !== "Aguardando aceite") {
+    const accepted = newStatus !== "Recusada";
+    await sendEmail({
+      to: creator.email,
+      subject: accepted
+        ? `Tarefa #${previous.taskNumber} foi aceita`
+        : `Tarefa #${previous.taskNumber} foi recusada`,
+      html: `
+        <p>Sua tarefa <strong>#${previous.taskNumber} — ${escapeHtml(previous.title)}</strong> foi
+        <strong>${accepted ? "aceita" : "recusada"}</strong>.</p>
+      `,
+    });
+    return;
+  }
+
   await sendEmail({
     to: creator.email,
     subject: `Tarefa #${previous.taskNumber} mudou de status: ${newStatus}`,

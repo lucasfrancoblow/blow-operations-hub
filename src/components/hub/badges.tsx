@@ -117,6 +117,7 @@ export function TaskStatusBadge({ value }: { value: TaskStatus }) {
     Bloqueado: "critical",
     "Em revisão": "warning",
     Concluído: "success",
+    Recusada: "critical",
   };
   return <Pill variant={map[value]}>{value}</Pill>;
 }

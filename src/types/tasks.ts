@@ -2,7 +2,13 @@
 // Espelha supabase/migrations/0003_create_tasks.sql.
 
 export type TaskStatus =
-  "Aguardando aceite" | "Backlog" | "Em andamento" | "Bloqueado" | "Em revisão" | "Concluído";
+  | "Aguardando aceite"
+  | "Backlog"
+  | "Em andamento"
+  | "Bloqueado"
+  | "Em revisão"
+  | "Concluído"
+  | "Recusada";
 
 export type TaskPriority = "Baixa" | "Média" | "Alta" | "Crítica";
 
@@ -15,6 +21,7 @@ export const TASK_STATUSES: TaskStatus[] = [
   "Bloqueado",
   "Em revisão",
   "Concluído",
+  "Recusada",
 ];
 
 export const TASK_PRIORITIES: TaskPriority[] = ["Baixa", "Média", "Alta", "Crítica"];

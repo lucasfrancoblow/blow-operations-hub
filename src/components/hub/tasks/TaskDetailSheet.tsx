@@ -37,6 +37,7 @@ import { TASK_PRIORITIES, TASK_STATUSES, type Task, type TaskInput } from "@/typ
 const UNASSIGNED_USER_ID = "none";
 const ACCEPT_STATUS: Task["status"] = "Aguardando aceite";
 const ACCEPTED_STATUS: Task["status"] = "Backlog";
+const REJECTED_STATUS: Task["status"] = "Recusada";
 
 type FormState = {
   title: string;
@@ -204,6 +205,11 @@ export function TaskDetailSheet({
     updateMutation.mutate({ ...toInput(form), status: ACCEPTED_STATUS });
   }
 
+  function handleReject() {
+    setForm((f) => ({ ...f, status: REJECTED_STATUS }));
+    updateMutation.mutate({ ...toInput(form), status: REJECTED_STATUS });
+  }
+
   const saving = createMutation.isPending || updateMutation.isPending;
   const aiDisabled = form.title.trim().length === 0;
 
@@ -336,16 +342,28 @@ export function TaskDetailSheet({
                   </>
                 ) : null}
                 {form.status === ACCEPT_STATUS ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-6 px-2 text-xs"
-                    disabled={updateMutation.isPending}
-                    onClick={handleAccept}
-                  >
-                    Aceitar tarefa
-                  </Button>
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      disabled={updateMutation.isPending}
+                      onClick={handleAccept}
+                    >
+                      Aceitar tarefa
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-6 px-2 text-xs text-critical hover:text-critical"
+                      disabled={updateMutation.isPending}
+                      onClick={handleReject}
+                    >
+                      Recusar
+                    </Button>
+                  </>
                 ) : null}
               </>
             ) : (

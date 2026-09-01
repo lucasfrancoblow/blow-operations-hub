@@ -16,6 +16,7 @@ export const STATUS_DOT: Record<TaskStatus, string> = {
   Bloqueado: "bg-critical",
   "Em revisão": "bg-warning",
   Concluído: "bg-success",
+  Recusada: "bg-critical",
 };
 
 export function TaskColumn({
