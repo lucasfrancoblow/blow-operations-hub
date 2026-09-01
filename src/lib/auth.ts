@@ -6,34 +6,17 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import type { SessionConfig } from "@tanstack/react-start/server";
 
+import { ROLE_LABELS, type SessionUser, type UserRole } from "@/lib/user-role";
+
+// Reexportados daqui pra não quebrar o resto do código server-side (que já importa
+// tipo/papel de "@/lib/auth") — mas quem só precisa disso de um componente client
+// (ex: TopNav) deve importar direto de "@/lib/user-role", que não puxa node:crypto
+// pro bundle do navegador. Ver comentário desse arquivo pro porquê disso importar.
+export { ROLE_LABELS, type SessionUser, type UserRole };
+
 const KEY_LENGTH = 64;
 const SESSION_COOKIE_NAME = "blow_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 dias
-
-// super_admin: só quem gerencia usuários (tela "Usuários") — hoje só lucas.franco.
-// admin: papel intermediário — sempre vê todas as abas e todos os projetos de
-// Tarefas (bypassa page_access/task_project_access), mas não acessa "Usuários".
-// member/external: mesma restrição granular (page_access + acesso por projeto) —
-// "external" é só uma etiqueta pra separar time interno de fornecedor/terceiro na
-// tela "Usuários"; não muda nenhuma regra de permissão.
-export type UserRole = "super_admin" | "admin" | "member" | "external";
-
-export const ROLE_LABELS: Record<UserRole, string> = {
-  super_admin: "Super admin",
-  admin: "Admin",
-  member: "Membro",
-  external: "Externo",
-};
-
-export interface SessionUser {
-  id: string;
-  username: string;
-  fullName: string | null;
-  role: UserRole;
-  /** Chaves de página liberadas pra esse usuário (ver src/lib/page-access.ts) — só
-   * relevante pra "member"; admin/super_admin sempre têm acesso a tudo. */
-  pageAccess: string[];
-}
 
 export function hashPassword(password: string): string {
   const salt = randomBytes(16).toString("hex");

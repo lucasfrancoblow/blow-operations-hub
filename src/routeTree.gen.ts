@@ -17,6 +17,7 @@ import { Route as DocumentacaoRouteImport } from './routes/documentacao'
 import { Route as FunilMarketingRouteImport } from './routes/funil-marketing'
 import { Route as IncidentesRouteImport } from './routes/incidentes'
 import { Route as LeadsRecentesRouteImport } from './routes/leads-recentes'
+import { Route as LigacoesRouteImport } from './routes/ligacoes'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as TarefasRouteImport } from './routes/tarefas'
 import { Route as UsuariosRouteImport } from './routes/usuarios'
@@ -63,6 +64,11 @@ const LeadsRecentesRoute = LeadsRecentesRouteImport.update({
   path: '/leads-recentes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LigacoesRoute = LigacoesRouteImport.update({
+  id: '/ligacoes',
+  path: '/ligacoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -98,6 +104,7 @@ export interface FileRoutesByFullPath {
   '/funil-marketing': typeof FunilMarketingRoute
   '/incidentes': typeof IncidentesRoute
   '/leads-recentes': typeof LeadsRecentesRoute
+  '/ligacoes': typeof LigacoesRoute
   '/login': typeof LoginRoute
   '/tarefas': typeof TarefasRoute
   '/usuarios': typeof UsuariosRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByTo {
   '/funil-marketing': typeof FunilMarketingRoute
   '/incidentes': typeof IncidentesRoute
   '/leads-recentes': typeof LeadsRecentesRoute
+  '/ligacoes': typeof LigacoesRoute
   '/login': typeof LoginRoute
   '/tarefas': typeof TarefasRoute
   '/usuarios': typeof UsuariosRoute
@@ -129,6 +137,7 @@ export interface FileRoutesById {
   '/funil-marketing': typeof FunilMarketingRoute
   '/incidentes': typeof IncidentesRoute
   '/leads-recentes': typeof LeadsRecentesRoute
+  '/ligacoes': typeof LigacoesRoute
   '/login': typeof LoginRoute
   '/tarefas': typeof TarefasRoute
   '/usuarios': typeof UsuariosRoute
@@ -146,6 +155,7 @@ export interface FileRouteTypes {
     | '/funil-marketing'
     | '/incidentes'
     | '/leads-recentes'
+    | '/ligacoes'
     | '/login'
     | '/tarefas'
     | '/usuarios'
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/funil-marketing'
     | '/incidentes'
     | '/leads-recentes'
+    | '/ligacoes'
     | '/login'
     | '/tarefas'
     | '/usuarios'
@@ -176,6 +187,7 @@ export interface FileRouteTypes {
     | '/funil-marketing'
     | '/incidentes'
     | '/leads-recentes'
+    | '/ligacoes'
     | '/login'
     | '/tarefas'
     | '/usuarios'
@@ -192,6 +204,7 @@ export interface RootRouteChildren {
   FunilMarketingRoute: typeof FunilMarketingRoute
   IncidentesRoute: typeof IncidentesRoute
   LeadsRecentesRoute: typeof LeadsRecentesRoute
+  LigacoesRoute: typeof LigacoesRoute
   LoginRoute: typeof LoginRoute
   TarefasRoute: typeof TarefasRoute
   UsuariosRoute: typeof UsuariosRoute
@@ -257,6 +270,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LeadsRecentesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ligacoes': {
+      id: '/ligacoes'
+      path: '/ligacoes'
+      fullPath: '/ligacoes'
+      preLoaderRoute: typeof LigacoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -304,6 +324,7 @@ const rootRouteChildren: RootRouteChildren = {
   FunilMarketingRoute: FunilMarketingRoute,
   IncidentesRoute: IncidentesRoute,
   LeadsRecentesRoute: LeadsRecentesRoute,
+  LigacoesRoute: LigacoesRoute,
   LoginRoute: LoginRoute,
   TarefasRoute: TarefasRoute,
   UsuariosRoute: UsuariosRoute,

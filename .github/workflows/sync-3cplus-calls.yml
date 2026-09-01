@@ -1,0 +1,32 @@
+name: Sincroniza chamadas da 3C Plus
+
+# Roda 1x/dia de madrugada, sincronizando o dia de ONTEM (já fechado, sem chamada em
+# andamento) — ver scripts/sync-3cplus-calls.ts pro porquê disso rodar aqui fora do
+# app web em vez de num cron do Vercel: o endpoint /calls da 3C Plus não tem relatório
+# agregado pronto, então esse job pagina o histórico bruto do dia e grava só os totais
+# na tabela call_metrics_daily do Supabase.
+on:
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC = 03:00 America/Sao_Paulo
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Data a sincronizar (YYYY-MM-DD). Vazio = ontem."
+        required: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Sincroniza chamadas
+        env:
+          THREECPLUS_API_KEY: ${{ secrets.THREECPLUS_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: bun run scripts/sync-3cplus-calls.ts ${{ github.event.inputs.date }}

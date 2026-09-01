@@ -9,6 +9,7 @@ import {
   ListTodo,
   Menu,
   Moon,
+  Phone,
   Sun,
   Ticket,
   TrendingUp,
@@ -23,7 +24,7 @@ import { toast } from "sonner";
 import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 import { displayName } from "@/lib/display-name";
-import { ROLE_LABELS, type SessionUser } from "@/lib/auth";
+import { ROLE_LABELS, type SessionUser } from "@/lib/user-role";
 import { canAccessPage, type PageKey } from "@/lib/page-access";
 import { logoutFn } from "@/services/auth-service";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ const NAV_ITEMS = [
   { title: "Radar de Leads", url: "/leads-recentes", icon: Inbox, pageKey: "leads-recentes" },
   { title: "Funil de MKT", url: "/funil-marketing", icon: TrendingUp, pageKey: "funil-marketing" },
   { title: "Daily Expansão", url: "/daily-expansao", icon: Headphones, pageKey: "daily-expansao" },
+  { title: "Ligações", url: "/ligacoes", icon: Phone, pageKey: "ligacoes" },
   { title: "Automações", url: "/automacoes", icon: Workflow, pageKey: "automacoes" },
   { title: "Incidentes", url: "/incidentes", icon: AlertTriangle, pageKey: "incidentes" },
   { title: "Tarefas", url: "/tarefas", icon: ListTodo, pageKey: "tarefas" },
