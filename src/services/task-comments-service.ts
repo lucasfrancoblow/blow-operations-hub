@@ -8,6 +8,7 @@ import { getTicketByTaskId } from "@/lib/task-tickets-store";
 import { createComment, listComments } from "@/lib/task-comments-store";
 import { findUserById } from "@/lib/users-store";
 import { sendEmail } from "@/lib/resend-client";
+import { renderEmailTemplate, taskDeepLink, ticketDeepLink } from "@/lib/email-template";
 import { escapeHtml } from "@/lib/html";
 import type { SessionUser } from "@/lib/auth";
 import type { Task } from "@/types/tasks";
@@ -52,13 +53,25 @@ async function notifyParticipantsOfComment(
     Array.from(participantIds).map(async (id) => {
       const participant = await findUserById(id);
       if (!participant?.email) return;
+      // Quem só tem acesso a Chamados (ex.: solicitante externo) não consegue
+      // abrir /tarefas — manda pro chamado em vez da tarefa nesse caso.
+      const url =
+        ticket && id === ticket.requesterId
+          ? ticketDeepLink(ticket.ticketNumber)
+          : taskDeepLink(task.taskNumber);
       await sendEmail({
         to: participant.email,
         subject: `Novo comentário na tarefa #${task.taskNumber}: ${task.title}`,
-        html: `
-          <p>${commenterName} comentou na tarefa <strong>#${task.taskNumber} — ${escapeHtml(task.title)}</strong>:</p>
-          <p>${body}</p>
-        `,
+        html: renderEmailTemplate({
+          eyebrow: "Novo comentário",
+          heading: `${commenterName} comentou na tarefa #${task.taskNumber}`,
+          highlightTitle: `#${task.taskNumber} — ${escapeHtml(task.title)}`,
+          highlightBody: body,
+          note: "Responda direto pela tarefa — quem comentar depois também recebe aviso.",
+          ctaLabel: ticket && id === ticket.requesterId ? "Ver chamado" : "Ver tarefa",
+          ctaUrl: url,
+          footerText: "Você recebeu este e-mail porque participa desta tarefa no hubLOw.",
+        }),
       });
     }),
   );

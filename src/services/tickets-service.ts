@@ -7,6 +7,7 @@ import { createTask, updateTask } from "@/lib/tasks-store";
 import { createTicket, getTicket, listTickets } from "@/lib/task-tickets-store";
 import { listUsers } from "@/lib/users-store";
 import { sendEmail } from "@/lib/resend-client";
+import { renderEmailTemplate, ticketDeepLink } from "@/lib/email-template";
 import type { Task } from "@/types/tasks";
 import type { Ticket, TicketInput } from "@/types/tickets";
 
@@ -26,9 +27,7 @@ async function notifyAdminsOfNewTicket(ticket: Ticket, task: Task): Promise<void
   const adminEmails = users.filter((u) => isAdminLike(u.role) && u.email).map((u) => u.email!);
   const recipients = [...new Set([...adminEmails, SUPPORT_INBOX_EMAIL])];
 
-  const projectLine = task.project
-    ? ` no projeto <strong>${escapeHtml(task.project.name)}</strong>`
-    : "";
+  const projectLine = task.project ? ` na User Story ${escapeHtml(task.project.name)}` : "";
   const description = task.description.trim()
     ? escapeHtml(task.description).replace(/\n/g, "<br>")
     : "Sem descrição.";
@@ -37,11 +36,15 @@ async function notifyAdminsOfNewTicket(ticket: Ticket, task: Task): Promise<void
       sendEmail({
         to,
         subject: `Novo chamado #${ticket.ticketNumber}: ${task.title}`,
-        html: `
-          <p>Novo chamado aberto por ${escapeHtml(ticket.requesterName)}${projectLine}.</p>
-          <p><strong>#${ticket.ticketNumber} — ${escapeHtml(task.title)}</strong></p>
-          <p>${description}</p>
-        `,
+        html: renderEmailTemplate({
+          eyebrow: "Novo chamado",
+          heading: `Novo chamado aberto por ${escapeHtml(ticket.requesterName)}${projectLine}`,
+          highlightTitle: `#${ticket.ticketNumber} — ${escapeHtml(task.title)}`,
+          highlightBody: description,
+          ctaLabel: "Ver chamado",
+          ctaUrl: ticketDeepLink(ticket.ticketNumber),
+          footerText: "Você recebeu este e-mail porque é admin/super admin no hubLOw.",
+        }),
       }),
     ),
   );
@@ -54,11 +57,15 @@ async function notifyRequesterOfNewTicket(ticket: Ticket, task: Task): Promise<v
   await sendEmail({
     to: ticket.requesterEmail,
     subject: `Recebemos seu chamado #${ticket.ticketNumber}: ${task.title}`,
-    html: `
-      <p>Olá, ${escapeHtml(ticket.requesterName)}.</p>
-      <p>Seu chamado <strong>#${ticket.ticketNumber} — ${escapeHtml(task.title)}</strong> foi recebido e nossa equipe já foi avisada.</p>
-      <p>Você pode acompanhar o andamento pela aba Chamados no hubLOw.</p>
-    `,
+    html: renderEmailTemplate({
+      eyebrow: "Chamado recebido",
+      heading: `Recebemos seu chamado #${ticket.ticketNumber}`,
+      intro: `Olá, ${escapeHtml(ticket.requesterName)}. Seu chamado foi recebido e nossa equipe já foi avisada.`,
+      highlightTitle: `#${ticket.ticketNumber} — ${escapeHtml(task.title)}`,
+      ctaLabel: "Ver chamado",
+      ctaUrl: ticketDeepLink(ticket.ticketNumber),
+      footerText: "Você recebeu este e-mail porque abriu este chamado no hubLOw.",
+    }),
   });
 }
 

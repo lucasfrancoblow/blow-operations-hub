@@ -24,6 +24,7 @@ import {
 } from "@/lib/task-project-access-store";
 import { findUserById } from "@/lib/users-store";
 import { sendEmail } from "@/lib/resend-client";
+import { EMAIL_TONE, renderEmailTemplate, taskDeepLink } from "@/lib/email-template";
 import type { Task, TaskInput, TaskStatus } from "@/types/tasks";
 
 /** Só super_admin gerencia quem enxerga qual projeto — é uma ação de
@@ -54,11 +55,16 @@ async function notifyAssignee(task: Task): Promise<void> {
   await sendEmail({
     to: user.email,
     subject: `Tarefa #${task.taskNumber} atribuída a você: ${task.title}`,
-    html: `
-      <p>Olá, ${escapeHtml(user.fullName ?? user.username)}.</p>
-      <p>Você foi atribuído à tarefa <strong>#${task.taskNumber} — ${escapeHtml(task.title)}</strong> no hubLOw.</p>
-      <p><strong>Descrição:</strong><br>${description}</p>
-    `,
+    html: renderEmailTemplate({
+      eyebrow: "Nova atribuição",
+      heading: `Você foi atribuído à tarefa #${task.taskNumber}`,
+      intro: `Olá, ${escapeHtml(user.fullName ?? user.username)}. A tarefa abaixo foi atribuída a você no hubLOw.`,
+      highlightTitle: `#${task.taskNumber} — ${escapeHtml(task.title)}`,
+      highlightBody: description,
+      ctaLabel: "Ver tarefa",
+      ctaUrl: taskDeepLink(task.taskNumber),
+      footerText: "Você recebeu este e-mail porque foi atribuído a esta tarefa no hubLOw.",
+    }),
   });
 }
 
@@ -82,10 +88,18 @@ async function notifyCreatorOfStatusChange(
       subject: accepted
         ? `Tarefa #${previous.taskNumber} foi aceita`
         : `Tarefa #${previous.taskNumber} foi recusada`,
-      html: `
-        <p>Sua tarefa <strong>#${previous.taskNumber} — ${escapeHtml(previous.title)}</strong> foi
-        <strong>${accepted ? "aceita" : "recusada"}</strong>.</p>
-      `,
+      html: renderEmailTemplate({
+        eyebrow: accepted ? "Aceita" : "Recusada",
+        eyebrowColor: accepted ? EMAIL_TONE.success : EMAIL_TONE.critical,
+        heading: `Sua tarefa #${previous.taskNumber} foi ${accepted ? "aceita" : "recusada"}`,
+        intro: accepted
+          ? "A tarefa que você abriu entrou no fluxo de trabalho do time."
+          : "A tarefa que você abriu não foi aceita pelo time.",
+        highlightTitle: `#${previous.taskNumber} — ${escapeHtml(previous.title)}`,
+        ctaLabel: "Ver tarefa",
+        ctaUrl: taskDeepLink(previous.taskNumber),
+        footerText: "Você recebeu este e-mail porque abriu esta tarefa no hubLOw.",
+      }),
     });
     return;
   }
@@ -93,10 +107,15 @@ async function notifyCreatorOfStatusChange(
   await sendEmail({
     to: creator.email,
     subject: `Tarefa #${previous.taskNumber} mudou de status: ${newStatus}`,
-    html: `
-      <p>A tarefa <strong>#${previous.taskNumber} — ${escapeHtml(previous.title)}</strong> que você abriu mudou de status.</p>
-      <p><strong>${escapeHtml(previous.status)}</strong> → <strong>${escapeHtml(newStatus)}</strong></p>
-    `,
+    html: renderEmailTemplate({
+      eyebrow: "Mudança de status",
+      heading: `A tarefa #${previous.taskNumber} mudou de status`,
+      intro: `<strong>${escapeHtml(previous.status)}</strong> → <strong>${escapeHtml(newStatus)}</strong>`,
+      highlightTitle: `#${previous.taskNumber} — ${escapeHtml(previous.title)}`,
+      ctaLabel: "Ver tarefa",
+      ctaUrl: taskDeepLink(previous.taskNumber),
+      footerText: "Você recebeu este e-mail porque abriu esta tarefa no hubLOw.",
+    }),
   });
 }
 

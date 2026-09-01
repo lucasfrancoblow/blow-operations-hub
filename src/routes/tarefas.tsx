@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ListTodo, Plus } from "lucide-react";
 import { toast } from "sonner";
 
@@ -43,6 +43,7 @@ export const Route = createFileRoute("/tarefas")({
   validateSearch: (search: Record<string, unknown>) => ({
     project: typeof search["project"] === "string" ? (search["project"] as string) : undefined,
     view: search["view"] === "backlog" ? ("backlog" as const) : undefined,
+    task: typeof search["task"] === "string" ? (search["task"] as string) : undefined,
   }),
   head: () => ({
     meta: [
@@ -60,7 +61,7 @@ function TarefasPage() {
   const queryClient = useQueryClient();
   const { user } = Route.useRouteContext();
   const canManageAccess = user?.role === "super_admin";
-  const { project: projectParam, view: viewParam } = Route.useSearch();
+  const { project: projectParam, view: viewParam, task: taskParam } = Route.useSearch();
   const navigate = useNavigate({ from: "/tarefas" });
   const selectedProject = projectParam ?? UNASSIGNED_PROJECT_ID;
   const view = viewParam ?? "board";
@@ -87,6 +88,20 @@ function TarefasPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [mobileStatus, setMobileStatus] = useState<TaskStatus>("Backlog");
+  const [autoOpenedFor, setAutoOpenedFor] = useState<string | null>(null);
+
+  // Deep-link do e-mail (/tarefas?task=13) — abre a tarefa certa assim que a
+  // lista carrega. Guardado por autoOpenedFor pra não reabrir sozinho se o
+  // usuário fechar o modal e a lista der refetch depois (ex.: outra edição).
+  useEffect(() => {
+    if (!taskParam || taskParam === autoOpenedFor) return;
+    const found = tasks.find((t) => String(t.taskNumber) === taskParam);
+    if (found) {
+      setSelected(found);
+      setDetailOpen(true);
+      setAutoOpenedFor(taskParam);
+    }
+  }, [taskParam, tasks, autoOpenedFor]);
 
   const scopedTasks = useMemo(
     () =>
@@ -152,13 +167,17 @@ function TarefasPage() {
   }
 
   function selectProject(id: string) {
-    void navigate({ to: ".", search: { project: id, view: viewParam } });
+    void navigate({ to: ".", search: { project: id, view: viewParam, task: taskParam } });
   }
 
   function selectView(next: "board" | "backlog") {
     void navigate({
       to: ".",
-      search: { project: projectParam, view: next === "backlog" ? "backlog" : undefined },
+      search: {
+        project: projectParam,
+        view: next === "backlog" ? "backlog" : undefined,
+        task: taskParam,
+      },
     });
   }
 

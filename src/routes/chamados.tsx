@@ -57,6 +57,9 @@ export const Route = createFileRoute("/chamados")({
       throw redirect({ to: "/" });
     }
   },
+  validateSearch: (search: Record<string, unknown>) => ({
+    ticket: typeof search["ticket"] === "string" ? (search["ticket"] as string) : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Chamados — hubLOw BLOW" },
@@ -72,6 +75,7 @@ export const Route = createFileRoute("/chamados")({
 function ChamadosPage() {
   const queryClient = useQueryClient();
   const { user } = Route.useRouteContext();
+  const { ticket: ticketParam } = Route.useSearch();
   const isAdminLike = user?.role === "admin" || user?.role === "super_admin";
 
   const { data: tickets = [], isLoading } = useQuery({
@@ -99,6 +103,7 @@ function ChamadosPage() {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [autoOpenedFor, setAutoOpenedFor] = useState<string | null>(null);
 
   useEffect(() => {
     if (selectedTicket) {
@@ -106,6 +111,16 @@ function ChamadosPage() {
       setEditDescription(selectedTicket.task.description);
     }
   }, [selectedTicket]);
+
+  // Deep-link do e-mail (/chamados?ticket=7) — mesma lógica de tarefas.tsx.
+  useEffect(() => {
+    if (!ticketParam || ticketParam === autoOpenedFor) return;
+    const found = tickets.find((t) => String(t.ticketNumber) === ticketParam);
+    if (found) {
+      setSelectedTicket(found);
+      setAutoOpenedFor(ticketParam);
+    }
+  }, [ticketParam, tickets, autoOpenedFor]);
 
   const updateDetailsMutation = useMutation({
     mutationFn: () =>
