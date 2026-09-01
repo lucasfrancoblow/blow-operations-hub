@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { displayName } from "@/lib/display-name";
 import { listActiveUsersFn } from "@/services/auth-service";
@@ -29,6 +30,7 @@ import { createTaskFn, deleteTaskFn, listProjectsFn, updateTaskFn } from "@/serv
 import { suggestPriorityFn, suggestSubtasksFn, summarizeTaskFn } from "@/services/tasks-ai-service";
 import { TaskAttachments } from "@/components/hub/tasks/TaskAttachments";
 import { TaskComments } from "@/components/hub/tasks/TaskComments";
+import { STATUS_DOT } from "@/components/hub/tasks/TaskColumn";
 import { UNASSIGNED_PROJECT_ID, projectColorDot } from "@/components/hub/tasks/ProjectSwitcher";
 import { TASK_PRIORITIES, TASK_STATUSES, type Task, type TaskInput } from "@/types/tasks";
 
@@ -125,6 +127,7 @@ export function TaskDetailSheet({
     justification: string;
   } | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
+  const [tab, setTab] = useState<"detalhes" | "comentarios" | "anexos">("detalhes");
 
   useEffect(() => {
     if (open) {
@@ -132,6 +135,7 @@ export function TaskDetailSheet({
       setSubtasks([]);
       setPriorityHint(null);
       setSummary(null);
+      setTab("detalhes");
     }
   }, [open, task, defaultProjectId]);
 
@@ -187,6 +191,7 @@ export function TaskDetailSheet({
 
   const isEditing = Boolean(task);
   const canSave = form.title.trim().length > 0;
+  const assignedUser = users.find((u) => u.id === form.assigneeId) ?? null;
 
   function handleSave() {
     const input = toInput(form);
@@ -201,6 +206,103 @@ export function TaskDetailSheet({
 
   const saving = createMutation.isPending || updateMutation.isPending;
   const aiDisabled = form.title.trim().length === 0;
+
+  const detailsContent = (
+    <div className="space-y-5">
+      <div className="space-y-1.5">
+        <FieldLabel>Descrição</FieldLabel>
+        <Textarea
+          value={form.description}
+          onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+          placeholder="Contexto, critérios de aceite, links..."
+          rows={5}
+        />
+      </div>
+
+      <section className="space-y-3 rounded-lg border border-primary/25 bg-primary/[0.04] p-3">
+        <h4 className="flex items-center gap-1.5 text-sm font-semibold text-primary">
+          <Sparkles className="h-4 w-4" /> Assistente
+        </h4>
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={aiDisabled || subtasksMutation.isPending}
+            onClick={() => subtasksMutation.mutate()}
+          >
+            {subtasksMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Sugerir subtarefas
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={aiDisabled || priorityMutation.isPending}
+            onClick={() => priorityMutation.mutate()}
+          >
+            {priorityMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Sugerir prioridade
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={aiDisabled || summaryMutation.isPending}
+            onClick={() => summaryMutation.mutate()}
+          >
+            {summaryMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Resumir
+          </Button>
+        </div>
+
+        {subtasks.length > 0 && (
+          <motion.ul
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="space-y-1.5 text-sm"
+          >
+            {subtasks.map((s) => (
+              <li key={s} className="flex gap-2 text-muted-foreground">
+                <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-primary" />
+                {s}
+              </li>
+            ))}
+          </motion.ul>
+        )}
+
+        {priorityHint && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="text-sm text-muted-foreground"
+          >
+            <button
+              type="button"
+              onClick={() =>
+                setForm((f) => ({
+                  ...f,
+                  priority: priorityHint.priority as Task["priority"],
+                }))
+              }
+              className="font-medium text-primary underline-offset-2 hover:underline"
+            >
+              {priorityHint.priority}
+            </button>{" "}
+            — {priorityHint.justification}
+          </motion.div>
+        )}
+
+        {summary && (
+          <motion.p
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="text-sm text-muted-foreground"
+          >
+            {summary}
+          </motion.p>
+        )}
+      </section>
+    </div>
+  );
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -250,135 +352,87 @@ export function TaskDetailSheet({
               <span>Nova tarefa</span>
             )}
           </div>
-        </SheetHeader>
 
-        <Separator className="my-4" />
-
-        <div className="grid gap-6 px-4 pb-8 sm:grid-cols-[1fr_260px]">
-          <div className="min-w-0 space-y-5">
-            <div className="space-y-1.5">
-              <FieldLabel>Descrição</FieldLabel>
-              <Textarea
-                value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                placeholder="Contexto, critérios de aceite, links..."
-                rows={5}
-              />
-            </div>
-
-            {isEditing && task ? (
-              <>
-                <Separator />
-                <TaskAttachments taskId={task.id} />
-                <Separator />
-                <TaskComments taskId={task.id} />
-              </>
-            ) : null}
-
-            <section className="space-y-3 rounded-lg border border-primary/25 bg-primary/[0.04] p-3">
-              <h4 className="flex items-center gap-1.5 text-sm font-semibold text-primary">
-                <Sparkles className="h-4 w-4" /> Assistente
-              </h4>
-
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={aiDisabled || subtasksMutation.isPending}
-                  onClick={() => subtasksMutation.mutate()}
-                >
-                  {subtasksMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  Sugerir subtarefas
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={aiDisabled || priorityMutation.isPending}
-                  onClick={() => priorityMutation.mutate()}
-                >
-                  {priorityMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  Sugerir prioridade
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={aiDisabled || summaryMutation.isPending}
-                  onClick={() => summaryMutation.mutate()}
-                >
-                  {summaryMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  Resumir
-                </Button>
-              </div>
-
-              {subtasks.length > 0 && (
-                <motion.ul
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  className="space-y-1.5 text-sm"
-                >
-                  {subtasks.map((s) => (
-                    <li key={s} className="flex gap-2 text-muted-foreground">
-                      <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-primary" />
-                      {s}
-                    </li>
-                  ))}
-                </motion.ul>
-              )}
-
-              {priorityHint && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  className="text-sm text-muted-foreground"
-                >
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setForm((f) => ({
-                        ...f,
-                        priority: priorityHint.priority as Task["priority"],
-                      }))
-                    }
-                    className="font-medium text-primary underline-offset-2 hover:underline"
-                  >
-                    {priorityHint.priority}
-                  </button>{" "}
-                  — {priorityHint.justification}
-                </motion.div>
-              )}
-
-              {summary && (
-                <motion.p
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  className="text-sm text-muted-foreground"
-                >
-                  {summary}
-                </motion.p>
-              )}
-            </section>
-          </div>
-
-          <div className="space-y-4 rounded-lg bg-muted/30 p-3 sm:border-l sm:border-border/60 sm:bg-transparent sm:p-0 sm:pl-5">
-            <div className="space-y-1.5">
-              <FieldLabel>Status</FieldLabel>
+          <div className="flex flex-wrap gap-6 border-t border-border/60 pt-3">
+            <div className="space-y-1">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Responsável
+              </span>
               <Select
-                value={form.status}
-                onValueChange={(v) => setForm((f) => ({ ...f, status: v as Task["status"] }))}
+                value={form.assigneeId}
+                onValueChange={(v) => setForm((f) => ({ ...f, assigneeId: v }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-7 w-fit gap-1.5 border-none bg-transparent px-0 text-sm shadow-none focus:ring-0">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">
+                    {assignedUser ? displayName(assignedUser).charAt(0).toUpperCase() : "?"}
+                  </span>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TASK_STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
+                  <SelectItem value={UNASSIGNED_USER_ID}>Ninguém</SelectItem>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {displayName(u)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
+            <div className="space-y-1">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Status
+              </span>
+              <Select
+                value={form.status}
+                onValueChange={(v) => setForm((f) => ({ ...f, status: v as Task["status"] }))}
+              >
+                <SelectTrigger className="h-7 w-fit gap-1.5 border-none bg-transparent px-0 text-sm shadow-none focus:ring-0">
+                  <span className={cn("h-2 w-2 rounded-full", STATUS_DOT[form.status])} />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TASK_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      <span className="flex items-center gap-2">
+                        <span className={cn("h-2 w-2 rounded-full", STATUS_DOT[s])} />
+                        {s}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </SheetHeader>
+
+        <Separator className="my-4" />
+
+        <div className="grid gap-6 px-4 pb-8 sm:grid-cols-[1fr_260px]">
+          <div className="min-w-0">
+            {isEditing && task ? (
+              <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+                <TabsList>
+                  <TabsTrigger value="detalhes">Detalhes</TabsTrigger>
+                  <TabsTrigger value="comentarios">Comentários</TabsTrigger>
+                  <TabsTrigger value="anexos">Anexos</TabsTrigger>
+                </TabsList>
+                <TabsContent value="detalhes" className="pt-4">
+                  {detailsContent}
+                </TabsContent>
+                <TabsContent value="comentarios" className="pt-4">
+                  <TaskComments taskId={task.id} />
+                </TabsContent>
+                <TabsContent value="anexos" className="pt-4">
+                  <TaskAttachments taskId={task.id} />
+                </TabsContent>
+              </Tabs>
+            ) : (
+              detailsContent
+            )}
+          </div>
+
+          <div className="space-y-4 rounded-lg bg-muted/30 p-3 sm:border-l sm:border-border/60 sm:bg-transparent sm:p-0 sm:pl-5">
             <div className="space-y-1.5">
               <FieldLabel>Prioridade</FieldLabel>
               <Select
@@ -415,26 +469,6 @@ export function TaskDetailSheet({
                         <span className={cn("h-2 w-2 rounded-full", projectColorDot(p.color))} />
                         {p.name}
                       </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <FieldLabel>Responsável</FieldLabel>
-              <Select
-                value={form.assigneeId}
-                onValueChange={(v) => setForm((f) => ({ ...f, assigneeId: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={UNASSIGNED_USER_ID}>Ninguém</SelectItem>
-                  {users.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {displayName(u)}
                     </SelectItem>
                   ))}
                 </SelectContent>
