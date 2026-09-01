@@ -9,17 +9,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { TaskPriorityBadge } from "@/components/hub/badges";
 import { EmptyState } from "@/components/hub/primitives";
 import { cn } from "@/lib/utils";
 import { displayName } from "@/lib/display-name";
 import { TASK_STATUSES, type Task, type TaskPriority, type TaskStatus } from "@/types/tasks";
 
-const PRIORITY_BORDER: Record<TaskPriority, string> = {
-  Crítica: "border-l-critical",
-  Alta: "border-l-primary",
-  Média: "border-l-warning",
-  Baixa: "border-l-info",
+// Mesmo papel do "ícone de tipo de work item" colorido do Azure — ver TaskCard.tsx.
+const PRIORITY_ICON: Record<TaskPriority, string> = {
+  Crítica: "bg-critical",
+  Alta: "bg-primary",
+  Média: "bg-warning",
+  Baixa: "bg-info",
 };
 
 function formatHours(hours: number): string {
@@ -69,37 +69,43 @@ export function TaskMobileList({
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className={cn(
-                  "flex items-start justify-between gap-2 rounded-lg border border-l-4 border-border/60 bg-card/90 p-3",
-                  PRIORITY_BORDER[task.priority],
-                )}
+                className="flex items-start justify-between gap-2 rounded-md border border-border bg-card p-2.5"
                 onClick={() => onOpenTask(task)}
               >
                 <div className="min-w-0 space-y-1.5">
-                  <p className="text-sm font-medium leading-snug">
-                    <span className="text-muted-foreground">#{task.taskNumber}</span> {task.title}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <TaskPriorityBadge value={task.priority} />
-                    {task.storyPoints !== null && (
-                      <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                        {task.storyPoints} pts
+                  <div className="flex items-start gap-1.5">
+                    <span
+                      className={cn(
+                        "mt-1 h-2.5 w-2.5 shrink-0 rounded-sm",
+                        PRIORITY_ICON[task.priority],
+                      )}
+                      title={task.priority}
+                    />
+                    <p className="min-w-0 text-sm leading-snug">
+                      <span className="text-muted-foreground">#{task.taskNumber}</span> {task.title}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 pl-4 text-[11px] text-muted-foreground">
+                    {task.estimatedHours !== null && (
+                      <span>{formatHours(task.estimatedHours)}</span>
+                    )}
+                    {task.assignee && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-[9px] font-semibold text-primary">
+                          {displayName(task.assignee).charAt(0).toUpperCase()}
+                        </span>
+                        {displayName(task.assignee)}
                       </span>
                     )}
-                    {task.estimatedHours !== null && (
-                      <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                        {formatHours(task.estimatedHours)}
+                    {task.storyPoints !== null && (
+                      <span
+                        title="Story points"
+                        className="flex h-4 w-4 items-center justify-center rounded-full border border-border bg-muted text-[9px] font-semibold text-foreground"
+                      >
+                        {task.storyPoints}
                       </span>
                     )}
                   </div>
-                  {task.assignee && (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-[9px] font-semibold text-primary">
-                        {displayName(task.assignee).charAt(0).toUpperCase()}
-                      </span>
-                      {displayName(task.assignee)}
-                    </span>
-                  )}
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

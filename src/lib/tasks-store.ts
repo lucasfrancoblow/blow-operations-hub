@@ -31,6 +31,7 @@ export interface TaskRow {
   due_date: string | null;
   reference: TaskReference | null;
   position: number;
+  backlog_position: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -66,6 +67,7 @@ export function fromRow(row: TaskRow): Task {
     dueDate: row.due_date,
     reference: row.reference,
     position: row.position,
+    backlogPosition: row.backlog_position,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -163,6 +165,22 @@ export async function reorderTasks(
       supabaseUpdate("tasks", u.id, {
         status: u.status,
         position: u.position,
+        updated_at: new Date().toISOString(),
+      }),
+    ),
+  );
+}
+
+/** Reordena a lista "Backlogs" — não mexe em status/position (isso é do
+ * Board); é uma ordem própria, independente por design (ver migration 0021). */
+export async function reorderBacklog(
+  updates: Array<{ id: string; backlogPosition: number }>,
+): Promise<void> {
+  requireSupabase();
+  await Promise.all(
+    updates.map((u) =>
+      supabaseUpdate("tasks", u.id, {
+        backlog_position: u.backlogPosition,
         updated_at: new Date().toISOString(),
       }),
     ),

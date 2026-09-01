@@ -24,7 +24,13 @@ import { TaskCommandPalette } from "@/components/hub/tasks/TaskCommandPalette";
 import { ProjectSwitcher, UNASSIGNED_PROJECT_ID } from "@/components/hub/tasks/ProjectSwitcher";
 import { canAccessPage } from "@/lib/page-access";
 import { listActiveUsersFn } from "@/services/auth-service";
-import { getTasks, listProjectsFn, reorderTasksFn, updateTaskFn } from "@/services/tasks-service";
+import {
+  getTasks,
+  listProjectsFn,
+  reorderBacklogFn,
+  reorderTasksFn,
+  updateTaskFn,
+} from "@/services/tasks-service";
 import { TASK_PRIORITIES, type Task, type TaskStatus } from "@/types/tasks";
 
 export const Route = createFileRoute("/tarefas")({
@@ -104,6 +110,13 @@ function TarefasPage() {
     mutationFn: (updates: Array<{ id: string; status: TaskStatus; position: number }>) =>
       reorderTasksFn({ data: { updates } }),
     onError: (error: Error) => toast.error(`Não foi possível mover a tarefa: ${error.message}`),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+  });
+
+  const reorderBacklogMutation = useMutation({
+    mutationFn: (updates: Array<{ id: string; backlogPosition: number }>) =>
+      reorderBacklogFn({ data: { updates } }),
+    onError: (error: Error) => toast.error(`Não foi possível reordenar: ${error.message}`),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
   });
 
@@ -210,7 +223,7 @@ function TarefasPage() {
         <TaskBacklogList
           tasks={filtered}
           onOpenTask={openTask}
-          onReorder={(updates) => reorderMutation.mutate(updates)}
+          onReorder={(updates) => reorderBacklogMutation.mutate(updates)}
         />
       ) : (
         <>

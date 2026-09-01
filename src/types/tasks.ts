@@ -59,6 +59,7 @@ export interface Task {
   dueDate: string | null;
   reference: TaskReference | null;
   position: number;
+  backlogPosition: number | null;
   createdAt: string;
   updatedAt: string;
 }

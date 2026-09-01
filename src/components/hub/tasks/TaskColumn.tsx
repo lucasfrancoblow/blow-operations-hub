@@ -15,15 +15,6 @@ export const STATUS_DOT: Record<TaskStatus, string> = {
   Concluído: "bg-success",
 };
 
-export const STATUS_BORDER: Record<TaskStatus, string> = {
-  "Aguardando aceite": "border-t-primary",
-  Backlog: "border-t-muted-foreground",
-  "Em andamento": "border-t-info",
-  Bloqueado: "border-t-critical",
-  "Em revisão": "border-t-warning",
-  Concluído: "border-t-success",
-};
-
 export function TaskColumn({
   status,
   tasks,
@@ -37,14 +28,9 @@ export function TaskColumn({
 
   return (
     <div className="flex w-72 shrink-0 flex-col gap-3">
-      <div
-        className={cn(
-          "flex items-center gap-2 rounded-t-lg border-t-4 bg-muted/50 px-3 py-2",
-          STATUS_BORDER[status],
-        )}
-      >
-        <h3 className="text-xs font-bold uppercase tracking-wide text-foreground">{status}</h3>
-        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-background px-1.5 text-[11px] font-semibold text-muted-foreground">
+      <div className="flex items-center gap-2 border-b border-border px-1 pb-2">
+        <h3 className="text-sm font-semibold text-foreground">{status}</h3>
+        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[11px] font-semibold text-muted-foreground">
           {tasks.length}
         </span>
       </div>
@@ -53,8 +39,8 @@ export function TaskColumn({
         <div
           ref={setNodeRef}
           className={cn(
-            "flex min-h-[120px] flex-1 flex-col gap-2 rounded-b-lg border border-t-0 border-border/60 bg-card/40 p-2 transition-colors",
-            isOver && "border-primary/50 bg-primary/[0.04]",
+            "flex min-h-[120px] flex-1 flex-col gap-2 rounded-md bg-muted/30 p-2 transition-colors",
+            isOver && "bg-primary/[0.06]",
           )}
         >
           <AnimatePresence initial={false}>

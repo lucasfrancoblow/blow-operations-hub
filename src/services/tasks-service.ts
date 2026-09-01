@@ -8,6 +8,7 @@ import {
   deleteTask,
   getTask,
   listTasks,
+  reorderBacklog,
   reorderTasks,
   updateTask,
 } from "@/lib/tasks-store";
@@ -131,6 +132,18 @@ export const reorderTasksFn = createServerFn({ method: "POST" })
         return notifyCreatorOfStatusChange(previous, u.status, user.id);
       }),
     );
+  });
+
+interface ReorderBacklogInput {
+  updates: Array<{ id: string; backlogPosition: number }>;
+}
+
+export const reorderBacklogFn = createServerFn({ method: "POST" })
+  .validator((input: ReorderBacklogInput) => input)
+  .handler(async ({ data }) => {
+    const user = await requireTasksAccess();
+    await Promise.all(data.updates.map((u) => requireTaskAccess(user, u.id)));
+    await reorderBacklog(data.updates);
   });
 
 export const deleteTaskFn = createServerFn({ method: "POST" })

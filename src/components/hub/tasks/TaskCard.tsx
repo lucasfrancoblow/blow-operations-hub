@@ -5,14 +5,16 @@ import { CalendarClock, Link2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { displayName } from "@/lib/display-name";
-import { TaskPriorityBadge } from "@/components/hub/badges";
 import type { Task, TaskPriority } from "@/types/tasks";
 
-const PRIORITY_BORDER: Record<TaskPriority, string> = {
-  Crítica: "border-l-critical",
-  Alta: "border-l-primary",
-  Média: "border-l-warning",
-  Baixa: "border-l-info",
+// Ícone de tipo do work item no Azure é um quadrado colorido antes do título —
+// como este app não tem "tipos" (Bug/Task/User Story), usamos a cor da
+// prioridade nesse mesmo lugar, mantendo o mesmo papel visual.
+const PRIORITY_ICON: Record<TaskPriority, string> = {
+  Crítica: "bg-critical",
+  Alta: "bg-primary",
+  Média: "bg-warning",
+  Baixa: "bg-info",
 };
 
 function formatDueDate(iso: string): string {
@@ -56,36 +58,27 @@ export function TaskCard({
       transition={{ type: "spring", stiffness: 500, damping: 35 }}
       onClick={() => !dragOverlay && onOpen?.(task)}
       className={cn(
-        "cursor-grab space-y-2 rounded-lg border border-l-4 border-border/60 bg-card/90 p-3 text-left shadow-sm transition-colors active:cursor-grabbing",
-        PRIORITY_BORDER[task.priority],
-        "hover:border-primary/40 hover:shadow-md hover:shadow-primary/5",
+        "cursor-grab space-y-1.5 rounded-md border border-border bg-card p-2.5 text-left shadow-sm transition-colors active:cursor-grabbing",
+        "hover:border-primary/50 hover:shadow-md",
         dragOverlay && "rotate-2 border-primary/50 shadow-lg shadow-primary/20",
       )}
     >
-      <p className="text-sm font-medium leading-snug text-foreground">
-        <span className="text-muted-foreground">#{task.taskNumber}</span> {task.title}
-      </p>
-
-      <div className="flex flex-wrap items-center gap-1.5">
-        <TaskPriorityBadge value={task.priority} />
-        {task.storyPoints !== null && (
-          <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-            {task.storyPoints} pts
-          </span>
-        )}
-        {task.estimatedHours !== null && (
-          <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-            {formatHours(task.estimatedHours)}
-          </span>
-        )}
+      <div className="flex items-start gap-1.5">
+        <span
+          className={cn("mt-1 h-2.5 w-2.5 shrink-0 rounded-sm", PRIORITY_ICON[task.priority])}
+          title={task.priority}
+        />
+        <p className="min-w-0 text-sm leading-snug text-foreground">
+          <span className="text-muted-foreground">#{task.taskNumber}</span> {task.title}
+        </p>
       </div>
 
       {task.tags.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1 pl-4">
           {task.tags.map((tag) => (
             <span
               key={tag}
-              className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground"
+              className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
             >
               {tag}
             </span>
@@ -93,30 +86,44 @@ export function TaskCard({
         </div>
       )}
 
-      {(task.assignee || task.dueDate || task.reference) && (
-        <div className="flex items-center justify-between gap-2 pt-1 text-[11px] text-muted-foreground">
-          <div className="flex flex-wrap items-center gap-2.5">
-            {task.dueDate && (
-              <span className="inline-flex items-center gap-1">
-                <CalendarClock className="h-3 w-3" /> {formatDueDate(task.dueDate)}
-              </span>
-            )}
-            {task.reference && (
-              <span className="inline-flex items-center gap-1">
-                <Link2 className="h-3 w-3" /> {task.reference.label}
-              </span>
-            )}
-          </div>
+      <div className="flex items-end justify-between gap-2 pl-4 pt-0.5">
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+          {task.dueDate && (
+            <span className="inline-flex items-center gap-1">
+              <CalendarClock className="h-3 w-3" /> {formatDueDate(task.dueDate)}
+            </span>
+          )}
+          {task.reference && (
+            <span className="inline-flex items-center gap-1">
+              <Link2 className="h-3 w-3" /> {task.reference.label}
+            </span>
+          )}
+          {task.estimatedHours !== null && (
+            <span className="inline-flex items-center gap-1">
+              {formatHours(task.estimatedHours)}
+            </span>
+          )}
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1">
           {task.assignee && (
             <span
               title={displayName(task.assignee)}
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary"
+              className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary"
             >
               {displayName(task.assignee).charAt(0).toUpperCase()}
             </span>
           )}
+          {task.storyPoints !== null && (
+            <span
+              title="Story points"
+              className="flex h-5 w-5 items-center justify-center rounded-full border border-border bg-muted text-[10px] font-semibold text-foreground"
+            >
+              {task.storyPoints}
+            </span>
+          )}
         </div>
-      )}
+      </div>
     </motion.div>
   );
 }

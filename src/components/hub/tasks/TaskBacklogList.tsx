@@ -22,7 +22,22 @@ import { cn } from "@/lib/utils";
 import { displayName } from "@/lib/display-name";
 import { TaskPriorityBadge, TaskStatusBadge } from "@/components/hub/badges";
 import { EmptyState } from "@/components/hub/primitives";
-import type { Task, TaskStatus } from "@/types/tasks";
+import type { Task } from "@/types/tasks";
+
+// Ordem própria do Backlogs — não é a mesma coisa que "position" do Board
+// (que é reiniciado por coluna/status, então misturar tudo por ela dava uma
+// ordem sem sentido). Itens já ranqueados manualmente (backlogPosition
+// definido) vêm primeiro, na ordem em que foram ranqueados; o resto cai por
+// ordem de criação (task_number), que é a ordem padrão até alguém arrastar.
+function sortForBacklog(tasks: Task[]): Task[] {
+  return [...tasks].sort((a, b) => {
+    const aRanked = a.backlogPosition !== null;
+    const bRanked = b.backlogPosition !== null;
+    if (aRanked && bRanked) return a.backlogPosition! - b.backlogPosition!;
+    if (aRanked !== bRanked) return aRanked ? -1 : 1;
+    return a.taskNumber - b.taskNumber;
+  });
+}
 
 function formatDueDate(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
@@ -112,12 +127,12 @@ export function TaskBacklogList({
 }: {
   tasks: Task[];
   onOpenTask: (task: Task) => void;
-  onReorder: (updates: Array<{ id: string; status: TaskStatus; position: number }>) => void;
+  onReorder: (updates: Array<{ id: string; backlogPosition: number }>) => void;
 }) {
-  const [ordered, setOrdered] = useState<Task[]>(tasks);
+  const [ordered, setOrdered] = useState<Task[]>(() => sortForBacklog(tasks));
 
   useEffect(() => {
-    setOrdered(tasks);
+    setOrdered(sortForBacklog(tasks));
   }, [tasks]);
 
   const sensors = useSensors(
@@ -135,7 +150,7 @@ export function TaskBacklogList({
       if (oldIndex === -1 || newIndex === -1) return items;
 
       const next = arrayMove(items, oldIndex, newIndex);
-      onReorder(next.map((task, index) => ({ id: task.id, status: task.status, position: index })));
+      onReorder(next.map((task, index) => ({ id: task.id, backlogPosition: index })));
       return next;
     });
   }
