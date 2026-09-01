@@ -22,7 +22,7 @@ import {
   requireTaskAccess,
   revokeProjectAccess,
 } from "@/lib/task-project-access-store";
-import { findUserById } from "@/lib/users-store";
+import { findUserById, listUsers } from "@/lib/users-store";
 import { sendEmail } from "@/lib/resend-client";
 import { EMAIL_TONE, renderEmailTemplate, taskDeepLink } from "@/lib/email-template";
 import type { Task, TaskInput, TaskStatus } from "@/types/tasks";
@@ -119,6 +119,30 @@ async function notifyCreatorOfStatusChange(
   });
 }
 
+/** Avisa os super_admin (Lucas e Fernando) sempre que uma tarefa é excluída —
+ * independente de quem excluiu (best-effort: sendEmail nunca lança). Sem
+ * link "Ver tarefa": a tarefa já não existe mais. */
+async function notifyAdminsOfDeletion(task: Task, actingUser: SessionUser): Promise<void> {
+  const users = await listUsers();
+  const recipients = users.filter((u) => u.role === "super_admin" && u.email).map((u) => u.email!);
+  await Promise.all(
+    recipients.map((to) =>
+      sendEmail({
+        to,
+        subject: `Tarefa #${task.taskNumber} foi excluída`,
+        html: renderEmailTemplate({
+          eyebrow: "Tarefa excluída",
+          eyebrowColor: EMAIL_TONE.critical,
+          heading: `A tarefa #${task.taskNumber} foi excluída`,
+          intro: `Excluída por ${escapeHtml(actingUser.fullName ?? actingUser.username)}.`,
+          highlightTitle: `#${task.taskNumber} — ${escapeHtml(task.title)}`,
+          footerText: "Você recebeu este e-mail porque é super admin no hubLOw.",
+        }),
+      }),
+    ),
+  );
+}
+
 export const createTaskFn = createServerFn({ method: "POST" })
   .validator((input: TaskInput) => input)
   .handler(async ({ data }) => {
@@ -187,8 +211,9 @@ export const deleteTaskFn = createServerFn({ method: "POST" })
   .validator((input: { id: string }) => input)
   .handler(async ({ data }) => {
     const user = await requireTasksAccess();
-    await requireTaskAccess(user, data.id);
+    const task = await requireTaskAccess(user, data.id);
     await deleteTask(data.id);
+    await notifyAdminsOfDeletion(task, user);
   });
 
 // Não exige requireTasksAccess: quem só tem a aba Chamados (ex.: fornecedor
