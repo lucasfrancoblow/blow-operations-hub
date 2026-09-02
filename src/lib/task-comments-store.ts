@@ -3,6 +3,7 @@
 
 import {
   isSupabaseConfigured,
+  supabaseDelete,
   supabaseInsertReturning,
   supabaseSelect,
 } from "@/lib/supabase-client";
@@ -60,4 +61,21 @@ export async function createComment(input: {
   );
   if (!row) throw new Error("Comentário criado, mas não foi possível recarregá-lo.");
   return fromRow(row);
+}
+
+export async function getComment(id: string): Promise<TaskComment | null> {
+  if (!isSupabaseConfigured()) return null;
+  const rows = await supabaseSelect<CommentRow>("task_comments", {
+    select: COMMENT_SELECT,
+    id: `eq.${id}`,
+    limit: "1",
+  });
+  return rows[0] ? fromRow(rows[0]) : null;
+}
+
+/** Diferente de arquivar tarefa: comentário excluído some de verdade (DELETE
+ * físico) — é um item pequeno e a UI já confirma antes de chamar isso. */
+export async function deleteComment(id: string): Promise<void> {
+  requireSupabase();
+  await supabaseDelete("task_comments", id);
 }

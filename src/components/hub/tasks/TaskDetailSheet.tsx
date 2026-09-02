@@ -5,6 +5,16 @@ import { Loader2, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -129,6 +139,7 @@ export function TaskDetailSheet({
   } | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [tab, setTab] = useState<"detalhes" | "comentarios" | "anexos">("detalhes");
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -163,10 +174,14 @@ export function TaskDetailSheet({
   const deleteMutation = useMutation({
     mutationFn: () => deleteTaskFn({ data: { id: task!.id } }),
     onSuccess: () => {
+      setDeleteConfirmOpen(false);
       invalidate();
       onOpenChange(false);
     },
-    onError: (error: Error) => toast.error(`Não foi possível excluir a tarefa: ${error.message}`),
+    onError: (error: Error) => {
+      setDeleteConfirmOpen(false);
+      toast.error(`Não foi possível excluir a tarefa: ${error.message}`);
+    },
   });
 
   const subtasksMutation = useMutation({
@@ -546,7 +561,7 @@ export function TaskDetailSheet({
                 size="sm"
                 className="text-critical hover:text-critical"
                 disabled={deleteMutation.isPending}
-                onClick={() => deleteMutation.mutate()}
+                onClick={() => setDeleteConfirmOpen(true)}
               >
                 <Trash2 className="h-4 w-4" /> Excluir
               </Button>
@@ -560,6 +575,31 @@ export function TaskDetailSheet({
           </div>
         </div>
       </DialogContent>
+
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Excluir a tarefa {task ? `#${task.taskNumber} — ${task.title}` : ""}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso arquiva a tarefa inteira (junto com todos os comentários e anexos) — ela some das
+              listas e do board. Não é uma exclusão de comentário: pra excluir só um comentário,
+              abra a aba "Comentários" e use o excluir ao lado dele.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-critical text-critical-foreground hover:bg-critical/90"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate()}
+            >
+              Excluir tarefa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

@@ -5,7 +5,7 @@ import { canAccessPage } from "@/lib/page-access";
 import { requireTaskAccess } from "@/lib/task-project-access-store";
 import { getTask } from "@/lib/tasks-store";
 import { getTicketByTaskId } from "@/lib/task-tickets-store";
-import { createComment, listComments } from "@/lib/task-comments-store";
+import { createComment, deleteComment, getComment, listComments } from "@/lib/task-comments-store";
 import { findUserById } from "@/lib/users-store";
 import { sendEmail } from "@/lib/resend-client";
 import { renderEmailTemplate, taskDeepLink, ticketDeepLink } from "@/lib/email-template";
@@ -95,4 +95,20 @@ export const createCommentFn = createServerFn({ method: "POST" })
     const comment = await createComment({ taskId: data.taskId, authorId: user.id, body });
     await notifyParticipantsOfComment(task, comment, user);
     return comment;
+  });
+
+/** Só quem escreveu o comentário, ou admin/super_admin, pode excluir. */
+export const deleteCommentFn = createServerFn({ method: "POST" })
+  .validator((input: { id: string; taskId: string }) => input)
+  .handler(async ({ data }) => {
+    const user = await requireSessionUser();
+    await requireCommentAccess(user, data.taskId);
+    const comment = await getComment(data.id);
+    if (!comment || comment.taskId !== data.taskId) throw new Error("Comentário não encontrado.");
+    const isAuthor = comment.author?.id === user.id;
+    const isAdmin = user.role === "admin" || user.role === "super_admin";
+    if (!isAuthor && !isAdmin) {
+      throw new Error("Só quem escreveu o comentário (ou um admin) pode excluí-lo.");
+    }
+    await deleteComment(data.id);
   });

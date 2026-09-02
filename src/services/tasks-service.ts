@@ -4,8 +4,8 @@ import { requireSessionUser, requireTasksAccess } from "@/lib/session";
 import type { SessionUser } from "@/lib/auth";
 import { escapeHtml } from "@/lib/html";
 import {
+  archiveTask,
   createTask,
-  deleteTask,
   getTask,
   listTasks,
   reorderBacklog,
@@ -119,9 +119,9 @@ async function notifyCreatorOfStatusChange(
   });
 }
 
-/** Avisa os super_admin (Lucas e Fernando) sempre que uma tarefa é excluída —
- * independente de quem excluiu (best-effort: sendEmail nunca lança). Sem
- * link "Ver tarefa": a tarefa já não existe mais. */
+/** Avisa os super_admin (Lucas e Fernando) sempre que uma tarefa é excluída
+ * (arquivada) — independente de quem excluiu (best-effort: sendEmail nunca
+ * lança). Sem link "Ver tarefa": ela some das listas normais. */
 async function notifyAdminsOfDeletion(task: Task, actingUser: SessionUser): Promise<void> {
   const users = await listUsers();
   const recipients = users.filter((u) => u.role === "super_admin" && u.email).map((u) => u.email!);
@@ -134,7 +134,7 @@ async function notifyAdminsOfDeletion(task: Task, actingUser: SessionUser): Prom
           eyebrow: "Tarefa excluída",
           eyebrowColor: EMAIL_TONE.critical,
           heading: `A tarefa #${task.taskNumber} foi excluída`,
-          intro: `Excluída por ${escapeHtml(actingUser.fullName ?? actingUser.username)}.`,
+          intro: `Excluída por ${escapeHtml(actingUser.fullName ?? actingUser.username)}. Ela foi arquivada (não apagada de verdade) — se foi engano, é só pedir pra alguém com acesso ao banco recuperar.`,
           highlightTitle: `#${task.taskNumber} — ${escapeHtml(task.title)}`,
           footerText: "Você recebeu este e-mail porque é super admin no hubLOw.",
         }),
@@ -212,7 +212,7 @@ export const deleteTaskFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await requireTasksAccess();
     const task = await requireTaskAccess(user, data.id);
-    await deleteTask(data.id);
+    await archiveTask(data.id);
     await notifyAdminsOfDeletion(task, user);
   });
 

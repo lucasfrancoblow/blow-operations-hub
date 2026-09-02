@@ -1,10 +1,9 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { ListTodo, Plus } from "lucide-react";
+import { ListTodo } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -186,11 +185,6 @@ function TarefasPage() {
       <PageHeader
         title="Tarefas"
         subtitle="Backlog interno do time — atalho Cmd+K pra criar ou buscar rápido"
-        actions={
-          <Button size="sm" onClick={openCreate}>
-            <Plus className="h-4 w-4" /> Nova tarefa
-          </Button>
-        }
       />
 
       <ProjectSwitcher
@@ -245,12 +239,7 @@ function TarefasPage() {
         <EmptyState
           icon={<ListTodo className="h-5 w-5" />}
           title="Nenhuma tarefa encontrada"
-          description="Ajuste os filtros ou crie a primeira tarefa."
-          action={
-            <Button size="sm" onClick={openCreate}>
-              <Plus className="h-4 w-4" /> Nova tarefa
-            </Button>
-          }
+          description="Ajuste os filtros ou crie a primeira tarefa na visão Board."
         />
       ) : view === "backlog" ? (
         <TaskBacklogList

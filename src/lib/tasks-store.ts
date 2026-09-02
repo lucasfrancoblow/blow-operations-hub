@@ -3,7 +3,6 @@
 
 import {
   isSupabaseConfigured,
-  supabaseDelete,
   supabaseInsertReturning,
   supabaseSelect,
   supabaseUpdate,
@@ -88,6 +87,7 @@ export async function listTasks(accessibleProjectIds?: string[]): Promise<Task[]
   if (!isSupabaseConfigured()) return [];
   const filters: Record<string, string> = {
     select: TASK_SELECT,
+    archived: "eq.false",
     order: "position.asc,created_at.asc",
   };
   if (accessibleProjectIds) {
@@ -187,7 +187,12 @@ export async function reorderBacklog(
   );
 }
 
-export async function deleteTask(id: string): Promise<void> {
+/** "Excluir" na UI arquiva em vez de apagar de verdade (DELETE físico já causou
+ * perda de dado por engano: um clique sem confirmação, tentando excluir um
+ * comentário — que nem existe como ação — acabava excluindo a tarefa inteira e,
+ * em cascata, os comentários dela). Arquivada some das listas (ver listTasks)
+ * mas continua no banco, recuperável. */
+export async function archiveTask(id: string): Promise<void> {
   requireSupabase();
-  await supabaseDelete("tasks", id);
+  await supabaseUpdate("tasks", id, { archived: true, updated_at: new Date().toISOString() });
 }
