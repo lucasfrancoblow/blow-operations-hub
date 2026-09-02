@@ -143,6 +143,34 @@ async function notifyAdminsOfDeletion(task: Task, actingUser: SessionUser): Prom
   );
 }
 
+/** Avisa os super_admin (Lucas e Fernando) de toda tarefa nova, independente
+ * de quem criou ou se tem responsável — visão geral por cima da notificação
+ * específica de atribuição (best-effort: sendEmail nunca lança). */
+async function notifyAdminsOfNewTask(task: Task, actingUser: SessionUser): Promise<void> {
+  const users = await listUsers();
+  const recipients = users.filter((u) => u.role === "super_admin" && u.email).map((u) => u.email!);
+  const description = task.description.trim()
+    ? escapeHtml(task.description).replace(/\n/g, "<br>")
+    : "Sem descrição.";
+  await Promise.all(
+    recipients.map((to) =>
+      sendEmail({
+        to,
+        subject: `Nova tarefa #${task.taskNumber}: ${task.title}`,
+        html: renderEmailTemplate({
+          eyebrow: "Nova tarefa",
+          heading: `Nova tarefa criada por ${escapeHtml(actingUser.fullName ?? actingUser.username)}`,
+          highlightTitle: `#${task.taskNumber} — ${escapeHtml(task.title)}`,
+          highlightBody: description,
+          ctaLabel: "Ver tarefa",
+          ctaUrl: taskDeepLink(task.taskNumber),
+          footerText: "Você recebeu este e-mail porque é super admin no hubLOw.",
+        }),
+      }),
+    ),
+  );
+}
+
 export const createTaskFn = createServerFn({ method: "POST" })
   .validator((input: TaskInput) => input)
   .handler(async ({ data }) => {
@@ -150,6 +178,7 @@ export const createTaskFn = createServerFn({ method: "POST" })
     await requireAccessibleProject(user, data.projectId ?? null);
     const task = await createTask(data, user.id);
     if (task.assigneeId) await notifyAssignee(task);
+    await notifyAdminsOfNewTask(task, user);
   });
 
 interface UpdateTaskInput {
