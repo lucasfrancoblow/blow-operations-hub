@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { KeyRound, UserPen } from "lucide-react";
+import { Eye, EyeOff, KeyRound, UserPen } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -78,6 +78,8 @@ function UsuariosPage() {
   const [phone, setPhone] = useState("");
   const [resetTarget, setResetTarget] = useState<{ id: string; username: string } | null>(null);
   const [newPassword, setNewPassword] = useState("");
+  const [showNewUserPassword, setShowNewUserPassword] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
   const [profileTarget, setProfileTarget] = useState<{
     id: string;
     username: string;
@@ -242,13 +244,27 @@ function UsuariosPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="new-password">Senha inicial</Label>
-              <Input
-                id="new-password"
-                type="text"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="defina uma senha"
-              />
+              <div className="relative">
+                <Input
+                  id="new-password"
+                  type={showNewUserPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="defina uma senha"
+                  className="pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewUserPassword((v) => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showNewUserPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label>Papel</Label>
@@ -379,13 +395,23 @@ function UsuariosPage() {
           </DialogHeader>
           <div className="space-y-1.5 py-2">
             <Label htmlFor="reset-password">Nova senha</Label>
-            <Input
-              id="reset-password"
-              type="text"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              autoFocus
-            />
+            <div className="relative">
+              <Input
+                id="reset-password"
+                type={showResetPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                autoFocus
+                className="pr-9"
+              />
+              <button
+                type="button"
+                onClick={() => setShowResetPassword((v) => !v)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showResetPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
           <DialogFooter>
             <Button

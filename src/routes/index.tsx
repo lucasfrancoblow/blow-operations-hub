@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   motion,
   useMotionTemplate,
@@ -25,6 +26,15 @@ import {
 import { canAccessPage, type PageKey } from "@/lib/page-access";
 import { cn } from "@/lib/utils";
 import { Stagger, StaggerItem } from "@/components/hub/motion";
+import { getNotificationsFn } from "@/services/notifications-service";
+
+/** Que sinal "ao vivo" mostrar em cada card, mapeado a partir dos mesmos
+ * itens do sino de notificações do TopNav (ver notifications-service.ts) —
+ * sem duplicar a lógica de agregação, só reaproveitando o mesmo dado. */
+const LIVE_BADGE_BY_PAGE: Partial<Record<PageKey, string>> = {
+  incidentes: "incidents-critical",
+  tarefas: "tasks-waiting",
+};
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -237,7 +247,7 @@ function LiveBadge() {
 // da posição relativa do ponteiro) e um brilho radial na cor do canal acompanha junto.
 // Springs em vez de transição fixa: o card acelera com o mouse e assenta sozinho
 // quando o cursor sai, sem parecer robótico.
-function FeatureCard({ item }: { item: HubFeature }) {
+function FeatureCard({ item, badge }: { item: HubFeature; badge?: number | undefined }) {
   const reduce = useReducedMotion();
   const accent = ACCENT_CLASSES[item.accent];
   const cardRef = useRef<HTMLDivElement>(null);
@@ -298,7 +308,14 @@ function FeatureCard({ item }: { item: HubFeature }) {
           >
             <item.icon className="h-5 w-5" />
           </div>
-          <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-foreground" />
+          <div className="flex items-center gap-2">
+            {Boolean(badge) && (
+              <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-critical px-1.5 text-[11px] font-semibold text-critical-foreground">
+                {badge}
+              </span>
+            )}
+            <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-foreground" />
+          </div>
         </div>
 
         <div className="relative flex-1 space-y-1.5">
@@ -354,6 +371,12 @@ function Overview() {
   const { user } = Route.useRouteContext();
   const reduce = useReducedMotion();
 
+  const { data: notifications = [] } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: () => getNotificationsFn(),
+    staleTime: 60_000,
+  });
+
   const categories = CATEGORIES.map((cat) => ({
     ...cat,
     items: cat.items.filter((item) => item.pageKey === null || canAccessPage(user, item.pageKey)),
@@ -388,7 +411,14 @@ function Overview() {
           <Stagger className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {cat.items.map((item) => (
               <StaggerItem key={item.url} className="h-full">
-                <FeatureCard item={item} />
+                <FeatureCard
+                  item={item}
+                  badge={
+                    item.pageKey
+                      ? notifications.find((n) => n.id === LIVE_BADGE_BY_PAGE[item.pageKey!])?.count
+                      : undefined
+                  }
+                />
               </StaggerItem>
             ))}
           </Stagger>

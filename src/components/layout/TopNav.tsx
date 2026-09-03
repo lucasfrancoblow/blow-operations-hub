@@ -1,8 +1,10 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   AlertTriangle,
   Bell,
+  CheckCircle2,
   Headphones,
   Inbox,
   LayoutDashboard,
@@ -19,7 +21,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { toast } from "sonner";
 
 import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,7 @@ import { displayName } from "@/lib/display-name";
 import { ROLE_LABELS, type SessionUser } from "@/lib/user-role";
 import { canAccessPage, type PageKey } from "@/lib/page-access";
 import { logoutFn } from "@/services/auth-service";
+import { getNotificationsFn } from "@/services/notifications-service";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -126,6 +128,63 @@ function NavPills({ user, onNavigate }: { user: SessionUser; onNavigate?: () => 
   );
 }
 
+/** Sino de notificações de verdade — antes era um toast fixo sempre igual.
+ * `staleTime`/`refetchInterval` de 1min: o TopNav monta uma vez só e persiste
+ * entre navegações (ver __root.tsx), então não custa recontar de tempos em
+ * tempos sem virar um refetch a cada clique de link. */
+function NotificationBell() {
+  const { data: items = [] } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: () => getNotificationsFn(),
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+  const total = items.reduce((sum, i) => sum + i.count, 0);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative shrink-0 rounded-full"
+          aria-label="Notificações"
+        >
+          <Bell className="h-4 w-4" />
+          {total > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-critical px-1 text-[10px] font-semibold text-critical-foreground">
+              {total > 9 ? "9+" : total}
+            </span>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-72">
+        <DropdownMenuLabel>Notificações</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {items.length === 0 ? (
+          <div className="flex items-center gap-2 px-2 py-3 text-sm text-muted-foreground">
+            <CheckCircle2 className="h-4 w-4 text-success" /> Tudo em ordem por aqui.
+          </div>
+        ) : (
+          items.map((item) => (
+            <DropdownMenuItem key={item.id} asChild>
+              <Link to={item.href} className="flex items-start gap-2">
+                <span
+                  className={cn(
+                    "mt-1 h-1.5 w-1.5 shrink-0 rounded-full",
+                    item.tone === "critical" ? "bg-critical" : "bg-warning",
+                  )}
+                />
+                <span>{item.label}</span>
+              </Link>
+            </DropdownMenuItem>
+          ))
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function TopNav({ user }: { user: SessionUser }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -170,16 +229,7 @@ export function TopNav({ user }: { user: SessionUser }) {
         <div className="flex shrink-0 items-center gap-1">
           <ThemeToggle />
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative shrink-0 rounded-full"
-            aria-label="Notificações"
-            onClick={() => toast.warning("3 incidentes abertos exigem atenção.")}
-          >
-            <Bell className="h-4 w-4" />
-            <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-primary" />
-          </Button>
+          <NotificationBell />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

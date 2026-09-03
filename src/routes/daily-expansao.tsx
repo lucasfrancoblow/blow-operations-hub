@@ -1,7 +1,9 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Headphones } from "lucide-react";
+import { AlertTriangle, Download, Headphones } from "lucide-react";
+import { downloadCsv } from "@/lib/csv-export";
+import { Button } from "@/components/ui/button";
 import {
   Bar,
   BarChart,
@@ -319,12 +321,85 @@ function DailyExpansaoPage() {
     refetchInterval: 120_000,
   });
 
+  const bloqueios = data
+    ? [
+        ...data.allana
+          .filter((r) => r.bloqueio)
+          .map((r) => ({ pessoa: "Allana", date: r.date, bloqueio: r.bloqueio! })),
+        ...data.julia
+          .filter((r) => r.bloqueio)
+          .map((r) => ({ pessoa: "Júlia", date: r.date, bloqueio: r.bloqueio! })),
+        ...data.andrey
+          .filter((r) => r.bloqueio)
+          .map((r) => ({ pessoa: "Andrey", date: r.date, bloqueio: r.bloqueio! })),
+      ].sort((a, b) => b.date.localeCompare(a.date))
+    : [];
+
+  function exportCsv() {
+    if (!data) return;
+    const rows: Array<Record<string, unknown>> = [
+      ...data.allana.map((r) => ({
+        pessoa: "Allana",
+        papel: "SDR",
+        data: r.date,
+        leads_novos: r.leadsNovos,
+        contatos_efetivos: r.contatosEfetivos,
+        sqls: r.sqls,
+        reunioes_agendadas: r.reunioesAgendadas,
+        reunioes_realizadas: "",
+        no_shows: "",
+        oportunidades_geradas: "",
+        vendas: "",
+        bloqueio: r.bloqueio ?? "",
+        compromisso_do_dia: r.compromissoDoDia ?? "",
+      })),
+      ...data.julia.map((r) => ({
+        pessoa: "Júlia",
+        papel: "SDR",
+        data: r.date,
+        leads_novos: r.leadsNovos,
+        contatos_efetivos: r.contatosEfetivos,
+        sqls: r.sqls,
+        reunioes_agendadas: r.reunioesAgendadas,
+        reunioes_realizadas: "",
+        no_shows: "",
+        oportunidades_geradas: "",
+        vendas: "",
+        bloqueio: r.bloqueio ?? "",
+        compromisso_do_dia: r.compromissoDoDia ?? "",
+      })),
+      ...data.andrey.map((r) => ({
+        pessoa: "Andrey",
+        papel: "Closer",
+        data: r.date,
+        leads_novos: "",
+        contatos_efetivos: "",
+        sqls: "",
+        reunioes_agendadas: "",
+        reunioes_realizadas: r.reunioesRealizadas,
+        no_shows: r.noShows,
+        oportunidades_geradas: r.oportunidadesGeradas,
+        vendas: r.vendas,
+        bloqueio: r.bloqueio ?? "",
+        compromisso_do_dia: r.compromissoDoDia ?? "",
+      })),
+    ];
+    downloadCsv(`daily-expansao-${range.from}_${range.to}.csv`, rows);
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Daily Expansão"
         subtitle="Leads, SQLs, reuniões e vendas do time de Expansão — direto da planilha 'Daily Expansão'"
-        actions={<DateRangePicker value={range} onChange={setRange} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <DateRangePicker value={range} onChange={setRange} />
+            <Button variant="outline" size="sm" disabled={!data} onClick={exportCsv}>
+              <Download className="h-4 w-4" /> Exportar CSV
+            </Button>
+          </div>
+        }
       />
 
       {isLoading ? (
@@ -337,6 +412,22 @@ function DailyExpansaoPage() {
         />
       ) : (
         <FadeIn className="space-y-6">
+          {bloqueios.length > 0 && (
+            <div className="rounded-xl border border-critical/30 bg-critical/8 p-4">
+              <p className="flex items-center gap-2 text-sm font-semibold text-critical">
+                <AlertTriangle className="h-4 w-4" /> {bloqueios.length} bloqueio(s) no período
+              </p>
+              <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                {bloqueios.map((b, i) => (
+                  <li key={i}>
+                    <span className="font-medium text-foreground">{fmtDM(b.date)}</span> ·{" "}
+                    {b.pessoa}: {b.bloqueio}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {data.updatedAt && (
             <p className="text-xs text-muted-foreground">
               Planilha atualizada em{" "}

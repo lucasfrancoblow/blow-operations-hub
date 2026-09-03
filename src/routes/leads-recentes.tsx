@@ -3,7 +3,9 @@ import { canAccessPage } from "@/lib/page-access";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { CheckCircle2, Inbox, Radar } from "lucide-react";
+import { CheckCircle2, Download, Inbox, Radar } from "lucide-react";
+import { downloadCsv } from "@/lib/csv-export";
+import { Button } from "@/components/ui/button";
 import {
   Area,
   AreaChart,
@@ -230,12 +232,43 @@ function LeadsRecentesPage() {
   const current = Math.min(page, pages);
   const rows = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
 
+  function exportCsv() {
+    downloadCsv(
+      `radar-de-leads-${todayDateString()}.csv`,
+      filtered.map((l) => ({
+        titulo: l.title,
+        pipeline: l.pipelineName,
+        etapa: l.stageName,
+        responsavel: l.ownerName,
+        origem: l.origin,
+        destino: l.destino,
+        campanha_utm: l.utmCampaign ?? "",
+        status: l.status,
+        valor: l.value,
+        criado_em: l.createdAt,
+        em_andamento: l.emAndamento ? "sim" : "não",
+      })),
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Radar de Leads"
         subtitle="Dados reais do PipeRun — progresso automático por etapa"
-        actions={<DateRangePicker value={range} onChange={setRange} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <DateRangePicker value={range} onChange={setRange} />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={filtered.length === 0}
+              onClick={exportCsv}
+            >
+              <Download className="h-4 w-4" /> Exportar CSV
+            </Button>
+          </div>
+        }
       />
 
       {!isLoading && !data ? (

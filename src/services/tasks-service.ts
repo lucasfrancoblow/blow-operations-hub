@@ -189,6 +189,7 @@ export const createTaskFn = createServerFn({ method: "POST" })
     const task = await createTask(data, user.id);
     if (task.assigneeIds.length > 0) await notifyAssignees(task, task.assigneeIds);
     await notifyAdminsOfNewTask(task, user);
+    return task;
   });
 
 interface UpdateTaskInput {

@@ -50,6 +50,7 @@ import { getMyProfileFn } from "@/services/auth-service";
 import { listProjectsFn } from "@/services/tasks-service";
 import { createTicketFn, listTicketsFn, updateTicketDetailsFn } from "@/services/tickets-service";
 import type { Ticket } from "@/types/tickets";
+import { TASK_PRIORITIES, type Task } from "@/types/tasks";
 
 export const Route = createFileRoute("/chamados")({
   beforeLoad: ({ context }) => {
@@ -98,6 +99,8 @@ function ChamadosPage() {
   const [projectId, setProjectId] = useState(UNASSIGNED_PROJECT_ID);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [priority, setPriority] = useState<Task["priority"]>("Média");
+  const [dueDate, setDueDate] = useState("");
   const [requesterName, setRequesterName] = useState("");
   const [requesterEmail, setRequesterEmail] = useState("");
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -143,6 +146,8 @@ function ChamadosPage() {
           description: description.trim(),
           requesterName: requesterName.trim(),
           requesterEmail: requesterEmail.trim() || null,
+          priority,
+          dueDate: dueDate ? new Date(dueDate).toISOString() : null,
         },
       }),
     onSuccess: () => {
@@ -157,6 +162,8 @@ function ChamadosPage() {
     setProjectId(UNASSIGNED_PROJECT_ID);
     setTitle("");
     setDescription("");
+    setPriority("Média");
+    setDueDate("");
     setRequesterName(profile?.fullName ?? user?.username ?? "");
     setRequesterEmail(profile?.email ?? "");
     setCreateOpen(true);
@@ -262,6 +269,32 @@ function ChamadosPage() {
                 placeholder="Detalhes, prints, links..."
                 rows={4}
               />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Prioridade</Label>
+                <Select value={priority} onValueChange={(v) => setPriority(v as Task["priority"])}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TASK_PRIORITIES.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ticket-due">Prazo (opcional)</Label>
+                <Input
+                  id="ticket-due"
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">

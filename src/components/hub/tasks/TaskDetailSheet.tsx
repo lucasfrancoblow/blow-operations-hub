@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
-import { ArrowLeft, Loader2, Pin, Plus, Sparkles, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  ChevronRight,
+  Loader2,
+  Pin,
+  Plus,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -110,8 +119,10 @@ function toInput(form: FormState): TaskInput {
   };
 }
 
-/** Aba "Subtarefas" — lista compacta com criação inline; clicar numa
- * subtarefa navega o próprio sheet pra ela (sem dialog aninhado). */
+/** Aba "Subtarefas" — lista tipo acordeão: clicar numa linha expande um
+ * mini-editor (status/prioridade/responsáveis/prazo) ali mesmo, sem sair da
+ * tarefa-pai. O ícone de seta no canto ainda abre a subtarefa como tarefa
+ * completa (comentários, anexos, subtarefas dela) via onNavigateToTask. */
 function SubtasksTab({
   parentTask,
   onNavigateToTask,
@@ -121,21 +132,39 @@ function SubtasksTab({
 }) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const { data: subtasks = [] } = useQuery({
     queryKey: ["subtasks", parentTask.id],
     queryFn: () => listSubtasksFn({ data: { parentTaskId: parentTask.id } }),
   });
 
+  const { data: users = [] } = useQuery({
+    queryKey: ["assignable-users"],
+    queryFn: () => listActiveUsersFn(),
+  });
+
+  function invalidate() {
+    queryClient.invalidateQueries({ queryKey: ["subtasks", parentTask.id] });
+    queryClient.invalidateQueries({ queryKey: ["tasks"] });
+  }
+
   const createMutation = useMutation({
     mutationFn: (title: string) =>
       createSubtaskFn({ data: { title, parentTaskId: parentTask.id } }),
     onSuccess: () => {
       setTitle("");
-      queryClient.invalidateQueries({ queryKey: ["subtasks", parentTask.id] });
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      invalidate();
     },
     onError: (error: Error) => toast.error(`Não foi possível criar a subtarefa: ${error.message}`),
+  });
+
+  const patchMutation = useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: Partial<TaskInput> }) =>
+      updateTaskFn({ data: { id, patch } }),
+    onSuccess: invalidate,
+    onError: (error: Error) =>
+      toast.error(`Não foi possível atualizar a subtarefa: ${error.message}`),
   });
 
   function submit() {
@@ -149,24 +178,117 @@ function SubtasksTab({
       {subtasks.length === 0 && (
         <p className="text-sm text-muted-foreground">Nenhuma subtarefa ainda.</p>
       )}
-      {subtasks.map((s) => (
-        <button
-          key={s.id}
-          type="button"
-          onClick={() => onNavigateToTask(s)}
-          className="flex w-full items-center gap-2 rounded-md border border-border bg-card p-2 text-left text-sm hover:border-primary/50"
-        >
-          <span className={cn("h-2 w-2 shrink-0 rounded-full", STATUS_DOT[s.status])} />
-          <span className="min-w-0 flex-1 truncate">
-            <span className="text-muted-foreground">#{s.taskNumber}</span> {s.title}
-          </span>
-          {s.assignees[0] && (
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">
-              {displayName(s.assignees[0]).charAt(0).toUpperCase()}
-            </span>
-          )}
-        </button>
-      ))}
+      {subtasks.map((s) => {
+        const expanded = expandedId === s.id;
+        return (
+          <div key={s.id} className="rounded-md border border-border bg-card">
+            <button
+              type="button"
+              onClick={() => setExpandedId(expanded ? null : s.id)}
+              className="flex w-full items-center gap-2 p-2 text-left text-sm"
+            >
+              <ChevronRight
+                className={cn(
+                  "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform",
+                  expanded && "rotate-90",
+                )}
+              />
+              <span className={cn("h-2 w-2 shrink-0 rounded-full", STATUS_DOT[s.status])} />
+              <span className="min-w-0 flex-1 truncate">
+                <span className="text-muted-foreground">#{s.taskNumber}</span> {s.title}
+              </span>
+              {s.assignees[0] && (
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">
+                  {displayName(s.assignees[0]).charAt(0).toUpperCase()}
+                </span>
+              )}
+              <span
+                role="button"
+                tabIndex={-1}
+                title="Abrir tarefa completa"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNavigateToTask(s);
+                }}
+                className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-primary"
+              >
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </span>
+            </button>
+
+            {expanded && (
+              <div className="grid grid-cols-2 gap-2 border-t border-border/60 p-2">
+                <div className="space-y-1">
+                  <FieldLabel>Status</FieldLabel>
+                  <Select
+                    value={s.status}
+                    onValueChange={(v) =>
+                      patchMutation.mutate({ id: s.id, patch: { status: v as Task["status"] } })
+                    }
+                  >
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TASK_STATUSES.map((st) => (
+                        <SelectItem key={st} value={st}>
+                          {st}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <FieldLabel>Prioridade</FieldLabel>
+                  <Select
+                    value={s.priority}
+                    onValueChange={(v) =>
+                      patchMutation.mutate({ id: s.id, patch: { priority: v as Task["priority"] } })
+                    }
+                  >
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TASK_PRIORITIES.map((p) => (
+                        <SelectItem key={p} value={p}>
+                          {p}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <FieldLabel>Responsáveis</FieldLabel>
+                  <UserMultiSelect
+                    users={users}
+                    selected={s.assigneeIds}
+                    onChange={(ids) =>
+                      patchMutation.mutate({ id: s.id, patch: { assigneeIds: ids } })
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <FieldLabel>Prazo</FieldLabel>
+                  <Input
+                    type="date"
+                    className="h-8"
+                    defaultValue={s.dueDate ? s.dueDate.slice(0, 10) : ""}
+                    onBlur={(e) =>
+                      patchMutation.mutate({
+                        id: s.id,
+                        patch: {
+                          dueDate: e.target.value ? new Date(e.target.value).toISOString() : null,
+                        },
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
       <div className="flex gap-2 pt-1">
         <Input
           value={title}

@@ -19,6 +19,8 @@ interface AppUserRow {
   full_name: string | null;
   email: string | null;
   phone: string | null;
+  failed_login_attempts: number;
+  locked_until: string | null;
   created_at: string;
 }
 
@@ -32,6 +34,8 @@ export interface AppUser {
   fullName: string | null;
   email: string | null;
   phone: string | null;
+  failedLoginAttempts: number;
+  lockedUntil: string | null;
   createdAt: string;
 }
 
@@ -46,6 +50,8 @@ function fromRow(row: AppUserRow): AppUser {
     fullName: row.full_name,
     email: row.email,
     phone: row.phone,
+    failedLoginAttempts: row.failed_login_attempts ?? 0,
+    lockedUntil: row.locked_until,
     createdAt: row.created_at,
   };
 }
@@ -165,4 +171,25 @@ export async function setUserPassword(id: string, password: string): Promise<voi
     password_hash: hashPassword(password),
     updated_at: new Date().toISOString(),
   });
+}
+
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_MINUTES = 15;
+
+/** Nunca lançava antes: dava pra tentar senha errada infinitas vezes num
+ * mesmo usuário. Depois de 5 tentativas seguidas, bloqueia por 15 minutos. */
+export async function registerFailedLogin(id: string, currentAttempts: number): Promise<void> {
+  requireSupabase();
+  const attempts = currentAttempts + 1;
+  const patch: Record<string, unknown> = { failed_login_attempts: attempts };
+  if (attempts >= MAX_LOGIN_ATTEMPTS) {
+    patch["locked_until"] = new Date(Date.now() + LOCKOUT_MINUTES * 60_000).toISOString();
+    patch["failed_login_attempts"] = 0;
+  }
+  await supabaseUpdate("app_users", id, patch);
+}
+
+export async function clearFailedLogins(id: string): Promise<void> {
+  requireSupabase();
+  await supabaseUpdate("app_users", id, { failed_login_attempts: 0, locked_until: null });
 }

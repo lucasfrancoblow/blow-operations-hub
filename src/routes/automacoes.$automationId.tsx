@@ -1,8 +1,7 @@
 import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { toast } from "sonner";
-import { ArrowRight, BookOpen, ExternalLink, KeyRound, Pencil } from "lucide-react";
+import { AlertOctagon, ArrowRight, BookOpen, ExternalLink, KeyRound } from "lucide-react";
 
 import { canAccessPage } from "@/lib/page-access";
 import { hubService, queryKeys } from "@/services/hub-service";
@@ -59,6 +58,7 @@ export const Route = createFileRoute("/automacoes/$automationId")({
 
 function AutomationDetail() {
   const { automationId } = Route.useParams();
+  const { user } = Route.useRouteContext();
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
 
   const automation = useQuery({
@@ -92,6 +92,21 @@ function AutomationDetail() {
     );
   }
 
+  if (automation.isError) {
+    return (
+      <EmptyState
+        icon={<AlertOctagon className="h-5 w-5" />}
+        title="Não foi possível carregar essa automação"
+        description="Houve um erro ao buscar os dados. Tente de novo."
+        action={
+          <Button variant="outline" onClick={() => automation.refetch()}>
+            Tentar novamente
+          </Button>
+        }
+      />
+    );
+  }
+
   const a = automation.data;
   if (!a) {
     throw notFound();
@@ -121,9 +136,6 @@ function AutomationDetail() {
               <a href={a.externalUrl} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4" /> Abrir no {a.platform}
               </a>
-            </Button>
-            <Button variant="outline" onClick={() => toast.info("Edição será feita no n8n/Make.")}>
-              <Pencil className="h-4 w-4" /> Editar
             </Button>
             <Button variant="outline" asChild>
               <Link to="/documentacao">
@@ -386,11 +398,8 @@ function AutomationDetail() {
               title="Documentação não criada"
               description="Esta automação ainda não possui documento na base de conhecimento."
               action={
-                <Button
-                  variant="outline"
-                  onClick={() => toast.success("Rascunho criado no Notion (simulado).")}
-                >
-                  Criar documentação
+                <Button variant="outline" asChild>
+                  <Link to="/documentacao">Ver base de documentação</Link>
                 </Button>
               }
             />
@@ -418,6 +427,7 @@ function AutomationDetail() {
         incident={selectedIncident}
         open={Boolean(selectedIncident)}
         onOpenChange={(open) => !open && setSelectedIncident(null)}
+        user={user}
       />
     </div>
   );

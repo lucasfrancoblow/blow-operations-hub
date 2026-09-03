@@ -1,3 +1,6 @@
+import { useNavigate } from "@tanstack/react-router";
+import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   Sheet,
   SheetContent,
@@ -7,21 +10,72 @@ import {
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { ExternalLink } from "lucide-react";
+import { ClipboardPlus, ExternalLink, Loader2 } from "lucide-react";
 import { IncidentStatusBadge, SeverityBadge } from "@/components/hub/badges";
 import { KeyValue } from "@/components/hub/primitives";
+import { canAccessPage } from "@/lib/page-access";
+import type { SessionUser } from "@/lib/auth";
+import { createTaskFn } from "@/services/tasks-service";
 import type { Incident } from "@/types/hub";
+import type { TaskPriority } from "@/types/tasks";
 
-/** Painel de detalhe do incidente. Futuro: dados vindos do Supabase + n8n execution API. */
+const SEVERITY_TO_PRIORITY: Record<Incident["severity"], TaskPriority> = {
+  Crítica: "Crítica",
+  Alta: "Alta",
+  Média: "Média",
+  Baixa: "Baixa",
+};
+
+/** Painel de detalhe do incidente. O status do incidente em si continua
+ * somente-leitura de propósito (a fonte da verdade é o n8n ao vivo — ver
+ * incidents-store.ts — qualquer edição manual seria sobrescrita na próxima
+ * reconciliação). Pra dar um jeito de ação real, "Criar tarefa" abre uma
+ * tarefa de verdade (mutável, com responsável/status próprios) referenciando
+ * o incidente, em vez de fingir que o incidente em si é editável. */
 export function IncidentDetailSheet({
   incident,
   open,
   onOpenChange,
+  user,
 }: {
   incident: Incident | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  user?: SessionUser | null;
 }) {
+  const navigate = useNavigate();
+
+  const createTaskMutation = useMutation({
+    mutationFn: () => {
+      if (!incident) throw new Error("Nenhum incidente selecionado.");
+      return createTaskFn({
+        data: {
+          title: `${incident.code} — ${incident.title}`,
+          description: incident.aiSummary || incident.summary,
+          priority: SEVERITY_TO_PRIORITY[incident.severity],
+          reference: {
+            type: "incidente",
+            id: incident.id,
+            label: `${incident.code} — ${incident.title}`,
+          },
+        },
+      });
+    },
+    onSuccess: (task) => {
+      toast.success(`Tarefa #${task.taskNumber} criada a partir deste incidente.`, {
+        action: {
+          label: "Ver tarefa",
+          onClick: () =>
+            navigate({
+              to: "/tarefas",
+              search: { project: undefined, view: undefined, task: String(task.taskNumber) },
+            }),
+        },
+      });
+    },
+    onError: (error: Error) => toast.error(`Não foi possível criar a tarefa: ${error.message}`),
+  });
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
@@ -106,6 +160,20 @@ export function IncidentDetailSheet({
               </section>
 
               <div className="flex flex-wrap gap-2">
+                {user && canAccessPage(user, "tarefas") && (
+                  <Button
+                    size="sm"
+                    disabled={createTaskMutation.isPending}
+                    onClick={() => createTaskMutation.mutate()}
+                  >
+                    {createTaskMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ClipboardPlus className="h-4 w-4" />
+                    )}
+                    Criar tarefa
+                  </Button>
+                )}
                 {incident.n8nExecutionUrl && (
                   <Button variant="outline" size="sm" asChild>
                     <a href={incident.n8nExecutionUrl} target="_blank" rel="noopener noreferrer">

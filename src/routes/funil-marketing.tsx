@@ -1,7 +1,9 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Fragment, useMemo, useState } from "react";
-import { CheckCircle2, Inbox } from "lucide-react";
+import { CheckCircle2, Download, Inbox } from "lucide-react";
+import { downloadCsv } from "@/lib/csv-export";
+import { Button } from "@/components/ui/button";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip as RTooltip } from "recharts";
 
 import { getLeadsRecentesData } from "@/services/leads-recentes-service";
@@ -449,6 +451,33 @@ function FunilMarketingPage() {
 
   const loading = isLoading || adLoading;
 
+  function exportCsv() {
+    if (!table) return;
+    const rows: Array<Record<string, unknown>> = [];
+    for (const channel of visibleChannels) {
+      const dayMap = table.byChannelDay.get(channel);
+      if (!dayMap) continue;
+      const channelRange = clampRange(channelRanges[channel] ?? range, range);
+      for (const col of buildWeekColumns(channelRange)) {
+        const c = sumDays(dayMap, col.days);
+        rows.push({
+          canal: channel,
+          semana: col.label,
+          novos_leads: c.novosLeads,
+          sql: c.sql,
+          reuniao_agendada: c.reuniaoAgendada,
+          reuniao_realizada: c.reuniaoRealizada,
+          contrato_enviado: c.contratoEnviado,
+          contrato_assinado: c.contratoAssinado,
+          investimento: c.investimento,
+          cliques_link: c.cliquesLink,
+          visitas_lp: c.visitasLp,
+        });
+      }
+    }
+    downloadCsv(`funil-marketing-${range.from}_${range.to}.csv`, rows);
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -469,6 +498,9 @@ function FunilMarketingPage() {
               </SelectContent>
             </Select>
             <DateRangePicker value={range} onChange={handleGlobalRangeChange} />
+            <Button variant="outline" size="sm" disabled={!table} onClick={exportCsv}>
+              <Download className="h-4 w-4" /> Exportar CSV
+            </Button>
           </div>
         }
       />

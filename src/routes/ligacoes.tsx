@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Phone } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Download, Phone } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -23,9 +23,12 @@ import {
   PageHeader,
   SectionCard,
   StatCard,
+  useSortState,
 } from "@/components/hub/primitives";
 import { FadeIn } from "@/components/hub/motion";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { downloadCsv } from "@/lib/csv-export";
 
 export const Route = createFileRoute("/ligacoes")({
   beforeLoad: ({ context }) => {
@@ -61,6 +64,43 @@ function pct(num: number, den: number): string {
   return `${Math.round((num / den) * 100)}%`;
 }
 
+/** Cabeçalho ordenável no mesmo estilo simples (`<th>` cru) já usado nas
+ * tabelas desta página — a versão de primitives.tsx usa o TableHead do
+ * shadcn, que não bate com o padding dessas tabelas HTML puras. */
+function SortTh<T extends string>({
+  label,
+  sortKey,
+  active,
+  onSort,
+}: {
+  label: string;
+  sortKey: T;
+  active: { key: T; direction: "asc" | "desc" } | null;
+  onSort: (key: T) => void;
+}) {
+  const isActive = active?.key === sortKey;
+  return (
+    <th className="py-2 pr-4 text-right font-medium">
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className="inline-flex items-center gap-1 hover:text-foreground"
+      >
+        {label}
+        {isActive ? (
+          active.direction === "asc" ? (
+            <ArrowUp className="h-3 w-3" />
+          ) : (
+            <ArrowDown className="h-3 w-3" />
+          )
+        ) : (
+          <ArrowUpDown className="h-3 w-3 opacity-40" />
+        )}
+      </button>
+    </th>
+  );
+}
+
 function LigacoesPage() {
   const [range, setRange] = useState<DateRange>(() => defaultDateRange());
   const [browseDate, setBrowseDate] = useState<string>(() => todayDateString());
@@ -76,6 +116,64 @@ function LigacoesPage() {
     queryFn: () => getCallsForDay({ data: browseDate }),
   });
 
+  const { sort: agentSort, toggleSort: toggleAgentSort } = useSortState<
+    "totalCalls" | "connectedCalls" | "connectionRate" | "avgSpeakingSeconds"
+  >();
+  const { sort: campaignSort, toggleSort: toggleCampaignSort } = useSortState<
+    "totalCalls" | "connectedCalls" | "connectionRate"
+  >();
+
+  const byAgent = [...(data?.byAgent ?? [])].sort((a, b) => {
+    if (!agentSort) return 0;
+    const dir = agentSort.direction === "asc" ? 1 : -1;
+    if (agentSort.key === "connectionRate") {
+      const ra = a.totalCalls > 0 ? a.connectedCalls / a.totalCalls : 0;
+      const rb = b.totalCalls > 0 ? b.connectedCalls / b.totalCalls : 0;
+      return (ra - rb) * dir;
+    }
+    return (a[agentSort.key] - b[agentSort.key]) * dir;
+  });
+
+  const byCampaign = [...(data?.byCampaign ?? [])].sort((a, b) => {
+    if (!campaignSort) return 0;
+    const dir = campaignSort.direction === "asc" ? 1 : -1;
+    if (campaignSort.key === "connectionRate") {
+      const ra = a.totalCalls > 0 ? a.connectedCalls / a.totalCalls : 0;
+      const rb = b.totalCalls > 0 ? b.connectedCalls / b.totalCalls : 0;
+      return (ra - rb) * dir;
+    }
+    return (a[campaignSort.key] - b[campaignSort.key]) * dir;
+  });
+
+  const lastSyncedDay = data?.byDay.length
+    ? data.byDay.reduce((max, d) => (d.date > max ? d.date : max), data.byDay[0]!.date)
+    : null;
+
+  function exportAgentsCsv() {
+    downloadCsv(
+      `ligacoes-por-agente-${range.from}_${range.to}.csv`,
+      byAgent.map((a) => ({
+        agente: a.agentName,
+        chamadas: a.totalCalls,
+        conectadas: a.connectedCalls,
+        taxa_conexao: pct(a.connectedCalls, a.totalCalls),
+        tempo_medio_falando: fmtDuration(a.avgSpeakingSeconds),
+      })),
+    );
+  }
+
+  function exportCampaignsCsv() {
+    downloadCsv(
+      `ligacoes-por-campanha-${range.from}_${range.to}.csv`,
+      byCampaign.map((c) => ({
+        campanha: c.campaignName,
+        chamadas: c.totalCalls,
+        conectadas: c.connectedCalls,
+        taxa_conexao: pct(c.connectedCalls, c.totalCalls),
+      })),
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -83,6 +181,13 @@ function LigacoesPage() {
         subtitle="Métricas de ligação da 3C Plus — por agente, por campanha e taxa de conexão do discador"
         actions={<DateRangePicker value={range} onChange={setRange} />}
       />
+
+      {lastSyncedDay && (
+        <p className="text-xs text-muted-foreground">
+          KPIs e tabelas abaixo atualizados até {fmtDM(lastSyncedDay)} (sincronização roda 1x por
+          dia) — só "Chamadas do dia" abaixo é ao vivo.
+        </p>
+      )}
 
       {isLoading ? (
         <CardsSkeleton />
@@ -162,20 +267,47 @@ function LigacoesPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Por agente">
+          <SectionCard
+            title="Por agente"
+            action={
+              <Button variant="outline" size="sm" onClick={exportAgentsCsv}>
+                <Download className="h-4 w-4" /> CSV
+              </Button>
+            }
+          >
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] border-collapse text-sm">
                 <thead>
                   <tr className="border-b border-border/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
                     <th className="py-2 pr-4 font-medium">Agente</th>
-                    <th className="py-2 pr-4 text-right font-medium">Chamadas</th>
-                    <th className="py-2 pr-4 text-right font-medium">Conectadas</th>
-                    <th className="py-2 pr-4 text-right font-medium">Taxa de conexão</th>
-                    <th className="py-2 pr-4 text-right font-medium">Tempo médio falando</th>
+                    <SortTh
+                      label="Chamadas"
+                      sortKey="totalCalls"
+                      active={agentSort}
+                      onSort={toggleAgentSort}
+                    />
+                    <SortTh
+                      label="Conectadas"
+                      sortKey="connectedCalls"
+                      active={agentSort}
+                      onSort={toggleAgentSort}
+                    />
+                    <SortTh
+                      label="Taxa de conexão"
+                      sortKey="connectionRate"
+                      active={agentSort}
+                      onSort={toggleAgentSort}
+                    />
+                    <SortTh
+                      label="Tempo médio falando"
+                      sortKey="avgSpeakingSeconds"
+                      active={agentSort}
+                      onSort={toggleAgentSort}
+                    />
                   </tr>
                 </thead>
                 <tbody>
-                  {data.byAgent.map((a) => (
+                  {byAgent.map((a) => (
                     <tr key={a.agentId} className="border-b border-border/40">
                       <td className="py-2 pr-4 font-medium">{a.agentName}</td>
                       <td className="py-2 pr-4 text-right tabular-nums">{a.totalCalls}</td>
@@ -193,19 +325,43 @@ function LigacoesPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Por campanha" collapsible defaultCollapsed>
+          <SectionCard
+            title="Por campanha"
+            collapsible
+            defaultCollapsed
+            action={
+              <Button variant="outline" size="sm" onClick={exportCampaignsCsv}>
+                <Download className="h-4 w-4" /> CSV
+              </Button>
+            }
+          >
             <div className="overflow-x-auto">
               <table className="w-full min-w-[520px] border-collapse text-sm">
                 <thead>
                   <tr className="border-b border-border/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
                     <th className="py-2 pr-4 font-medium">Campanha</th>
-                    <th className="py-2 pr-4 text-right font-medium">Chamadas</th>
-                    <th className="py-2 pr-4 text-right font-medium">Conectadas</th>
-                    <th className="py-2 pr-4 text-right font-medium">Taxa de conexão</th>
+                    <SortTh
+                      label="Chamadas"
+                      sortKey="totalCalls"
+                      active={campaignSort}
+                      onSort={toggleCampaignSort}
+                    />
+                    <SortTh
+                      label="Conectadas"
+                      sortKey="connectedCalls"
+                      active={campaignSort}
+                      onSort={toggleCampaignSort}
+                    />
+                    <SortTh
+                      label="Taxa de conexão"
+                      sortKey="connectionRate"
+                      active={campaignSort}
+                      onSort={toggleCampaignSort}
+                    />
                   </tr>
                 </thead>
                 <tbody>
-                  {data.byCampaign.map((c) => (
+                  {byCampaign.map((c) => (
                     <tr key={c.campaignId} className="border-b border-border/40">
                       <td className="py-2 pr-4">{c.campaignName}</td>
                       <td className="py-2 pr-4 text-right tabular-nums">{c.totalCalls}</td>

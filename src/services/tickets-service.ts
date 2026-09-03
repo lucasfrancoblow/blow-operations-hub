@@ -81,6 +81,8 @@ export const createTicketFn = createServerFn({ method: "POST" })
         description: data.description,
         projectId: data.projectId,
         status: "Aguardando aceite",
+        priority: data.priority,
+        dueDate: data.dueDate,
       },
       user.id,
     );

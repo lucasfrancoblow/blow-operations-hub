@@ -25,9 +25,11 @@ import {
 import {
   EmptyState,
   PageHeader,
+  SortableHeader,
   StatCard,
   TablePagination,
   TableSkeleton,
+  useSortState,
 } from "@/components/hub/primitives";
 import { Stagger, StaggerItem } from "@/components/hub/motion";
 import { IncidentStatusBadge, SeverityBadge } from "@/components/hub/badges";
@@ -63,7 +65,13 @@ export const Route = createFileRoute("/incidentes")({
 
 const PAGE_SIZE = 25;
 
+const SEVERITY_RANK: Record<string, number> = { Baixa: 0, Média: 1, Alta: 2, Crítica: 3 };
+const STATUS_RANK: Record<string, number> = { Resolvido: 0, Investigando: 1, Aberto: 2 };
+
+type SortKey = "severity" | "status" | "occurrences" | "lastSeen";
+
 function IncidentsPage() {
+  const { user } = Route.useRouteContext();
   const { data, isLoading } = useQuery({
     queryKey: queryKeys.incidents,
     queryFn: hubService.listIncidents,
@@ -77,6 +85,7 @@ function IncidentsPage() {
   const [category, setCategory] = useState("todas");
   const [automation, setAutomation] = useState("todas");
   const [page, setPage] = useState(1);
+  const { sort, toggleSort } = useSortState<SortKey>();
 
   const categories = Array.from(new Set((data ?? []).map((i) => i.category)));
   const automationNames = Array.from(new Set((data ?? []).map((i) => i.automationName)));
@@ -95,9 +104,26 @@ function IncidentsPage() {
     [data, search, severity, status, category, automation],
   );
 
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const sorted = useMemo(() => {
+    if (!sort) return filtered;
+    const dir = sort.direction === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      switch (sort.key) {
+        case "severity":
+          return (SEVERITY_RANK[a.severity]! - SEVERITY_RANK[b.severity]!) * dir;
+        case "status":
+          return (STATUS_RANK[a.status]! - STATUS_RANK[b.status]!) * dir;
+        case "occurrences":
+          return (a.occurrences - b.occurrences) * dir;
+        case "lastSeen":
+          return (new Date(a.lastSeen).getTime() - new Date(b.lastSeen).getTime()) * dir;
+      }
+    });
+  }, [filtered, sort]);
+
+  const pages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const current = Math.min(page, pages);
-  const rows = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+  const rows = sorted.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
 
   const selected = (data ?? []).find((i) => i.id === incidente) ?? null;
 
@@ -119,19 +145,62 @@ function IncidentsPage() {
       <Stagger className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {(
           [
-            { label: "Abertos", value: counts.abertos, tone: "critical", accent: "critical" },
+            {
+              label: "Abertos",
+              value: counts.abertos,
+              tone: "critical",
+              accent: "critical",
+              active: status === "Aberto",
+              onClick: () => {
+                setStatus((s) => (s === "Aberto" ? "todos" : "Aberto"));
+                setPage(1);
+              },
+            },
             {
               label: "Investigando",
               value: counts.investigando,
               tone: "warning",
               accent: "warning",
+              active: status === "Investigando",
+              onClick: () => {
+                setStatus((s) => (s === "Investigando" ? "todos" : "Investigando"));
+                setPage(1);
+              },
             },
-            { label: "Resolvidos", value: counts.resolvidos, tone: "success", accent: "success" },
-            { label: "Críticos", value: counts.criticos, tone: "critical", accent: "critical" },
+            {
+              label: "Resolvidos",
+              value: counts.resolvidos,
+              tone: "success",
+              accent: "success",
+              active: status === "Resolvido",
+              onClick: () => {
+                setStatus((s) => (s === "Resolvido" ? "todos" : "Resolvido"));
+                setPage(1);
+              },
+            },
+            {
+              label: "Críticos",
+              value: counts.criticos,
+              tone: "critical",
+              accent: "critical",
+              active: severity === "Crítica",
+              onClick: () => {
+                setSeverity((s) => (s === "Crítica" ? "todas" : "Crítica"));
+                if (status === "Resolvido") setStatus("todos");
+                setPage(1);
+              },
+            },
           ] as const
         ).map((c) => (
           <StaggerItem key={c.label}>
-            <StatCard label={c.label} value={c.value} tone={c.tone} accent={c.accent} />
+            <StatCard
+              label={c.label}
+              value={c.value}
+              tone={c.tone}
+              accent={c.accent}
+              active={c.active}
+              onClick={c.onClick}
+            />
           </StaggerItem>
         ))}
       </Stagger>
@@ -193,14 +262,35 @@ function IncidentsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Severidade</TableHead>
-                  <TableHead>Status</TableHead>
+                  <SortableHeader
+                    label="Severidade"
+                    sortKey="severity"
+                    active={sort}
+                    onSort={toggleSort}
+                  />
+                  <SortableHeader
+                    label="Status"
+                    sortKey="status"
+                    active={sort}
+                    onSort={toggleSort}
+                  />
                   <TableHead className="min-w-[260px]">Resumo</TableHead>
                   <TableHead>Automação</TableHead>
                   <TableHead>Nó com falha</TableHead>
                   <TableHead>HTTP</TableHead>
-                  <TableHead className="text-center">Ocorrências</TableHead>
-                  <TableHead>Última ocorrência</TableHead>
+                  <SortableHeader
+                    label="Ocorrências"
+                    sortKey="occurrences"
+                    active={sort}
+                    onSort={toggleSort}
+                    className="text-center"
+                  />
+                  <SortableHeader
+                    label="Última ocorrência"
+                    sortKey="lastSeen"
+                    active={sort}
+                    onSort={toggleSort}
+                  />
                   <TableHead>Responsável</TableHead>
                 </TableRow>
               </TableHeader>
@@ -259,6 +349,7 @@ function IncidentsPage() {
         onOpenChange={(open) => {
           if (!open) navigate({ to: ".", search: { incidente: undefined } });
         }}
+        user={user}
       />
     </div>
   );

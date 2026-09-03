@@ -27,8 +27,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import {
   EmptyState,
   PageHeader,
+  SortableHeader,
   TablePagination,
   TableSkeleton,
+  useSortState,
 } from "@/components/hub/primitives";
 import { FadeIn } from "@/components/hub/motion";
 import { AutomationStatusBadge, HealthBadge, PlatformBadge } from "@/components/hub/badges";
@@ -58,6 +60,8 @@ export const Route = createFileRoute("/automacoes/")({
 
 const PAGE_SIZE = 25;
 
+type SortKey = "openIncidents" | "lastReview";
+
 function AutomationsPage() {
   const { data, isLoading } = useQuery({
     queryKey: queryKeys.automations,
@@ -71,6 +75,7 @@ function AutomationsPage() {
   const [area, setArea] = useState("todas");
   const [health, setHealth] = useState("todas");
   const [page, setPage] = useState(1);
+  const { sort, toggleSort } = useSortState<SortKey>();
 
   const filtered = useMemo(() => {
     return (data ?? []).filter((a) => {
@@ -83,9 +88,18 @@ function AutomationsPage() {
     });
   }, [data, search, platform, status, area, health]);
 
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const sorted = useMemo(() => {
+    if (!sort) return filtered;
+    const dir = sort.direction === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      if (sort.key === "openIncidents") return (a.openIncidents - b.openIncidents) * dir;
+      return (new Date(a.lastReview).getTime() - new Date(b.lastReview).getTime()) * dir;
+    });
+  }, [filtered, sort]);
+
+  const pages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const current = Math.min(page, pages);
-  const rows = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+  const rows = sorted.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
 
   return (
     <div className="space-y-6">
@@ -189,9 +203,20 @@ function AutomationsPage() {
                   <TableHead>Status</TableHead>
                   <TableHead>Saúde</TableHead>
                   <TableHead className="min-w-[200px]">Último erro</TableHead>
-                  <TableHead className="text-center">Incidentes</TableHead>
+                  <SortableHeader
+                    label="Incidentes"
+                    sortKey="openIncidents"
+                    active={sort}
+                    onSort={toggleSort}
+                    className="text-center"
+                  />
                   <TableHead>Responsável</TableHead>
-                  <TableHead>Última revisão</TableHead>
+                  <SortableHeader
+                    label="Última revisão"
+                    sortKey="lastReview"
+                    active={sort}
+                    onSort={toggleSort}
+                  />
                 </TableRow>
               </TableHeader>
               <TableBody>

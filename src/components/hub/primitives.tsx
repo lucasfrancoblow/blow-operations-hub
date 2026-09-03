@@ -1,5 +1,13 @@
 import { useState, type ReactNode } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { TableHead } from "@/components/ui/table";
 import { motion, useReducedMotion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +30,8 @@ export function StatCard({
   tone,
   loading,
   formatter,
+  onClick,
+  active,
 }: {
   label: string;
   value: number;
@@ -29,6 +39,10 @@ export function StatCard({
   tone?: "default" | "warning" | "critical" | "success";
   loading?: boolean;
   formatter?: (n: number) => string;
+  /** Torna o card clicável (ex.: aplicar um filtro correspondente) — sem isso,
+   * o card continua só informativo, como sempre foi. */
+  onClick?: () => void;
+  active?: boolean;
 }) {
   const toneClass =
     tone === "warning"
@@ -48,7 +62,14 @@ export function StatCard({
           : "bg-primary";
 
   return (
-    <Card className="relative h-full overflow-hidden border-border/60 bg-card transition-shadow hover:shadow-lg hover:shadow-black/5">
+    <Card
+      onClick={onClick}
+      className={cn(
+        "relative h-full overflow-hidden border-border/60 bg-card transition-shadow hover:shadow-lg hover:shadow-black/5",
+        onClick && "cursor-pointer",
+        active && "ring-2 ring-primary/50",
+      )}
+    >
       <div className={cn("absolute inset-x-0 top-0 h-1", accentClass)} />
       <CardContent className="py-5">
         <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
@@ -62,6 +83,62 @@ export function StatCard({
       </CardContent>
     </Card>
   );
+}
+
+/** Cabeçalho de coluna ordenável — clicar alterna asc/desc/nenhum. Usado em
+ * Automações, Incidentes e Ligações pra achar rápido "o pior" de uma lista
+ * (mais incidentes, mais ocorrências, menor taxa de conexão etc.) sem depender
+ * da ordem que a API devolve. */
+export function SortableHeader<T extends string>({
+  label,
+  sortKey,
+  active,
+  onSort,
+  className,
+}: {
+  label: string;
+  sortKey: T;
+  active: { key: T; direction: "asc" | "desc" } | null;
+  onSort: (key: T) => void;
+  className?: string;
+}) {
+  const isActive = active?.key === sortKey;
+  return (
+    <TableHead className={className}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className="inline-flex items-center gap-1 hover:text-foreground"
+      >
+        {label}
+        {isActive ? (
+          active.direction === "asc" ? (
+            <ArrowUp className="h-3 w-3" />
+          ) : (
+            <ArrowDown className="h-3 w-3" />
+          )
+        ) : (
+          <ArrowUpDown className="h-3 w-3 opacity-40" />
+        )}
+      </button>
+    </TableHead>
+  );
+}
+
+/** Estado de ordenação simples (1 coluna por vez) + helper de comparação —
+ * clicar de novo na mesma coluna inverte a direção. */
+export function useSortState<T extends string>() {
+  const [sort, setSort] = useState<{ key: T; direction: "asc" | "desc" } | null>(null);
+
+  function toggleSort(key: T) {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, direction: "desc" };
+      if (prev.direction === "desc") return { key, direction: "asc" };
+      return null;
+    });
+  }
+
+  return { sort, toggleSort };
 }
 
 export function PageHeader({
