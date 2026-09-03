@@ -6,8 +6,9 @@ import { Plus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { displayName } from "@/lib/display-name";
 import { TaskCard } from "@/components/hub/tasks/TaskCard";
-import type { Task, TaskStatus } from "@/types/tasks";
+import { TASK_PRIORITIES, type Task, type TaskStatus } from "@/types/tasks";
 
 export const STATUS_DOT: Record<TaskStatus, string> = {
   "Aguardando aceite": "bg-primary",
@@ -19,17 +20,61 @@ export const STATUS_DOT: Record<TaskStatus, string> = {
   Recusada: "bg-critical",
 };
 
+export type TaskGroupBy = "none" | "priority" | "assignee";
+
+/** Agrupamento é só uma re-apresentação visual da mesma lista ordenada por
+ * "position" — não cria drop-zones novas pro dnd-kit, o board pequeno do
+ * time não precisa de uma grade de swimlanes de verdade. */
+function groupTasks(tasks: Task[], groupBy: TaskGroupBy): Array<{ label: string; tasks: Task[] }> {
+  if (groupBy === "none") return [{ label: "", tasks }];
+
+  if (groupBy === "priority") {
+    const order = [...TASK_PRIORITIES].reverse();
+    return order
+      .map((priority) => ({ label: priority, tasks: tasks.filter((t) => t.priority === priority) }))
+      .filter((g) => g.tasks.length > 0);
+  }
+
+  const groups = new Map<string, { label: string; tasks: Task[] }>();
+  for (const task of tasks) {
+    const key =
+      task.assignees.length === 0
+        ? "__none__"
+        : task.assignees.length > 1
+          ? "__many__"
+          : task.assignees[0]!.id;
+    const label =
+      task.assignees.length === 0
+        ? "Sem responsável"
+        : task.assignees.length > 1
+          ? "Vários responsáveis"
+          : displayName(task.assignees[0]!);
+    const group = groups.get(key) ?? { label, tasks: [] };
+    group.tasks.push(task);
+    groups.set(key, group);
+  }
+  return Array.from(groups.values());
+}
+
 export function TaskColumn({
   status,
   tasks,
   onOpenTask,
   onQuickCreate,
+  onToggleHighlight,
+  wipLimit,
+  agingThresholdDays,
+  groupBy = "none",
 }: {
   status: TaskStatus;
   tasks: Task[];
   onOpenTask: (task: Task) => void;
   /** Só a primeira coluna recebe isso — ver comentário em TaskBoard.tsx. */
   onQuickCreate?: ((title: string) => void) | undefined;
+  onToggleHighlight?: ((task: Task) => void) | undefined;
+  wipLimit?: number | null | undefined;
+  agingThresholdDays?: number | null | undefined;
+  groupBy?: TaskGroupBy | undefined;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const [adding, setAdding] = useState(false);
@@ -45,12 +90,22 @@ export function TaskColumn({
     setQuickTitle("");
   }
 
+  const overLimit = Boolean(wipLimit) && tasks.length > wipLimit!;
+  const groups = groupTasks(tasks, groupBy);
+
   return (
     <div className="flex w-72 shrink-0 flex-col gap-3">
       <div className="flex items-center gap-2 border-b border-border px-1 pb-2">
         <h3 className="text-sm font-semibold text-foreground">{status}</h3>
-        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[11px] font-semibold text-muted-foreground">
+        <span
+          title={overLimit ? `Limite de WIP: ${wipLimit}` : undefined}
+          className={cn(
+            "ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold",
+            overLimit ? "bg-critical/15 text-critical" : "bg-muted text-muted-foreground",
+          )}
+        >
           {tasks.length}
+          {wipLimit ? `/${wipLimit}` : ""}
         </span>
       </div>
 
@@ -62,11 +117,26 @@ export function TaskColumn({
             isOver && "bg-primary/[0.06]",
           )}
         >
-          <AnimatePresence initial={false}>
-            {tasks.map((task) => (
-              <TaskCard key={task.id} task={task} onOpen={onOpenTask} />
-            ))}
-          </AnimatePresence>
+          {groups.map((group) => (
+            <div key={group.label || "__all__"} className="flex flex-col gap-2">
+              {group.label && (
+                <span className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {group.label}
+                </span>
+              )}
+              <AnimatePresence initial={false}>
+                {group.tasks.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    onOpen={onOpenTask}
+                    onToggleHighlight={onToggleHighlight}
+                    agingThresholdDays={agingThresholdDays}
+                  />
+                ))}
+              </AnimatePresence>
+            </div>
+          ))}
 
           {onQuickCreate ? (
             adding ? (

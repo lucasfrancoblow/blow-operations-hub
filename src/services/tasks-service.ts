@@ -7,12 +7,15 @@ import {
   archiveTask,
   createTask,
   getTask,
+  listSubtasks,
   listTasks,
   reorderBacklog,
   reorderTasks,
   updateTask,
 } from "@/lib/tasks-store";
 import { createTaskProject, listTaskProjects, updateTaskProject } from "@/lib/task-projects-store";
+import { getBoardSettings, updateBoardSettings } from "@/lib/task-board-settings-store";
+import { createSavedView, deleteSavedView, listSavedViews } from "@/lib/task-saved-views-store";
 import {
   accessibleProjectIdsFor,
   grantProjectAccess,
@@ -25,7 +28,7 @@ import {
 import { findUserById, listUsers } from "@/lib/users-store";
 import { sendEmail } from "@/lib/resend-client";
 import { EMAIL_TONE, renderEmailTemplate, taskDeepLink } from "@/lib/email-template";
-import type { Task, TaskInput, TaskStatus } from "@/types/tasks";
+import type { Task, TaskInput, TaskSavedViewFilters, TaskStatus } from "@/types/tasks";
 
 /** Só super_admin gerencia quem enxerga qual projeto — é uma ação de
  * controle de acesso, não uma ação normal de uso de Tarefas. "admin" continua
@@ -43,29 +46,36 @@ export const getTasks = createServerFn({ method: "GET" }).handler(async (): Prom
   return listTasks(await accessibleProjectIdsFor(user));
 });
 
-/** Avisa por e-mail quem acabou de virar responsável por uma tarefa (best-effort:
- * sendEmail nunca lança, então isso nunca derruba a criação/atualização em si). */
-async function notifyAssignee(task: Task): Promise<void> {
-  if (!task.assigneeId) return;
-  const user = await findUserById(task.assigneeId);
-  if (!user?.email) return;
+/** Avisa por e-mail quem acabou de virar responsável por uma tarefa — todo
+ * mundo na lista recebe (lista simétrica de responsáveis, sem "principal"),
+ * cada um o seu e-mail (best-effort: sendEmail nunca lança, então isso nunca
+ * derruba a criação/atualização em si). `newAssigneeIds` restringe o disparo
+ * só a quem entrou agora, pra não reavisar quem já estava atribuído antes. */
+async function notifyAssignees(task: Task, newAssigneeIds: string[]): Promise<void> {
+  if (newAssigneeIds.length === 0) return;
   const description = task.description.trim()
     ? escapeHtml(task.description).replace(/\n/g, "<br>")
     : "Sem descrição.";
-  await sendEmail({
-    to: user.email,
-    subject: `Tarefa #${task.taskNumber} atribuída a você: ${task.title}`,
-    html: renderEmailTemplate({
-      eyebrow: "Nova atribuição",
-      heading: `Você foi atribuído à tarefa #${task.taskNumber}`,
-      intro: `Olá, ${escapeHtml(user.fullName ?? user.username)}. A tarefa abaixo foi atribuída a você no hubLOw.`,
-      highlightTitle: `#${task.taskNumber} — ${escapeHtml(task.title)}`,
-      highlightBody: description,
-      ctaLabel: "Ver tarefa",
-      ctaUrl: taskDeepLink(task.taskNumber),
-      footerText: "Você recebeu este e-mail porque foi atribuído a esta tarefa no hubLOw.",
+  await Promise.all(
+    newAssigneeIds.map(async (userId) => {
+      const user = await findUserById(userId);
+      if (!user?.email) return;
+      await sendEmail({
+        to: user.email,
+        subject: `Tarefa #${task.taskNumber} atribuída a você: ${task.title}`,
+        html: renderEmailTemplate({
+          eyebrow: "Nova atribuição",
+          heading: `Você foi atribuído à tarefa #${task.taskNumber}`,
+          intro: `Olá, ${escapeHtml(user.fullName ?? user.username)}. A tarefa abaixo foi atribuída a você no hubLOw.`,
+          highlightTitle: `#${task.taskNumber} — ${escapeHtml(task.title)}`,
+          highlightBody: description,
+          ctaLabel: "Ver tarefa",
+          ctaUrl: taskDeepLink(task.taskNumber),
+          footerText: "Você recebeu este e-mail porque foi atribuído a esta tarefa no hubLOw.",
+        }),
+      });
     }),
-  });
+  );
 }
 
 /** Avisa por e-mail quem abriu a tarefa que o status mudou — só se quem abriu
@@ -177,7 +187,7 @@ export const createTaskFn = createServerFn({ method: "POST" })
     const user = await requireTasksAccess();
     await requireAccessibleProject(user, data.projectId ?? null);
     const task = await createTask(data, user.id);
-    if (task.assigneeId) await notifyAssignee(task);
+    if (task.assigneeIds.length > 0) await notifyAssignees(task, task.assigneeIds);
     await notifyAdminsOfNewTask(task, user);
   });
 
@@ -194,11 +204,13 @@ export const updateTaskFn = createServerFn({ method: "POST" })
     if (data.patch.projectId !== undefined) {
       await requireAccessibleProject(user, data.patch.projectId);
     }
-    await updateTask(data.id, data.patch);
-    const newAssigneeId = data.patch.assigneeId;
-    if (newAssigneeId && newAssigneeId !== current.assigneeId) {
-      const updated = await getTask(data.id);
-      if (updated) await notifyAssignee(updated);
+    await updateTask(data.id, data.patch, current.status);
+    if (data.patch.assigneeIds !== undefined) {
+      const newIds = data.patch.assigneeIds.filter((id) => !current.assigneeIds.includes(id));
+      if (newIds.length > 0) {
+        const updated = await getTask(data.id);
+        if (updated) await notifyAssignees(updated, newIds);
+      }
     }
     if (data.patch.status !== undefined && data.patch.status !== current.status) {
       await notifyCreatorOfStatusChange(current, data.patch.status, user.id);
@@ -214,7 +226,9 @@ export const reorderTasksFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await requireTasksAccess();
     const previousTasks = await Promise.all(data.updates.map((u) => requireTaskAccess(user, u.id)));
-    await reorderTasks(data.updates);
+    await reorderTasks(
+      data.updates.map((u, i) => ({ ...u, previousStatus: previousTasks[i]!.status })),
+    );
     await Promise.all(
       data.updates.map((u, i) => {
         const previous = previousTasks[i]!;
@@ -243,6 +257,74 @@ export const deleteTaskFn = createServerFn({ method: "POST" })
     const task = await requireTaskAccess(user, data.id);
     await archiveTask(data.id);
     await notifyAdminsOfDeletion(task, user);
+  });
+
+/** Usado pra abrir uma tarefa a partir só do id — ex.: o link "voltar pra
+ * tarefa-pai" dentro do detalhe de uma subtarefa. */
+export const getTaskFn = createServerFn({ method: "GET" })
+  .validator((input: { id: string }) => input)
+  .handler(async ({ data }) => {
+    const user = await requireTasksAccess();
+    return requireTaskAccess(user, data.id);
+  });
+
+export const listSubtasksFn = createServerFn({ method: "GET" })
+  .validator((input: { parentTaskId: string }) => input)
+  .handler(async ({ data }) => {
+    const user = await requireTasksAccess();
+    await requireTaskAccess(user, data.parentTaskId);
+    return listSubtasks(data.parentTaskId);
+  });
+
+export const createSubtaskFn = createServerFn({ method: "POST" })
+  .validator((input: TaskInput & { parentTaskId: string }) => input)
+  .handler(async ({ data }) => {
+    const user = await requireTasksAccess();
+    const parent = await requireTaskAccess(user, data.parentTaskId);
+    const task = await createTask({ ...data, projectId: parent.projectId }, user.id);
+    if (task.assigneeIds.length > 0) await notifyAssignees(task, task.assigneeIds);
+    return task;
+  });
+
+export const getBoardSettingsFn = createServerFn({ method: "GET" }).handler(async () => {
+  await requireTasksAccess();
+  return getBoardSettings();
+});
+
+interface UpdateBoardSettingsInput {
+  status: TaskStatus;
+  patch: { wipLimit?: number | null; agingThresholdDays?: number | null };
+}
+
+export const updateBoardSettingsFn = createServerFn({ method: "POST" })
+  .validator((input: UpdateBoardSettingsInput) => input)
+  .handler(async ({ data }) => {
+    await requireTasksAccess();
+    await updateBoardSettings(data.status, data.patch);
+  });
+
+export const listSavedViewsFn = createServerFn({ method: "GET" }).handler(async () => {
+  const user = await requireTasksAccess();
+  return listSavedViews(user.id);
+});
+
+interface CreateSavedViewInput {
+  name: string;
+  filters: TaskSavedViewFilters;
+}
+
+export const createSavedViewFn = createServerFn({ method: "POST" })
+  .validator((input: CreateSavedViewInput) => input)
+  .handler(async ({ data }) => {
+    const user = await requireTasksAccess();
+    return createSavedView(user.id, data.name, data.filters);
+  });
+
+export const deleteSavedViewFn = createServerFn({ method: "POST" })
+  .validator((input: { id: string }) => input)
+  .handler(async ({ data }) => {
+    await requireTasksAccess();
+    await deleteSavedView(data.id);
   });
 
 // Não exige requireTasksAccess: quem só tem a aba Chamados (ex.: fornecedor

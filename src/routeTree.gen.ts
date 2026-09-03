@@ -23,6 +23,7 @@ import { Route as TarefasRouteImport } from './routes/tarefas'
 import { Route as UsuariosRouteImport } from './routes/usuarios'
 import { Route as AutomacoesIndexRouteImport } from './routes/automacoes.index'
 import { Route as AutomacoesAutomationIdRouteImport } from './routes/automacoes.$automationId'
+import { Route as ApiCronTaskDigestRouteImport } from './routes/api/cron/task-digest'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -94,6 +95,11 @@ const AutomacoesAutomationIdRoute = AutomacoesAutomationIdRouteImport.update({
   path: '/automacoes/$automationId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronTaskDigestRoute = ApiCronTaskDigestRouteImport.update({
+  id: '/api/cron/task-digest',
+  path: '/api/cron/task-digest',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -110,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/usuarios': typeof UsuariosRoute
   '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
   '/automacoes/': typeof AutomacoesIndexRoute
+  '/api/cron/task-digest': typeof ApiCronTaskDigestRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/usuarios': typeof UsuariosRoute
   '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
   '/automacoes': typeof AutomacoesIndexRoute
+  '/api/cron/task-digest': typeof ApiCronTaskDigestRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -143,6 +151,7 @@ export interface FileRoutesById {
   '/usuarios': typeof UsuariosRoute
   '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
   '/automacoes/': typeof AutomacoesIndexRoute
+  '/api/cron/task-digest': typeof ApiCronTaskDigestRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/automacoes/$automationId'
     | '/automacoes/'
+    | '/api/cron/task-digest'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -177,6 +187,7 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/automacoes/$automationId'
     | '/automacoes'
+    | '/api/cron/task-digest'
   id:
     | '__root__'
     | '/'
@@ -193,6 +204,7 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/automacoes/$automationId'
     | '/automacoes/'
+    | '/api/cron/task-digest'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -210,6 +222,7 @@ export interface RootRouteChildren {
   UsuariosRoute: typeof UsuariosRoute
   AutomacoesAutomationIdRoute: typeof AutomacoesAutomationIdRoute
   AutomacoesIndexRoute: typeof AutomacoesIndexRoute
+  ApiCronTaskDigestRoute: typeof ApiCronTaskDigestRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -312,6 +325,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AutomacoesAutomationIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/task-digest': {
+      id: '/api/cron/task-digest'
+      path: '/api/cron/task-digest'
+      fullPath: '/api/cron/task-digest'
+      preLoaderRoute: typeof ApiCronTaskDigestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -330,6 +350,7 @@ const rootRouteChildren: RootRouteChildren = {
   UsuariosRoute: UsuariosRoute,
   AutomacoesAutomationIdRoute: AutomacoesAutomationIdRoute,
   AutomacoesIndexRoute: AutomacoesIndexRoute,
+  ApiCronTaskDigestRoute: ApiCronTaskDigestRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

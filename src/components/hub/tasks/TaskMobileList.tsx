@@ -89,12 +89,13 @@ export function TaskMobileList({
                     {task.estimatedHours !== null && (
                       <span>{formatHours(task.estimatedHours)}</span>
                     )}
-                    {task.assignee && (
+                    {task.assignees.length > 0 && (
                       <span className="inline-flex items-center gap-1.5">
                         <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-[9px] font-semibold text-primary">
-                          {displayName(task.assignee).charAt(0).toUpperCase()}
+                          {displayName(task.assignees[0]!).charAt(0).toUpperCase()}
                         </span>
-                        {displayName(task.assignee)}
+                        {displayName(task.assignees[0]!)}
+                        {task.assignees.length > 1 && ` +${task.assignees.length - 1}`}
                       </span>
                     )}
                     {task.storyPoints !== null && (

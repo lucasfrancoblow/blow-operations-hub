@@ -14,8 +14,8 @@ import {
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 
 import { TaskCard } from "@/components/hub/tasks/TaskCard";
-import { TaskColumn } from "@/components/hub/tasks/TaskColumn";
-import { TASK_STATUSES, type Task, type TaskStatus } from "@/types/tasks";
+import { TaskColumn, type TaskGroupBy } from "@/components/hub/tasks/TaskColumn";
+import { TASK_STATUSES, type Task, type TaskBoardSettings, type TaskStatus } from "@/types/tasks";
 
 type Columns = Record<TaskStatus, Task[]>;
 
@@ -40,6 +40,9 @@ export function TaskBoard({
   onOpenTask,
   onReorder,
   onQuickCreate,
+  onToggleHighlight,
+  settings,
+  groupBy = "none",
 }: {
   tasks: Task[];
   onOpenTask: (task: Task) => void;
@@ -48,7 +51,11 @@ export function TaskBoard({
    * first column") — que aqui é "Aguardando aceite", já batendo com a regra
    * de toda tarefa nova nascer aguardando aceite. */
   onQuickCreate?: (title: string) => void;
+  onToggleHighlight?: ((task: Task) => void) | undefined;
+  settings?: TaskBoardSettings[] | undefined;
+  groupBy?: TaskGroupBy | undefined;
 }) {
+  const settingsByStatus = new Map((settings ?? []).map((s) => [s.status, s]));
   const [columns, setColumns] = useState<Columns>(() => groupByStatus(tasks));
   const [activeTask, setActiveTask] = useState<Task | null>(null);
 
@@ -142,6 +149,10 @@ export function TaskBoard({
             tasks={columns[status]}
             onOpenTask={onOpenTask}
             onQuickCreate={index === 0 ? onQuickCreate : undefined}
+            onToggleHighlight={onToggleHighlight}
+            wipLimit={settingsByStatus.get(status)?.wipLimit}
+            agingThresholdDays={settingsByStatus.get(status)?.agingThresholdDays}
+            groupBy={groupBy}
           />
         ))}
       </div>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
-import { Loader2, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Pin, Plus, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -36,15 +36,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { displayName } from "@/lib/display-name";
 import { listActiveUsersFn } from "@/services/auth-service";
-import { createTaskFn, deleteTaskFn, listProjectsFn, updateTaskFn } from "@/services/tasks-service";
+import {
+  createSubtaskFn,
+  createTaskFn,
+  deleteTaskFn,
+  getTaskFn,
+  listProjectsFn,
+  listSubtasksFn,
+  updateTaskFn,
+} from "@/services/tasks-service";
 import { suggestPriorityFn, suggestSubtasksFn, summarizeTaskFn } from "@/services/tasks-ai-service";
 import { TaskAttachments } from "@/components/hub/tasks/TaskAttachments";
 import { TaskComments } from "@/components/hub/tasks/TaskComments";
 import { STATUS_DOT } from "@/components/hub/tasks/TaskColumn";
+import { UserMultiSelect } from "@/components/hub/tasks/UserMultiSelect";
 import { UNASSIGNED_PROJECT_ID, projectColorDot } from "@/components/hub/tasks/ProjectSwitcher";
 import { TASK_PRIORITIES, TASK_STATUSES, type Task, type TaskInput } from "@/types/tasks";
 
-const UNASSIGNED_USER_ID = "none";
 const ACCEPT_STATUS: Task["status"] = "Aguardando aceite";
 const ACCEPTED_STATUS: Task["status"] = "Backlog";
 const REJECTED_STATUS: Task["status"] = "Recusada";
@@ -55,7 +63,8 @@ type FormState = {
   status: Task["status"];
   priority: Task["priority"];
   projectId: string;
-  assigneeId: string;
+  assigneeIds: string[];
+  highlighted: boolean;
   tags: string;
   storyPoints: string;
   estimatedHours: string;
@@ -69,7 +78,8 @@ function toFormState(task: Task | null, defaultProjectId: string | null): FormSt
     status: task?.status ?? "Backlog",
     priority: task?.priority ?? "Média",
     projectId: (task ? task.projectId : defaultProjectId) ?? UNASSIGNED_PROJECT_ID,
-    assigneeId: task?.assigneeId ?? UNASSIGNED_USER_ID,
+    assigneeIds: task?.assigneeIds ?? [],
+    highlighted: task?.highlighted ?? false,
     tags: task?.tags.join(", ") ?? "",
     storyPoints:
       task?.storyPoints !== null && task?.storyPoints !== undefined ? String(task.storyPoints) : "",
@@ -88,7 +98,8 @@ function toInput(form: FormState): TaskInput {
     status: form.status,
     priority: form.priority,
     projectId: form.projectId === UNASSIGNED_PROJECT_ID ? null : form.projectId,
-    assigneeId: form.assigneeId === UNASSIGNED_USER_ID ? null : form.assigneeId,
+    assigneeIds: form.assigneeIds,
+    highlighted: form.highlighted,
     tags: form.tags
       .split(",")
       .map((t) => t.trim())
@@ -97,6 +108,82 @@ function toInput(form: FormState): TaskInput {
     estimatedHours: form.estimatedHours.trim() ? Number(form.estimatedHours) : null,
     dueDate: form.dueDate ? new Date(form.dueDate).toISOString() : null,
   };
+}
+
+/** Aba "Subtarefas" — lista compacta com criação inline; clicar numa
+ * subtarefa navega o próprio sheet pra ela (sem dialog aninhado). */
+function SubtasksTab({
+  parentTask,
+  onNavigateToTask,
+}: {
+  parentTask: Task;
+  onNavigateToTask: (task: Task) => void;
+}) {
+  const queryClient = useQueryClient();
+  const [title, setTitle] = useState("");
+
+  const { data: subtasks = [] } = useQuery({
+    queryKey: ["subtasks", parentTask.id],
+    queryFn: () => listSubtasksFn({ data: { parentTaskId: parentTask.id } }),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (title: string) =>
+      createSubtaskFn({ data: { title, parentTaskId: parentTask.id } }),
+    onSuccess: () => {
+      setTitle("");
+      queryClient.invalidateQueries({ queryKey: ["subtasks", parentTask.id] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+    onError: (error: Error) => toast.error(`Não foi possível criar a subtarefa: ${error.message}`),
+  });
+
+  function submit() {
+    const value = title.trim();
+    if (!value) return;
+    createMutation.mutate(value);
+  }
+
+  return (
+    <div className="space-y-2">
+      {subtasks.length === 0 && (
+        <p className="text-sm text-muted-foreground">Nenhuma subtarefa ainda.</p>
+      )}
+      {subtasks.map((s) => (
+        <button
+          key={s.id}
+          type="button"
+          onClick={() => onNavigateToTask(s)}
+          className="flex w-full items-center gap-2 rounded-md border border-border bg-card p-2 text-left text-sm hover:border-primary/50"
+        >
+          <span className={cn("h-2 w-2 shrink-0 rounded-full", STATUS_DOT[s.status])} />
+          <span className="min-w-0 flex-1 truncate">
+            <span className="text-muted-foreground">#{s.taskNumber}</span> {s.title}
+          </span>
+          {s.assignees[0] && (
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">
+              {displayName(s.assignees[0]).charAt(0).toUpperCase()}
+            </span>
+          )}
+        </button>
+      ))}
+      <div className="flex gap-2 pt-1">
+        <Input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Nova subtarefa"
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+        />
+        <Button size="sm" disabled={!title.trim() || createMutation.isPending} onClick={submit}>
+          {createMutation.isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Plus className="h-3.5 w-3.5" />
+          )}
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
@@ -112,11 +199,15 @@ export function TaskDetailSheet({
   open,
   onOpenChange,
   defaultProjectId = null,
+  onNavigateToTask,
 }: {
   task: Task | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultProjectId?: string | null;
+  /** Troca a tarefa exibida sem fechar o sheet — usado pra abrir uma
+   * subtarefa ou voltar pra tarefa-pai. */
+  onNavigateToTask?: (task: Task) => void;
 }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>(() => toFormState(task, defaultProjectId));
@@ -138,7 +229,7 @@ export function TaskDetailSheet({
     justification: string;
   } | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
-  const [tab, setTab] = useState<"detalhes" | "comentarios" | "anexos">("detalhes");
+  const [tab, setTab] = useState<"detalhes" | "subtarefas" | "comentarios" | "anexos">("detalhes");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   useEffect(() => {
@@ -207,7 +298,23 @@ export function TaskDetailSheet({
 
   const isEditing = Boolean(task);
   const canSave = form.title.trim().length > 0;
-  const assignedUser = users.find((u) => u.id === form.assigneeId) ?? null;
+
+  const { data: parentTask } = useQuery({
+    queryKey: ["task", task?.parentTaskId],
+    queryFn: () => getTaskFn({ data: { id: task!.parentTaskId! } }),
+    enabled: open && Boolean(task?.parentTaskId),
+  });
+
+  const highlightMutation = useMutation({
+    mutationFn: (highlighted: boolean) =>
+      updateTaskFn({ data: { id: task!.id, patch: { highlighted } } }),
+    onSuccess: (_data, highlighted) => {
+      setForm((f) => ({ ...f, highlighted }));
+      invalidate();
+    },
+    onError: (error: Error) =>
+      toast.error(`Não foi possível atualizar o destaque: ${error.message}`),
+  });
 
   function handleSave() {
     const input = toInput(form);
@@ -346,6 +453,17 @@ export function TaskDetailSheet({
             className="h-auto border-none px-0 text-xl font-semibold shadow-none focus-visible:ring-0"
           />
 
+          {parentTask && onNavigateToTask && (
+            <button
+              type="button"
+              onClick={() => onNavigateToTask(parentTask)}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+            >
+              <ArrowLeft className="h-3 w-3" /> Voltar para #{parentTask.taskNumber} —{" "}
+              {parentTask.title}
+            </button>
+          )}
+
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             {isEditing && task ? (
               <>
@@ -356,6 +474,18 @@ export function TaskDetailSheet({
                     <span>Aberto por {displayName(task.createdBy)}</span>
                   </>
                 ) : null}
+                <button
+                  type="button"
+                  title={form.highlighted ? "Remover destaque" : "Marcar como urgente"}
+                  disabled={highlightMutation.isPending}
+                  onClick={() => highlightMutation.mutate(!form.highlighted)}
+                  className={cn(
+                    "rounded p-0.5 text-muted-foreground/50 hover:text-critical",
+                    form.highlighted && "text-critical",
+                  )}
+                >
+                  <Pin className="h-3.5 w-3.5" fill={form.highlighted ? "currentColor" : "none"} />
+                </button>
                 {form.status === ACCEPT_STATUS ? (
                   <>
                     <Button
@@ -389,27 +519,14 @@ export function TaskDetailSheet({
           <div className="flex flex-wrap gap-6 border-t border-border/60 pt-3">
             <div className="space-y-1">
               <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Responsável
+                Responsáveis
               </span>
-              <Select
-                value={form.assigneeId}
-                onValueChange={(v) => setForm((f) => ({ ...f, assigneeId: v }))}
-              >
-                <SelectTrigger className="h-7 w-fit gap-1.5 border-none bg-transparent px-0 text-sm shadow-none focus:ring-0">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">
-                    {assignedUser ? displayName(assignedUser).charAt(0).toUpperCase() : "?"}
-                  </span>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={UNASSIGNED_USER_ID}>Ninguém</SelectItem>
-                  {users.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {displayName(u)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <UserMultiSelect
+                variant="compact"
+                users={users}
+                selected={form.assigneeIds}
+                onChange={(ids) => setForm((f) => ({ ...f, assigneeIds: ids }))}
+              />
             </div>
 
             <div className="space-y-1">
@@ -472,11 +589,24 @@ export function TaskDetailSheet({
               <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
                 <TabsList>
                   <TabsTrigger value="detalhes">Detalhes</TabsTrigger>
+                  <TabsTrigger value="subtarefas">
+                    Subtarefas
+                    {task.subtaskTotal > 0 ? ` (${task.subtaskDone}/${task.subtaskTotal})` : ""}
+                  </TabsTrigger>
                   <TabsTrigger value="comentarios">Comentários</TabsTrigger>
                   <TabsTrigger value="anexos">Anexos</TabsTrigger>
                 </TabsList>
                 <TabsContent value="detalhes" className="pt-4">
                   {detailsContent}
+                </TabsContent>
+                <TabsContent value="subtarefas" className="pt-4">
+                  <SubtasksTab
+                    parentTask={task}
+                    onNavigateToTask={(t) => {
+                      onNavigateToTask?.(t);
+                      setTab("detalhes");
+                    }}
+                  />
                 </TabsContent>
                 <TabsContent value="comentarios" className="pt-4">
                   <TaskComments taskId={task.id} />

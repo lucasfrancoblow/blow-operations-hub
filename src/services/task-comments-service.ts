@@ -41,7 +41,7 @@ async function notifyParticipantsOfComment(
   const ticket = await getTicketByTaskId(task.id);
   const participantIds = new Set<string>();
   if (task.createdBy) participantIds.add(task.createdBy.id);
-  if (task.assigneeId) participantIds.add(task.assigneeId);
+  for (const assignee of task.assignees) participantIds.add(assignee.id);
   if (ticket?.requesterId) participantIds.add(ticket.requesterId);
   participantIds.delete(actingUser.id);
   if (participantIds.size === 0) return;

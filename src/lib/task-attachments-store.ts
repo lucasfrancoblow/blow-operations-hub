@@ -48,6 +48,19 @@ function requireSupabase(): void {
   }
 }
 
+/** Nº de anexos de várias tarefas de uma vez (1 query, não 1 por card) — usado
+ * por tasks-store.ts pra badge de anexos no board inteiro. */
+export async function countAttachmentsForTasks(taskIds: string[]): Promise<Record<string, number>> {
+  const counts: Record<string, number> = {};
+  if (taskIds.length === 0 || !isSupabaseConfigured()) return counts;
+  const rows = await supabaseSelect<{ task_id: string }>("task_attachments", {
+    select: "task_id",
+    task_id: `in.(${taskIds.join(",")})`,
+  });
+  for (const row of rows) counts[row.task_id] = (counts[row.task_id] ?? 0) + 1;
+  return counts;
+}
+
 export async function listTaskAttachments(taskId: string): Promise<TaskAttachment[]> {
   if (!isSupabaseConfigured()) return [];
   const rows = await supabaseSelect<TaskAttachmentRow>("task_attachments", {

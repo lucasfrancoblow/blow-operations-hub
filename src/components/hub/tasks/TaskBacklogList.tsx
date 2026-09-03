@@ -107,12 +107,13 @@ function BacklogRow({ task, onOpen }: { task: Task; onOpen: (task: Task) => void
       </div>
 
       <div className="w-6 shrink-0">
-        {task.assignee ? (
+        {task.assignees[0] ? (
           <span
-            title={displayName(task.assignee)}
+            title={task.assignees.map(displayName).join(", ")}
             className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary"
           >
-            {displayName(task.assignee).charAt(0).toUpperCase()}
+            {displayName(task.assignees[0]).charAt(0).toUpperCase()}
+            {task.assignees.length > 1 ? "+" : ""}
           </span>
         ) : null}
       </div>

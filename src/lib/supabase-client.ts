@@ -135,6 +135,21 @@ export async function supabaseUpdate<T extends object>(
   });
 }
 
+/** Atualiza linhas por filtros arbitrários — pra tabelas cuja chave primária
+ * não é uma coluna "id" simples (ex.: task_board_settings, chave "status"). */
+export async function supabaseUpdateWhere<T extends object>(
+  table: string,
+  filters: Record<string, string>,
+  patch: Partial<T>,
+): Promise<void> {
+  assertSafeIdentifier(table, "Nome de tabela");
+  await restFetch(`/${table}`, new URLSearchParams(filters), {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+    preferHeader: "return=minimal",
+  });
+}
+
 /** Remove uma linha por id. */
 export async function supabaseDelete(table: string, id: string): Promise<void> {
   assertSafeIdentifier(table, "Nome de tabela");

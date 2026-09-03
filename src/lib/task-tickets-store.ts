@@ -7,7 +7,7 @@ import {
   supabaseInsertReturning,
   supabaseSelect,
 } from "@/lib/supabase-client";
-import { TASK_SELECT, fromRow as taskFromRow, type TaskRow } from "@/lib/tasks-store";
+import { TASK_SELECT, attachRelations, type TaskRow } from "@/lib/tasks-store";
 import type { Ticket, TicketChannel } from "@/types/tickets";
 
 interface TicketRow {
@@ -24,7 +24,8 @@ interface TicketRow {
 
 const TICKET_SELECT = `*,task:tasks(${TASK_SELECT})`;
 
-function fromRow(row: TicketRow): Ticket {
+async function fromRow(row: TicketRow): Promise<Ticket> {
+  const [task] = await attachRelations([row.task]);
   return {
     id: row.id,
     ticketNumber: row.ticket_number,
@@ -34,7 +35,7 @@ function fromRow(row: TicketRow): Ticket {
     requesterName: row.requester_name,
     requesterEmail: row.requester_email,
     createdAt: row.created_at,
-    task: taskFromRow(row.task),
+    task: task!,
   };
 }
 
@@ -51,7 +52,7 @@ export async function listTickets(requesterId?: string): Promise<Ticket[]> {
   const filters: Record<string, string> = { select: TICKET_SELECT, order: "created_at.desc" };
   if (requesterId) filters["requester_id"] = `eq.${requesterId}`;
   const rows = await supabaseSelect<TicketRow>("task_tickets", filters);
-  return rows.map(fromRow);
+  return Promise.all(rows.map(fromRow));
 }
 
 export async function getTicket(id: string): Promise<Ticket | null> {

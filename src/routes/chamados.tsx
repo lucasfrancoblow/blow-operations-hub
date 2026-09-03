@@ -327,9 +327,9 @@ function ChamadosPage() {
                     User Story: {selectedTicket.task.project.name}
                   </p>
                 )}
-                {selectedTicket.task.assignee && (
+                {selectedTicket.task.assignees.length > 0 && (
                   <p className="text-xs text-muted-foreground">
-                    Responsável: {displayName(selectedTicket.task.assignee)}
+                    Responsável: {selectedTicket.task.assignees.map(displayName).join(", ")}
                   </p>
                 )}
 

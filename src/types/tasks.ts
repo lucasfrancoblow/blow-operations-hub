@@ -57,8 +57,8 @@ export interface Task {
   priority: TaskPriority;
   projectId: string | null;
   project: Pick<TaskProject, "id" | "name" | "color"> | null;
-  assigneeId: string | null;
-  assignee: TaskAssignee | null;
+  assigneeIds: string[];
+  assignees: TaskAssignee[];
   createdBy: TaskAssignee | null;
   tags: string[];
   storyPoints: number | null;
@@ -67,6 +67,13 @@ export interface Task {
   reference: TaskReference | null;
   position: number;
   backlogPosition: number | null;
+  highlighted: boolean;
+  statusChangedAt: string;
+  parentTaskId: string | null;
+  commentCount: number;
+  attachmentCount: number;
+  subtaskTotal: number;
+  subtaskDone: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -77,12 +84,35 @@ export interface TaskInput {
   status?: TaskStatus | undefined;
   priority?: TaskPriority | undefined;
   projectId?: string | null | undefined;
-  assigneeId?: string | null | undefined;
+  assigneeIds?: string[] | undefined;
   tags?: string[] | undefined;
   storyPoints?: number | null | undefined;
   estimatedHours?: number | null | undefined;
   dueDate?: string | null | undefined;
   reference?: TaskReference | null | undefined;
+  highlighted?: boolean | undefined;
+  parentTaskId?: string | null | undefined;
+}
+
+export interface TaskBoardSettings {
+  status: TaskStatus;
+  wipLimit: number | null;
+  agingThresholdDays: number | null;
+}
+
+export interface TaskSavedViewFilters {
+  search?: string;
+  assigneeIds?: string[];
+  priority?: string;
+  highlightedOnly?: boolean;
+  groupBy?: "none" | "priority" | "assignee";
+}
+
+export interface TaskSavedView {
+  id: string;
+  name: string;
+  filters: TaskSavedViewFilters;
+  createdAt: string;
 }
 
 export interface TaskAttachment {
