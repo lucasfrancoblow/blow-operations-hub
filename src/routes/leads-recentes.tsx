@@ -3,7 +3,7 @@ import { canAccessPage } from "@/lib/page-access";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { CheckCircle2, Download, Inbox, Radar } from "lucide-react";
+import { CheckCircle2, Download, Inbox, MessageCircle, Radar } from "lucide-react";
 import { downloadCsv } from "@/lib/csv-export";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,8 +21,10 @@ import {
 import { getLeadsRecentesData } from "@/services/leads-recentes-service";
 import {
   defaultRadarDateRange,
+  formatPhoneBR,
   parsePipeRunDate,
   todayDateString,
+  whatsappLink,
   type DateRange,
   type LeadRecente,
 } from "@/lib/leads-recentes";
@@ -237,6 +239,7 @@ function LeadsRecentesPage() {
       `radar-de-leads-${todayDateString()}.csv`,
       filtered.map((l) => ({
         titulo: l.title,
+        telefone: formatPhoneBR(l.phone) ?? "",
         pipeline: l.pipelineName,
         etapa: l.stageName,
         responsavel: l.ownerName,
@@ -608,6 +611,7 @@ function LeadsRecentesPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="min-w-[200px]">Nome</TableHead>
+                      <TableHead>Telefone</TableHead>
                       <TableHead>Funil</TableHead>
                       <TableHead>Etapa</TableHead>
                       <TableHead>Origem</TableHead>
@@ -624,6 +628,21 @@ function LeadsRecentesPage() {
                         onClick={() => setSelected(lead)}
                       >
                         <TableCell className="font-medium">{lead.title}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {lead.phone ? (
+                            <a
+                              href={whatsappLink(lead.phone)!}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 text-primary hover:underline"
+                            >
+                              <MessageCircle className="h-3 w-3" /> {formatPhoneBR(lead.phone)}
+                            </a>
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
                         <TableCell className="text-muted-foreground">{lead.pipelineName}</TableCell>
                         <TableCell className="text-muted-foreground">{lead.stageName}</TableCell>
                         <TableCell className="text-muted-foreground">{lead.origin}</TableCell>

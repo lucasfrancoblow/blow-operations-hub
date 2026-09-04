@@ -17,6 +17,17 @@ export interface PipeRunCustomField {
   value: string | null;
 }
 
+export interface PipeRunContactPhone {
+  phone: string;
+  is_main: number;
+}
+
+export interface PipeRunPerson {
+  id: number;
+  name: string;
+  contactPhones?: PipeRunContactPhone[];
+}
+
 export interface PipeRunDeal {
   id: number;
   title: string;
@@ -24,6 +35,8 @@ export interface PipeRunDeal {
   stage_id: number;
   owner_id: number | null;
   owner?: PipeRunOwner;
+  person_id: number | null;
+  person?: PipeRunPerson;
   status: number; // 0 = aberto, 1 = ganho, 2 = perdido
   origin_id: number | null;
   value: number;
@@ -111,7 +124,7 @@ export async function fetchDealsInRange(since: string, until: string): Promise<P
     show: String(PAGE_SIZE),
     created_at_start: since,
     created_at_end: until,
-    with: "customFields",
+    with: "customFields,person.contactPhones",
     order_by: "created_at",
     order: "desc",
     page: "1",
@@ -124,7 +137,7 @@ export async function fetchDealsInRange(since: string, until: string): Promise<P
       show: String(PAGE_SIZE),
       created_at_start: since,
       created_at_end: until,
-      with: "customFields",
+      with: "customFields,person.contactPhones",
       order_by: "created_at",
       order: "desc",
       page: String(page),

@@ -121,6 +121,9 @@ export interface LeadRecente {
   isReuniaoRealizada: boolean;
   isContratoEnviado: boolean;
   isContratoAssinado: boolean;
+  /** Só dígitos, com DDI (ex.: "5582993089537") — como o PipeRun devolve. Usar
+   * formatPhoneBR/whatsappLink pra exibir/linkar. */
+  phone: string | null;
 }
 
 export interface LeadsRecentesData {
@@ -138,6 +141,35 @@ export interface LeadsRecentesData {
   byOrigin: Array<{ origin: string; total: number }>;
   byPipeline: Array<{ pipeline: string; total: number }>;
   byDestino: Array<{ destino: string; total: number }>;
+}
+
+/** O PipeRun pode ter mais de um telefone por pessoa — prioriza o marcado como
+ * principal (`is_main`); sem isso, usa o primeiro que existir. */
+function extractPhone(deal: PipeRunDeal): string | null {
+  const phones = deal.person?.contactPhones ?? [];
+  if (phones.length === 0) return null;
+  const main = phones.find((p) => p.is_main === 1) ?? phones[0]!;
+  const digits = main.phone.replace(/\D/g, "");
+  return digits || null;
+}
+
+/** Formata um telefone brasileiro com DDI ("5582993089537" → "(82) 99308-9537").
+ * Números fora do formato esperado (alguns leads de formulário chegam com dígito
+ * duplicado) caem no fallback: devolve os dígitos como vieram, sem tentar adivinhar. */
+export function formatPhoneBR(digits: string | null): string | null {
+  if (!digits) return null;
+  const withoutCountry = digits.startsWith("55") ? digits.slice(2) : digits;
+  const ddd = withoutCountry.slice(0, 2);
+  const rest = withoutCountry.slice(2);
+  if (rest.length === 9) return `(${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+  if (rest.length === 8) return `(${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+  return digits;
+}
+
+/** Link "clique pra conversar" no WhatsApp Web — wa.me espera só dígitos, com DDI. */
+export function whatsappLink(digits: string | null): string | null {
+  if (!digits) return null;
+  return `https://wa.me/${digits}`;
 }
 
 function toLeadRecente(
@@ -162,6 +194,7 @@ function toLeadRecente(
     value: deal.value,
     createdAt: deal.created_at,
     emAndamento: !ETAPAS_INICIAIS.has(stageName),
+    phone: extractPhone(deal),
     ...funnelFlags(pipelineName, stageName),
   };
 }
@@ -203,7 +236,9 @@ export async function loadLeadsRecentesData(
 
   const leads = deals
     .map((d) => toLeadRecente(d, pipelineNames, stageNames))
-    .sort((a, b) => parsePipeRunDate(b.createdAt).getTime() - parsePipeRunDate(a.createdAt).getTime());
+    .sort(
+      (a, b) => parsePipeRunDate(b.createdAt).getTime() - parsePipeRunDate(a.createdAt).getTime(),
+    );
 
   const today = todayDateString();
   const summary = {

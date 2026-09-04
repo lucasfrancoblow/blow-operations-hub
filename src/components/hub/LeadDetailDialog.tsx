@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock } from "lucide-react";
+import { CheckCircle2, Clock, MessageCircle } from "lucide-react";
 
 import {
   Dialog,
@@ -8,7 +8,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { KeyValue } from "@/components/hub/primitives";
-import { parsePipeRunDate, type LeadRecente } from "@/lib/leads-recentes";
+import {
+  formatPhoneBR,
+  parsePipeRunDate,
+  whatsappLink,
+  type LeadRecente,
+} from "@/lib/leads-recentes";
 
 function formatCurrency(value: number): string {
   if (!value) return "—";
@@ -37,6 +42,23 @@ export function LeadDetailDialog({
             </DialogHeader>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <KeyValue
+                label="Telefone"
+                value={
+                  lead.phone ? (
+                    <a
+                      href={whatsappLink(lead.phone)!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" /> {formatPhoneBR(lead.phone)}
+                    </a>
+                  ) : (
+                    "—"
+                  )
+                }
+              />
               <KeyValue label="Responsável" value={lead.ownerName} />
               <KeyValue label="Origem" value={lead.origin} />
               <KeyValue label="Status" value={lead.status} />
