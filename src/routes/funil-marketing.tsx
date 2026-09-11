@@ -157,9 +157,13 @@ function sumDays(dayMap: Map<string, WeekCounts>, days: string[]): WeekCounts {
     if (!c) continue;
     total.novosLeads += c.novosLeads;
     total.sql += c.sql;
+    total.sqlSaida += c.sqlSaida;
     total.reuniaoAgendada += c.reuniaoAgendada;
+    total.reuniaoAgendadaSaida += c.reuniaoAgendadaSaida;
     total.reuniaoRealizada += c.reuniaoRealizada;
+    total.reuniaoRealizadaSaida += c.reuniaoRealizadaSaida;
     total.contratoEnviado += c.contratoEnviado;
+    total.contratoEnviadoSaida += c.contratoEnviadoSaida;
     total.contratoAssinado += c.contratoAssinado;
     total.investimento += c.investimento;
     total.cliquesLink += c.cliquesLink;
@@ -171,9 +175,16 @@ function sumDays(dayMap: Map<string, WeekCounts>, days: string[]): WeekCounts {
 interface WeekCounts {
   novosLeads: number;
   sql: number;
+  /** Quantos negócios SAÍRAM de uma etapa que conta como SQL (avançaram pra próxima)
+   * dentro do período — mesma coluna "SAÍDA" do relatório nativo "Taxa de Conversão"
+   * do PipeRun, calculada por out_date real (ver funnel-conversao.ts). */
+  sqlSaida: number;
   reuniaoAgendada: number;
+  reuniaoAgendadaSaida: number;
   reuniaoRealizada: number;
+  reuniaoRealizadaSaida: number;
   contratoEnviado: number;
+  contratoEnviadoSaida: number;
   contratoAssinado: number;
   investimento: number;
   cliquesLink: number;
@@ -184,9 +195,13 @@ function emptyCounts(): WeekCounts {
   return {
     novosLeads: 0,
     sql: 0,
+    sqlSaida: 0,
     reuniaoAgendada: 0,
+    reuniaoAgendadaSaida: 0,
     reuniaoRealizada: 0,
+    reuniaoRealizadaSaida: 0,
     contratoEnviado: 0,
+    contratoEnviadoSaida: 0,
     contratoAssinado: 0,
     investimento: 0,
     cliquesLink: 0,
@@ -217,8 +232,18 @@ const ROWS: Array<{
   value: (c: WeekCounts) => number | string;
 }> = [
   { label: "Novos Leads", group: "Topo do Funil", value: (c) => c.novosLeads },
-  { label: "Leads Qualificados (SQL)", group: "Topo do Funil", value: (c) => c.sql },
-  { label: "Reunião Agendada (RA)", group: "Topo do Funil", value: (c) => c.reuniaoAgendada },
+  { label: "Leads Qualificados (SQL) — Entrada", group: "Topo do Funil", value: (c) => c.sql },
+  { label: "Leads Qualificados (SQL) — Saída", group: "Topo do Funil", value: (c) => c.sqlSaida },
+  {
+    label: "Reunião Agendada (RA) — Entrada",
+    group: "Topo do Funil",
+    value: (c) => c.reuniaoAgendada,
+  },
+  {
+    label: "Reunião Agendada (RA) — Saída",
+    group: "Topo do Funil",
+    value: (c) => c.reuniaoAgendadaSaida,
+  },
   { label: "Investimento", group: "Topo do Funil", value: (c) => money(c.investimento) },
   { label: "CPL", group: "Topo do Funil", value: (c) => costPer(c.investimento, c.novosLeads) },
   { label: "CPQL", group: "Topo do Funil", value: (c) => costPer(c.investimento, c.sql) },
@@ -238,8 +263,26 @@ const ROWS: Array<{
     value: (c) => pct(c.visitasLp, c.cliquesLink),
   },
   { label: "CPV", group: "Topo do Funil", value: (c) => costPer(c.investimento, c.visitasLp) },
-  { label: "RR (Reunião Realizada)", group: "Fundo de Funil", value: (c) => c.reuniaoRealizada },
-  { label: "Contratos Enviados", group: "Fundo de Funil", value: (c) => c.contratoEnviado },
+  {
+    label: "RR (Reunião Realizada) — Entrada",
+    group: "Fundo de Funil",
+    value: (c) => c.reuniaoRealizada,
+  },
+  {
+    label: "RR (Reunião Realizada) — Saída",
+    group: "Fundo de Funil",
+    value: (c) => c.reuniaoRealizadaSaida,
+  },
+  {
+    label: "Contratos Enviados — Entrada",
+    group: "Fundo de Funil",
+    value: (c) => c.contratoEnviado,
+  },
+  {
+    label: "Contratos Enviados — Saída",
+    group: "Fundo de Funil",
+    value: (c) => c.contratoEnviadoSaida,
+  },
   { label: "Contratos Assinados", group: "Fundo de Funil", value: (c) => c.contratoAssinado },
   {
     label: "CPRR",
@@ -428,15 +471,28 @@ function FunilMarketingPage() {
 
     for (const e of funnelEvents ?? []) {
       const ch = channelFor(e);
+      const isEntrada = e.direction === "entrada";
       for (const target of [ch, "Geral"]) {
         const m = byChannelDay.get(target)!;
-        const cur = m.get(e.achievedAt) ?? emptyCounts();
-        if (e.metric === "sql") cur.sql += 1;
-        if (e.metric === "reuniaoAgendada") cur.reuniaoAgendada += 1;
-        if (e.metric === "reuniaoRealizada") cur.reuniaoRealizada += 1;
-        if (e.metric === "contratoEnviado") cur.contratoEnviado += 1;
-        if (e.metric === "contratoAssinado") cur.contratoAssinado += 1;
-        m.set(e.achievedAt, cur);
+        const cur = m.get(e.day) ?? emptyCounts();
+        if (e.metric === "sql") {
+          if (isEntrada) cur.sql += 1;
+          else cur.sqlSaida += 1;
+        }
+        if (e.metric === "reuniaoAgendada") {
+          if (isEntrada) cur.reuniaoAgendada += 1;
+          else cur.reuniaoAgendadaSaida += 1;
+        }
+        if (e.metric === "reuniaoRealizada") {
+          if (isEntrada) cur.reuniaoRealizada += 1;
+          else cur.reuniaoRealizadaSaida += 1;
+        }
+        if (e.metric === "contratoEnviado") {
+          if (isEntrada) cur.contratoEnviado += 1;
+          else cur.contratoEnviadoSaida += 1;
+        }
+        if (e.metric === "contratoAssinado" && isEntrada) cur.contratoAssinado += 1;
+        m.set(e.day, cur);
       }
     }
 
@@ -500,10 +556,14 @@ function FunilMarketingPage() {
           canal: channel,
           semana: col.label,
           novos_leads: c.novosLeads,
-          sql: c.sql,
-          reuniao_agendada: c.reuniaoAgendada,
-          reuniao_realizada: c.reuniaoRealizada,
-          contrato_enviado: c.contratoEnviado,
+          sql_entrada: c.sql,
+          sql_saida: c.sqlSaida,
+          reuniao_agendada_entrada: c.reuniaoAgendada,
+          reuniao_agendada_saida: c.reuniaoAgendadaSaida,
+          reuniao_realizada_entrada: c.reuniaoRealizada,
+          reuniao_realizada_saida: c.reuniaoRealizadaSaida,
+          contrato_enviado_entrada: c.contratoEnviado,
+          contrato_enviado_saida: c.contratoEnviadoSaida,
           contrato_assinado: c.contratoAssinado,
           investimento: c.investimento,
           cliques_link: c.cliquesLink,
@@ -521,25 +581,6 @@ function FunilMarketingPage() {
         subtitle="Indicadores semanais por canal — mesmo formato da planilha 'Indicadores Expansão', agora automático"
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <MultiSelectFilter
-              label="Funis"
-              options={data?.pipelineNames ?? []}
-              selected={pipelineFilter}
-              onChange={setPipelineFilter}
-              className="w-[200px]"
-            />
-            <Select value={channelFilter} onValueChange={setChannelFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CHANNEL_FILTERS.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             <DateRangePicker value={range} onChange={handleGlobalRangeChange} />
             <Button variant="outline" size="sm" disabled={!table} onClick={exportCsv}>
               <Download className="h-4 w-4" /> Exportar CSV
@@ -547,6 +588,32 @@ function FunilMarketingPage() {
           </div>
         }
       />
+
+      <div className="grid gap-3 rounded-xl border border-border/60 bg-card/60 p-3 sm:grid-cols-2">
+        <MultiSelectFilter
+          label="Funis"
+          options={data?.pipelineNames ?? []}
+          selected={pipelineFilter}
+          onChange={setPipelineFilter}
+        />
+        <div className="flex flex-col gap-1">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Canal
+          </span>
+          <Select value={channelFilter} onValueChange={setChannelFilter}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CHANNEL_FILTERS.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       {loading ? (
         <Skeleton className="h-96 w-full" />
@@ -585,21 +652,29 @@ function FunilMarketingPage() {
                   stages={
                     [
                       { label: "Novos Leads", value: funnelTotals.novosLeads, accent: "primary" },
-                      { label: "SQL", value: funnelTotals.sql, accent: "info" },
+                      {
+                        label: "SQL",
+                        value: funnelTotals.sql,
+                        accent: "info",
+                        saida: funnelTotals.sqlSaida,
+                      },
                       {
                         label: "Reunião Agendada",
                         value: funnelTotals.reuniaoAgendada,
                         accent: "warning",
+                        saida: funnelTotals.reuniaoAgendadaSaida,
                       },
                       {
                         label: "Reunião Realizada",
                         value: funnelTotals.reuniaoRealizada,
                         accent: "warning",
+                        saida: funnelTotals.reuniaoRealizadaSaida,
                       },
                       {
                         label: "Contrato Enviado",
                         value: funnelTotals.contratoEnviado,
                         accent: "success",
+                        saida: funnelTotals.contratoEnviadoSaida,
                       },
                       {
                         label: "Contrato Assinado",

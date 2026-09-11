@@ -6,6 +6,10 @@ export interface FunnelStage {
   label: string;
   value: number;
   accent?: "primary" | "info" | "warning" | "success";
+  /** Quantos negócios SAÍRAM dessa etapa (avançaram) no período — mesma coluna
+   * "SAÍDA" do relatório nativo "Taxa de Conversão" do PipeRun. Opcional: nem toda
+   * etapa tem um "saída" que faça sentido mostrar (ex.: a última do funil). */
+  saida?: number;
 }
 
 const ACCENT_CLASS: Record<NonNullable<FunnelStage["accent"]>, string> = {
@@ -74,8 +78,15 @@ export function FunnelChart({ stages }: { stages: FunnelStage[] }) {
               className={`relative flex h-11 min-w-[40%] items-center justify-between gap-3 rounded-lg bg-gradient-to-r px-4 text-sm font-medium text-primary-foreground shadow-lg transition-shadow hover:shadow-xl ${ACCENT_CLASS[stage.accent ?? "primary"]}`}
             >
               <span className="truncate">{stage.label}</span>
-              <span className="shrink-0 font-display text-base tabular-nums">
-                <AnimatedNumber value={stage.value} />
+              <span className="flex shrink-0 items-baseline gap-2">
+                <span className="font-display text-base tabular-nums">
+                  <AnimatedNumber value={stage.value} />
+                </span>
+                {stage.saida != null && (
+                  <span className="text-[11px] font-normal text-primary-foreground/70">
+                    saída: {stage.saida}
+                  </span>
+                )}
               </span>
             </motion.div>
           </div>

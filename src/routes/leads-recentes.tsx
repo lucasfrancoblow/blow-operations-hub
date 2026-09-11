@@ -565,24 +565,29 @@ function LeadsRecentesPage() {
                 setPage(1);
               }}
             />
-            <Select
-              value={progresso}
-              onValueChange={(v) => {
-                setProgresso(v);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PROGRESSO_FILTERS.map((f) => (
-                  <SelectItem key={f.value} value={f.value}>
-                    {f.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Progresso
+              </span>
+              <Select
+                value={progresso}
+                onValueChange={(v) => {
+                  setProgresso(v);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROGRESSO_FILTERS.map((f) => (
+                    <SelectItem key={f.value} value={f.value}>
+                      {f.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {isLoading ? (

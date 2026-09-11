@@ -1,15 +1,15 @@
 // Cálculo de SQL/RA/RR/Contrato Enviado/Contrato Assinado usando o histórico REAL de
-// entrada em etapa do PipeRun (endpoint /stageHistories) — não created_at do negócio +
-// etapa atual (ver leads-recentes.ts::funnelFlags, que é a forma antiga/errada usada
-// até aqui pelo Funil de Marketing).
+// entrada e saída de etapa do PipeRun (endpoint /stageHistories) — não created_at do
+// negócio + etapa atual (ver leads-recentes.ts::funnelFlags, a forma antiga/errada
+// usada até aqui pelo Funil de Marketing).
 //
 // Por que isso existe: um negócio criado há meses mas que só virou SQL esta semana não
 // aparecia em nenhum relatório por período, porque o filtro era por created_at (antigo).
 // Confirmado com dado real: 60% dos negócios abertos em EXPANSÃO CLOSER têm created_at
 // há mais de 30 dias — qualquer range de 30 dias ou menos invisibilizava a maioria do
-// Closer ativo. Aqui, cada linha do histórico tem sua PRÓPRIA data de entrada na etapa,
-// então um negócio antigo que avançou esta semana é contado esta semana, não na semana
-// (distante) em que foi criado.
+// Closer ativo. Aqui, cada linha do histórico tem sua PRÓPRIA data de entrada/saída na
+// etapa, então um negócio antigo que avançou esta semana é contado esta semana, não na
+// semana (distante) em que foi criado.
 //
 // Validado contra o relatório nativo "Taxa de Conversão" do PipeRun: mesmo filtro de
 // funil + período, mesma contagem de entrada em NOVO LEAD (106 aqui vs. 105 na tela —
@@ -19,8 +19,10 @@ import {
   fetchDealsByIds,
   fetchPipelines,
   fetchStageEntradasInRange,
+  fetchStageSaidasInRange,
   fetchStages,
   isPipeRunConfigured,
+  type PipeRunStageHistory,
 } from "@/lib/piperun-client";
 import {
   ORIGIN_LABELS,
@@ -46,9 +48,10 @@ export type FunnelMetric =
 export interface FunnelStageEvent {
   dealId: number;
   metric: FunnelMetric;
-  /** YYYY-MM-DD (Brasília) — dia em que o negócio ATINGIU esse critério pela 1ª vez
-   * dentro do range consultado (não é created_at do negócio). */
-  achievedAt: string;
+  direction: "entrada" | "saida";
+  /** YYYY-MM-DD (Brasília) — dia em que o negócio ATINGIU (entrada) ou DEIXOU (saída)
+   * esse critério pela 1ª vez dentro do range consultado (não é created_at). */
+  day: string;
   pipelineName: string;
   /** Mesmo rótulo de LeadRecente.origin — permite reaproveitar channelFor() do Funil
    * de Marketing sem duplicar a lógica de canal. */
@@ -71,17 +74,55 @@ function classifyMetrics(pipelineName: string, stageName: string): FunnelMetric[
   return metrics;
 }
 
-/** Carrega os eventos de funil (SQL/RA/RR/Contrato) de verdade pro range e funis
- * informados. `pipelineNames` vazio = todos os funis existentes (mesma semântica do
- * resto da tela); caso contrário, só entradas em etapa desses funis contam. */
+interface StageMeta {
+  pipelineName: string;
+  stageName: string;
+}
+
+/** Reduz linhas cruas de stageHistories a 1 evento por (negócio, métrica): a data mais
+ * antiga em que o negócio bateu aquele critério dentro do range — evita contar de novo
+ * se ele reentrar/resair da mesma etapa mais de uma vez no período. */
+function reduceToEvents(
+  rows: PipeRunStageHistory[],
+  dateField: "in_date" | "out_date",
+  stageMeta: Map<number, StageMeta>,
+  direction: "entrada" | "saida",
+): Map<string, { dealId: number; metric: FunnelMetric; day: string; pipelineName: string }> {
+  const best = new Map<
+    string,
+    { dealId: number; metric: FunnelMetric; day: string; pipelineName: string }
+  >();
+
+  for (const row of rows) {
+    const meta = stageMeta.get(row.in_stage_id);
+    if (!meta) continue; // etapa de um funil fora do filtro pedido
+    const rawDate = row[dateField];
+    if (!rawDate) continue;
+    const day = rawDate.slice(0, 10);
+    for (const metric of classifyMetrics(meta.pipelineName, meta.stageName)) {
+      const key = `${direction}|${row.deal_id}|${metric}`;
+      const current = best.get(key);
+      if (!current || day < current.day) {
+        best.set(key, { dealId: row.deal_id, metric, day, pipelineName: meta.pipelineName });
+      }
+    }
+  }
+
+  return best;
+}
+
+/** Carrega os eventos de funil (SQL/RA/RR/Contrato), entrada E saída, pro range e
+ * funis informados. `pipelineNames` vazio = todos os funis existentes (mesma semântica
+ * do resto da tela); caso contrário, só etapas desses funis contam. */
 export async function loadFunnelStageEvents(
   range: DateRange,
   pipelineNames: string[],
 ): Promise<FunnelStageEvent[]> {
   if (!isPipeRunConfigured()) return [];
 
-  const [entradas, pipelines] = await Promise.all([
+  const [entradaRows, saidaRows, pipelines] = await Promise.all([
     fetchStageEntradasInRange(range.from, range.to),
+    fetchStageSaidasInRange(range.from, range.to),
     fetchPipelines(),
   ]);
 
@@ -93,7 +134,7 @@ export async function loadFunnelStageEvents(
 
   const pipelineNameById = new Map(pipelines.map((p) => [p.id, p.name] as const));
   const stagesByPipeline = await Promise.all(pipelineIdsToLoad.map((id) => fetchStages(id)));
-  const stageMeta = new Map<number, { pipelineName: string; stageName: string }>();
+  const stageMeta = new Map<number, StageMeta>();
   for (const stages of stagesByPipeline) {
     for (const s of stages) {
       stageMeta.set(s.id, {
@@ -103,36 +144,19 @@ export async function loadFunnelStageEvents(
     }
   }
 
-  // dealId+metric -> menor achievedAt visto (1ª vez que o negócio bateu esse critério
-  // dentro do range) — evita contar de novo se ele reentrar na mesma etapa depois.
-  const best = new Map<
-    string,
-    { dealId: number; metric: FunnelMetric; achievedAt: string; pipelineName: string }
-  >();
+  const entradaBest = reduceToEvents(entradaRows, "in_date", stageMeta, "entrada");
+  const saidaBest = reduceToEvents(saidaRows, "out_date", stageMeta, "saida");
 
-  for (const e of entradas) {
-    const meta = stageMeta.get(e.in_stage_id);
-    if (!meta) continue; // etapa de um funil fora do filtro pedido
-    const day = e.in_date.slice(0, 10);
-    for (const metric of classifyMetrics(meta.pipelineName, meta.stageName)) {
-      const key = `${e.deal_id}|${metric}`;
-      const current = best.get(key);
-      if (!current || day < current.achievedAt) {
-        best.set(key, {
-          dealId: e.deal_id,
-          metric,
-          achievedAt: day,
-          pipelineName: meta.pipelineName,
-        });
-      }
-    }
-  }
-
-  if (best.size === 0) return [];
+  if (entradaBest.size === 0 && saidaBest.size === 0) return [];
 
   // Origem/UTM pro canal — buscado por lote de id porque o negócio pode ter sido
   // CRIADO fora do range selecionado (é literalmente o motivo de essa função existir).
-  const dealIds = Array.from(new Set(Array.from(best.values(), (v) => v.dealId)));
+  const dealIds = Array.from(
+    new Set([
+      ...Array.from(entradaBest.values(), (v) => v.dealId),
+      ...Array.from(saidaBest.values(), (v) => v.dealId),
+    ]),
+  );
   const deals = await fetchDealsByIds(dealIds);
   const originByDealId = new Map(
     deals.map(
@@ -140,11 +164,19 @@ export async function loadFunnelStageEvents(
     ),
   );
 
-  return Array.from(best.values(), (v) => ({
-    dealId: v.dealId,
-    metric: v.metric,
-    achievedAt: v.achievedAt,
-    pipelineName: v.pipelineName,
-    origin: originByDealId.get(v.dealId) ?? "Outra origem",
-  }));
+  function toEvents(
+    best: Map<string, { dealId: number; metric: FunnelMetric; day: string; pipelineName: string }>,
+    direction: "entrada" | "saida",
+  ): FunnelStageEvent[] {
+    return Array.from(best.values(), (v) => ({
+      dealId: v.dealId,
+      metric: v.metric,
+      direction,
+      day: v.day,
+      pipelineName: v.pipelineName,
+      origin: originByDealId.get(v.dealId) ?? "Outra origem",
+    }));
+  }
+
+  return [...toEvents(entradaBest, "entrada"), ...toEvents(saidaBest, "saida")];
 }

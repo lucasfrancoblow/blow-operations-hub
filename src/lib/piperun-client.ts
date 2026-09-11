@@ -235,6 +235,21 @@ export async function fetchStageEntradasInRange(
   });
 }
 
+/** Mesma ideia de fetchStageEntradasInRange, mas filtrando por SAÍDA de etapa
+ * (out_date) — quantos negócios deixaram aquela etapa (avançaram pra próxima) dentro
+ * do período. Junto com entrada, replica as duas colunas do relatório nativo "Taxa de
+ * Conversão" do PipeRun (ENTRADA/SAÍDA por etapa). */
+export async function fetchStageSaidasInRange(
+  since: string,
+  until: string,
+): Promise<PipeRunStageHistory[]> {
+  return piperunCursorFetch<PipeRunStageHistory>("/stageHistories", {
+    show: String(PAGE_SIZE),
+    out_date_start: `${since} 00:00:00`,
+    out_date_end: `${until} 23:59:59`,
+  });
+}
+
 export async function fetchPipelines(): Promise<PipeRunPipeline[]> {
   const result = await piperunFetch<PipeRunPipeline>("/pipelines", { show: "100" });
   return result.data;

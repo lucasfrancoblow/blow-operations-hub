@@ -46,70 +46,81 @@ export function MultiSelectFilter({
 
   const summary =
     selected.length === 0
-      ? `Todos os ${label.toLowerCase()}`
+      ? "Todos"
       : selected.length === 1
         ? selected[0]
-        : `${selected.length} ${label.toLowerCase()} selecionados`;
+        : `${selected.length} selecionados`;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={cn("w-full justify-between font-normal", className)}
-        >
-          <span className="truncate">{summary}</span>
-          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
-          <CommandInput placeholder={`Buscar ${label.toLowerCase()}...`} />
-          <CommandList>
-            <CommandEmpty>Nada encontrado.</CommandEmpty>
-            <CommandGroup>
-              {options.map((option) => {
-                const isSelected = selected.includes(option);
-                return (
-                  <CommandItem key={option} onSelect={() => toggle(option)}>
-                    <div
-                      className={cn(
-                        "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-primary",
-                        isSelected ? "bg-primary text-primary-foreground" : "opacity-50",
-                      )}
-                    >
-                      {isSelected && <Check className="h-3 w-3" />}
-                    </div>
-                    <span className="truncate">{option}</span>
-                  </CommandItem>
-                );
-              })}
-            </CommandGroup>
-          </CommandList>
-          {selected.length > 0 && (
-            <div className="flex items-center justify-between border-t p-2">
-              <div className="flex flex-wrap gap-1">
-                {selected.slice(0, 3).map((v) => (
-                  <Badge key={v} variant="secondary" className="max-w-[120px] truncate">
-                    {v}
-                  </Badge>
-                ))}
-                {selected.length > 3 && <Badge variant="secondary">+{selected.length - 3}</Badge>}
+    // Legenda sempre visível FORA do Popover — sem isso o botão só mostrava
+    // "Todos"/"N selecionados" sem dizer DE QUÊ, e o filtro ficava indistinguível dos
+    // outros numa fileira (ex.: "Todos" de Funil vs. "Todos" de Origem, lado a lado).
+    <div className={cn("flex flex-col gap-1", className)}>
+      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className={cn(
+              "w-full justify-between font-normal",
+              selected.length > 0 && "border-primary/50 bg-primary/5",
+            )}
+          >
+            <span className="truncate">{summary}</span>
+            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+          <Command>
+            <CommandInput placeholder={`Buscar ${label.toLowerCase()}...`} />
+            <CommandList>
+              <CommandEmpty>Nada encontrado.</CommandEmpty>
+              <CommandGroup>
+                {options.map((option) => {
+                  const isSelected = selected.includes(option);
+                  return (
+                    <CommandItem key={option} onSelect={() => toggle(option)}>
+                      <div
+                        className={cn(
+                          "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-primary",
+                          isSelected ? "bg-primary text-primary-foreground" : "opacity-50",
+                        )}
+                      >
+                        {isSelected && <Check className="h-3 w-3" />}
+                      </div>
+                      <span className="truncate">{option}</span>
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </CommandList>
+            {selected.length > 0 && (
+              <div className="flex items-center justify-between border-t p-2">
+                <div className="flex flex-wrap gap-1">
+                  {selected.slice(0, 3).map((v) => (
+                    <Badge key={v} variant="secondary" className="max-w-[120px] truncate">
+                      {v}
+                    </Badge>
+                  ))}
+                  {selected.length > 3 && <Badge variant="secondary">+{selected.length - 3}</Badge>}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => onChange([])}
+                >
+                  <X className="h-3 w-3" /> Limpar
+                </Button>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs"
-                onClick={() => onChange([])}
-              >
-                <X className="h-3 w-3" /> Limpar
-              </Button>
-            </div>
-          )}
-        </Command>
-      </PopoverContent>
-    </Popover>
+            )}
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }
