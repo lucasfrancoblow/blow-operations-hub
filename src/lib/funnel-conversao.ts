@@ -11,10 +11,13 @@
 // etapa, então um negócio antigo que avançou esta semana é contado esta semana, não na
 // semana (distante) em que foi criado.
 //
-// Validado contra o relatório nativo "Taxa de Conversão" do PipeRun: mesmo filtro de
-// funil + período, mesma contagem de entrada em NOVO LEAD (106 aqui vs. 105 na tela —
-// diferença de 1, consistente com borda de fuso horário, não erro de lógica).
-
+// Contagem BRUTA por etapa nomeada, sem dedupe por negócio — mesma lógica do relatório
+// nativo "Taxa de Conversão" do PipeRun (cada linha de stageHistories conta 1, mesmo
+// que o negócio reentre na etapa mais de uma vez no período). Uma 1ª versão desta
+// função tentava ser "esperta" (etapa cumulativa entre funis, 1 contagem por negócio) —
+// isso divergia do PipeRun (deu 22 aqui vs. 20/16 na tela). Contagem bruta por etapa
+// validada exata contra o relatório nativo: SQL do Pré Vendas em 03/09–09/09 = entrada
+// 20, saída 16 — bateu igual, dígito a dígito.
 import {
   fetchDealsByIds,
   fetchPipelines,
@@ -26,7 +29,6 @@ import {
 } from "@/lib/piperun-client";
 import {
   ORIGIN_LABELS,
-  PIPELINE_CLOSER,
   STAGE_CONTRATO,
   STAGE_REUNIAO_AGENDADA,
   STAGE_SQL,
@@ -34,13 +36,21 @@ import {
   type DateRange,
 } from "@/lib/leads-recentes";
 
+// Nome literal da etapa -> métrica. Cada etapa mapeia pra NO MÁXIMO uma métrica (são
+// conceitos distintos no funil, não cumulativos) — diferente da 1ª versão, que também
+// somava "qualquer etapa do Closer" em SQL/RA/RR ao mesmo tempo.
+//
 // Funil ABF não tem etapa chamada "Reunião Agendada" — o equivalente lá se chama
-// "Atendimento Agendada" (ver stages reais do pipeline_id 104843). Mesmo conceito,
-// nome diferente; sem isso o Funil ABF nunca contaria RA/SQL via essa etapa.
-const STAGE_RA_NAMES = new Set(
-  [STAGE_REUNIAO_AGENDADA, "Atendimento Agendada"].map((s) => s.toUpperCase()),
-);
-const STAGE_SQL_NAMES = new Set([STAGE_SQL].map((s) => s.toUpperCase()));
+// "Atendimento Agendada" (ver stages reais do pipeline_id 104843), mesmo conceito.
+// "Reunião Realizada" é a etapa literal de ENTRADA no funil Expansão Closer.
+const STAGE_NAME_TO_METRIC: Record<string, FunnelMetric> = {
+  [STAGE_SQL.toUpperCase()]: "sql",
+  [STAGE_REUNIAO_AGENDADA.toUpperCase()]: "reuniaoAgendada",
+  ["ATENDIMENTO AGENDADA"]: "reuniaoAgendada",
+  ["REUNIÃO REALIZADA"]: "reuniaoRealizada",
+  [STAGE_CONTRATO.toUpperCase()]: "contratoEnviado",
+  [STAGE_VENDA.toUpperCase()]: "contratoAssinado",
+};
 
 export type FunnelMetric =
   "sql" | "reuniaoAgendada" | "reuniaoRealizada" | "contratoEnviado" | "contratoAssinado";
@@ -49,8 +59,7 @@ export interface FunnelStageEvent {
   dealId: number;
   metric: FunnelMetric;
   direction: "entrada" | "saida";
-  /** YYYY-MM-DD (Brasília) — dia em que o negócio ATINGIU (entrada) ou DEIXOU (saída)
-   * esse critério pela 1ª vez dentro do range consultado (não é created_at). */
+  /** YYYY-MM-DD (Brasília) — dia da entrada ou saída real na etapa (não created_at). */
   day: string;
   pipelineName: string;
   /** Mesmo rótulo de LeadRecente.origin — permite reaproveitar channelFor() do Funil
@@ -58,62 +67,42 @@ export interface FunnelStageEvent {
   origin: string;
 }
 
-function classifyMetrics(pipelineName: string, stageName: string): FunnelMetric[] {
-  const inCloser = pipelineName.toUpperCase() === PIPELINE_CLOSER;
-  const sUpper = stageName.toUpperCase();
-  const isSqlStage = STAGE_SQL_NAMES.has(sUpper);
-  const isRaStage = STAGE_RA_NAMES.has(sUpper);
-
-  const metrics: FunnelMetric[] = [];
-  if (inCloser || isSqlStage || isRaStage) metrics.push("sql");
-  if (inCloser || isRaStage) metrics.push("reuniaoAgendada");
-  if (inCloser) metrics.push("reuniaoRealizada");
-  if (inCloser && (sUpper === STAGE_CONTRATO.toUpperCase() || sUpper === STAGE_VENDA.toUpperCase()))
-    metrics.push("contratoEnviado");
-  if (inCloser && sUpper === STAGE_VENDA.toUpperCase()) metrics.push("contratoAssinado");
-  return metrics;
-}
-
 interface StageMeta {
   pipelineName: string;
   stageName: string;
 }
 
-/** Reduz linhas cruas de stageHistories a 1 evento por (negócio, métrica): a data mais
- * antiga em que o negócio bateu aquele critério dentro do range — evita contar de novo
- * se ele reentrar/resair da mesma etapa mais de uma vez no período. */
-function reduceToEvents(
+function toEvents(
   rows: PipeRunStageHistory[],
   dateField: "in_date" | "out_date",
   stageMeta: Map<number, StageMeta>,
   direction: "entrada" | "saida",
-): Map<string, { dealId: number; metric: FunnelMetric; day: string; pipelineName: string }> {
-  const best = new Map<
-    string,
-    { dealId: number; metric: FunnelMetric; day: string; pipelineName: string }
-  >();
-
+  originByDealId: Map<number, string>,
+): FunnelStageEvent[] {
+  const events: FunnelStageEvent[] = [];
   for (const row of rows) {
     const meta = stageMeta.get(row.in_stage_id);
     if (!meta) continue; // etapa de um funil fora do filtro pedido
+    const metric = STAGE_NAME_TO_METRIC[meta.stageName.toUpperCase()];
+    if (!metric) continue; // etapa sem métrica correspondente (ex.: "Tentativa de contato 3")
     const rawDate = row[dateField];
     if (!rawDate) continue;
-    const day = rawDate.slice(0, 10);
-    for (const metric of classifyMetrics(meta.pipelineName, meta.stageName)) {
-      const key = `${direction}|${row.deal_id}|${metric}`;
-      const current = best.get(key);
-      if (!current || day < current.day) {
-        best.set(key, { dealId: row.deal_id, metric, day, pipelineName: meta.pipelineName });
-      }
-    }
+    events.push({
+      dealId: row.deal_id,
+      metric,
+      direction,
+      day: rawDate.slice(0, 10),
+      pipelineName: meta.pipelineName,
+      origin: originByDealId.get(row.deal_id) ?? "Outra origem",
+    });
   }
-
-  return best;
+  return events;
 }
 
 /** Carrega os eventos de funil (SQL/RA/RR/Contrato), entrada E saída, pro range e
- * funis informados. `pipelineNames` vazio = todos os funis existentes (mesma semântica
- * do resto da tela); caso contrário, só etapas desses funis contam. */
+ * funis informados — 1 linha por movimentação real, sem dedupe (mesma contagem bruta
+ * do relatório nativo "Taxa de Conversão" do PipeRun). `pipelineNames` vazio = todos os
+ * funis existentes (mesma semântica do resto da tela). */
 export async function loadFunnelStageEvents(
   range: DateRange,
   pipelineNames: string[],
@@ -144,19 +133,9 @@ export async function loadFunnelStageEvents(
     }
   }
 
-  const entradaBest = reduceToEvents(entradaRows, "in_date", stageMeta, "entrada");
-  const saidaBest = reduceToEvents(saidaRows, "out_date", stageMeta, "saida");
-
-  if (entradaBest.size === 0 && saidaBest.size === 0) return [];
-
   // Origem/UTM pro canal — buscado por lote de id porque o negócio pode ter sido
   // CRIADO fora do range selecionado (é literalmente o motivo de essa função existir).
-  const dealIds = Array.from(
-    new Set([
-      ...Array.from(entradaBest.values(), (v) => v.dealId),
-      ...Array.from(saidaBest.values(), (v) => v.dealId),
-    ]),
-  );
+  const dealIds = Array.from(new Set([...entradaRows, ...saidaRows].map((r) => r.deal_id)));
   const deals = await fetchDealsByIds(dealIds);
   const originByDealId = new Map(
     deals.map(
@@ -164,19 +143,8 @@ export async function loadFunnelStageEvents(
     ),
   );
 
-  function toEvents(
-    best: Map<string, { dealId: number; metric: FunnelMetric; day: string; pipelineName: string }>,
-    direction: "entrada" | "saida",
-  ): FunnelStageEvent[] {
-    return Array.from(best.values(), (v) => ({
-      dealId: v.dealId,
-      metric: v.metric,
-      direction,
-      day: v.day,
-      pipelineName: v.pipelineName,
-      origin: originByDealId.get(v.dealId) ?? "Outra origem",
-    }));
-  }
-
-  return [...toEvents(entradaBest, "entrada"), ...toEvents(saidaBest, "saida")];
+  return [
+    ...toEvents(entradaRows, "in_date", stageMeta, "entrada", originByDealId),
+    ...toEvents(saidaRows, "out_date", stageMeta, "saida", originByDealId),
+  ];
 }

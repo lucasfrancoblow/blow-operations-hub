@@ -178,36 +178,22 @@ export interface PipeRunStageHistory {
   out_date: string | null;
 }
 
-interface PipeRunCursorPage<T> {
-  success: boolean;
-  data: T[];
-  meta: { cursor: { next: string | null } };
-}
-
-async function piperunCursorFetch<T>(path: string, params: Record<string, string>): Promise<T[]> {
-  const token = getToken();
-  if (!token) {
-    throw new Error("PIPERUN_API_KEY não configurada no servidor.");
-  }
-
+// A doc de /stageHistories descreve paginação por `cursor`, mas a resposta real desta
+// conta usa o MESMO formato page-based dos outros endpoints (`total_pages`/
+// `current_page`, sem `meta.cursor` nenhum) — confirmado direto na API (340 registros
+// totais, `total_pages: 2`, sem nunca aparecer `cursor.next`). Paginação por cursor
+// silenciosamente parava na 1ª página (200 de 340 linhas) sem erro nenhum, porque
+// "sem next" e "cursor não existe no formato" são indistinguíveis do jeito que a
+// função antiga checava. Reaproveita piperunFetch (mesma paginação de fetchDealsInRange).
+async function fetchAllPages<T>(path: string, params: Record<string, string>): Promise<T[]> {
   const items: T[] = [];
-  let cursor = "";
+  const first = await piperunFetch<T>(path, { ...params, page: "1" });
+  items.push(...first.data);
 
-  while (true) {
-    const url = new URL(`${BASE_URL}${path}`);
-    for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
-    if (cursor) url.searchParams.set("cursor", cursor);
-
-    const response = await fetch(url, { headers: { token, Accept: "application/json" } });
-    if (!response.ok) {
-      throw new Error(`PipeRun API respondeu ${response.status} em ${path}`);
-    }
-    const page = (await response.json()) as PipeRunCursorPage<T>;
-    items.push(...page.data);
-
-    const next = page.meta?.cursor?.next;
-    if (!next) break;
-    cursor = next;
+  const totalPages = first.meta.total_pages;
+  for (let page = 2; page <= totalPages; page++) {
+    const next = await piperunFetch<T>(path, { ...params, page: String(page) });
+    items.push(...next.data);
   }
 
   return items;
@@ -228,7 +214,7 @@ export async function fetchStageEntradasInRange(
   since: string,
   until: string,
 ): Promise<PipeRunStageHistory[]> {
-  return piperunCursorFetch<PipeRunStageHistory>("/stageHistories", {
+  return fetchAllPages<PipeRunStageHistory>("/stageHistories", {
     show: String(PAGE_SIZE),
     in_date_start: `${since} 00:00:00`,
     in_date_end: `${until} 23:59:59`,
@@ -243,7 +229,7 @@ export async function fetchStageSaidasInRange(
   since: string,
   until: string,
 ): Promise<PipeRunStageHistory[]> {
-  return piperunCursorFetch<PipeRunStageHistory>("/stageHistories", {
+  return fetchAllPages<PipeRunStageHistory>("/stageHistories", {
     show: String(PAGE_SIZE),
     out_date_start: `${since} 00:00:00`,
     out_date_end: `${until} 23:59:59`,
