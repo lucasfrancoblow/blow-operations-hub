@@ -38,6 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MultiSelectFilter } from "@/components/hub/MultiSelectFilter";
 import {
   Table,
   TableBody,
@@ -164,24 +165,33 @@ function LeadsRecentesPage() {
   });
 
   const [search, setSearch] = useState("");
-  const [pipeline, setPipeline] = useState("todos");
-  const [origem, setOrigem] = useState("todas");
-  const [destino, setDestino] = useState("todos");
+  const [pipelines, setPipelines] = useState<string[]>([]);
+  const [origens, setOrigens] = useState<string[]>([]);
+  const [destinos, setDestinos] = useState<string[]>([]);
+  const [owners, setOwners] = useState<string[]>([]);
   const [progresso, setProgresso] = useState("todos");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<LeadRecente | null>(null);
 
+  // Nomes de responsável não vêm prontos do servidor (diferente de pipelineNames/
+  // origins/destinos) — derivados aqui mesmo em cima da lista completa, não da já
+  // filtrada, senão as opções do próprio filtro encolheriam ao usá-lo.
+  const ownerNames = useMemo(() => {
+    return Array.from(new Set((data?.leads ?? []).map((l) => l.ownerName))).sort();
+  }, [data]);
+
   const filtered = useMemo(() => {
     return (data?.leads ?? []).filter((l) => {
       if (search && !l.title.toLowerCase().includes(search.toLowerCase())) return false;
-      if (pipeline !== "todos" && l.pipelineName !== pipeline) return false;
-      if (origem !== "todas" && l.origin !== origem) return false;
-      if (destino !== "todos" && l.destino !== destino) return false;
+      if (pipelines.length > 0 && !pipelines.includes(l.pipelineName)) return false;
+      if (origens.length > 0 && !origens.includes(l.origin)) return false;
+      if (destinos.length > 0 && !destinos.includes(l.destino)) return false;
+      if (owners.length > 0 && !owners.includes(l.ownerName)) return false;
       if (progresso === "novo" && l.emAndamento) return false;
       if (progresso === "andamento" && !l.emAndamento) return false;
       return true;
     });
-  }, [data, search, pipeline, origem, destino, progresso]);
+  }, [data, search, pipelines, origens, destinos, owners, progresso]);
 
   // KPIs e gráficos respondem aos mesmos filtros da tabela — recalculados em cima da
   // lista já filtrada, não do agregado bruto do servidor. Sem isso, filtrar por
@@ -510,7 +520,7 @@ function LeadsRecentesPage() {
             </div>
           )}
 
-          <div className="grid gap-3 rounded-xl border border-border/60 bg-card/60 p-3 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-3 rounded-xl border border-border/60 bg-card/60 p-3 sm:grid-cols-2 xl:grid-cols-6">
             <Input
               value={search}
               onChange={(e) => {
@@ -519,63 +529,42 @@ function LeadsRecentesPage() {
               }}
               placeholder="Buscar por nome"
             />
-            <Select
-              value={pipeline}
-              onValueChange={(v) => {
-                setPipeline(v);
+            <MultiSelectFilter
+              label="Funis"
+              options={data?.pipelineNames ?? []}
+              selected={pipelines}
+              onChange={(v) => {
+                setPipelines(v);
                 setPage(1);
               }}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os funis</SelectItem>
-                {(data?.pipelineNames ?? []).map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {p}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={origem}
-              onValueChange={(v) => {
-                setOrigem(v);
+            />
+            <MultiSelectFilter
+              label="Origens"
+              options={data?.origins ?? []}
+              selected={origens}
+              onChange={(v) => {
+                setOrigens(v);
                 setPage(1);
               }}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas as origens</SelectItem>
-                {(data?.origins ?? []).map((o) => (
-                  <SelectItem key={o} value={o}>
-                    {o}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={destino}
-              onValueChange={(v) => {
-                setDestino(v);
+            />
+            <MultiSelectFilter
+              label="Destinos"
+              options={data?.destinos ?? []}
+              selected={destinos}
+              onChange={(v) => {
+                setDestinos(v);
                 setPage(1);
               }}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os destinos</SelectItem>
-                {(data?.destinos ?? []).map((d) => (
-                  <SelectItem key={d} value={d}>
-                    {d}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
+            <MultiSelectFilter
+              label="Responsáveis"
+              options={ownerNames}
+              selected={owners}
+              onChange={(v) => {
+                setOwners(v);
+                setPage(1);
+              }}
+            />
             <Select
               value={progresso}
               onValueChange={(v) => {
