@@ -8,6 +8,7 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip as RTooltip } from "r
 
 import { getLeadsRecentesData } from "@/services/leads-recentes-service";
 import { getAdMetricsData } from "@/services/ad-metrics-service";
+import { getFunnelConversaoData } from "@/services/funnel-conversao-service";
 import { adChannelFor } from "@/lib/ad-metrics";
 import { defaultDateRange, type DateRange, type LeadRecente } from "@/lib/leads-recentes";
 import { canAccessPage } from "@/lib/page-access";
@@ -23,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MultiSelectFilter } from "@/components/hub/MultiSelectFilter";
 
 export const Route = createFileRoute("/funil-marketing")({
   beforeLoad: ({ context }) => {
@@ -59,19 +61,25 @@ const CHANNEL_COLOR: Record<(typeof CHANNEL_ORDER)[number], string> = {
   Outros: "var(--color-chart-5)",
 };
 
-// Só o funil de expansão/franquia entra aqui — Blow Academy, Sucesso do Franqueado e
-// Implantação também vivem no PipeRun mas são outras iniciativas (curso, franqueado já
-// ativo, onboarding pós-venda), não geração de lead de expansão. Sem esse filtro o
-// "Novos Leads" do Geral contava tudo isso junto — confirmado contra a planilha
-// "Leadings Semanais" pra semana de 20-26/08/2026 (149 negócios no PipeRun no total,
-// 117 só nesses dois funis, 116 na planilha do time).
-const MARKETING_FUNNEL_PIPELINES = new Set(["PRÉ VENDAS", "EXPANSÃO CLOSER", "FUNIL RAPHA MATTOS"]);
+// Só o funil de expansão/franquia entra aqui por padrão — Blow Academy, Sucesso do
+// Franqueado e Implantação também vivem no PipeRun mas são outras iniciativas (curso,
+// franqueado já ativo, onboarding pós-venda), não geração de lead de expansão. Sem
+// filtro nenhum o "Novos Leads" do Geral contava tudo isso junto — confirmado contra a
+// planilha "Leadings Semanais" pra semana de 20-26/08/2026 (149 negócios no PipeRun no
+// total, 117 só nesses funis, 116 na planilha do time). Isso costumava ser uma allowlist
+// fixa no código (Set hardcoded) — problema: pipeline novo criado no PipeRun (ex.: Funil
+// ABF, Funil Robo, que também têm etapa SQL própria) ficava fora até alguém lembrar de
+// atualizar essa constante. Agora é o valor INICIAL de um filtro ajustável na tela —
+// time pode incluir/excluir funil sem precisar de deploy.
+const DEFAULT_MARKETING_FUNNEL_PIPELINES = [
+  "PRÉ VENDAS",
+  "EXPANSÃO CLOSER",
+  "Funil Rapha Mattos",
+  "Funil ABF",
+  "FUNIL ROBO",
+];
 
-function isMarketingFunnelLead(lead: LeadRecente): boolean {
-  return MARKETING_FUNNEL_PIPELINES.has(lead.pipelineName.toUpperCase());
-}
-
-function channelFor(lead: LeadRecente): string {
+function channelFor(lead: Pick<LeadRecente, "pipelineName" | "origin">): string {
   if (lead.pipelineName.toLowerCase().includes("rapha mattos")) return "Rapha Mattos";
   if (lead.origin === "Meta (pago)") return "Facebook Ads";
   if (lead.origin === "Google") return "Google";
@@ -357,6 +365,12 @@ const CHANNEL_FILTERS = ["Todos os canais", ...CHANNEL_ORDER] as const;
 function FunilMarketingPage() {
   const [range, setRange] = useState<DateRange>(() => defaultDateRange());
   const [channelFilter, setChannelFilter] = useState<string>("Todos os canais");
+  // Vazio = todos os funis (mesma semântica do MultiSelectFilter no Radar de Leads) —
+  // começa preenchido com os funis de expansão/franquia, não vazio, senão a página
+  // reproduziria de novo o bug antigo de somar Blow Academy/Implantação no "Geral".
+  const [pipelineFilter, setPipelineFilter] = useState<string[]>(
+    DEFAULT_MARKETING_FUNNEL_PIPELINES,
+  );
   // Período próprio por canal (Facebook/Google) — pra ver uma janela diferente da
   // página sem afetar o resto. Recorta dentro dos dados já carregados no range global.
   const [channelRanges, setChannelRanges] = useState<Record<string, DateRange>>({});
@@ -381,26 +395,48 @@ function FunilMarketingPage() {
     refetchInterval: 60_000,
   });
 
+  // SQL/RA/RR/Contrato pela data REAL de entrada na etapa (PipeRun /stageHistories),
+  // não pelo created_at do negócio + etapa atual — ver src/lib/funnel-conversao.ts.
+  const { data: funnelEvents, isLoading: funnelLoading } = useQuery({
+    queryKey: ["funnel-conversao", range.from, range.to, pipelineFilter.slice().sort().join(",")],
+    queryFn: () => getFunnelConversaoData({ data: { range, pipelineNames: pipelineFilter } }),
+    refetchInterval: 60_000,
+  });
+
   const table = useMemo(() => {
     if (!data) return null;
 
     const byChannelDay = new Map<string, Map<string, WeekCounts>>();
     for (const ch of [...CHANNEL_ORDER, "Geral"]) byChannelDay.set(ch, new Map());
 
+    const pipelineFilterUpper = new Set(pipelineFilter.map((p) => p.toUpperCase()));
+
+    // Novos Leads continua pela data de criação do negócio — isso nunca esteve errado,
+    // só o que vinha DEPOIS (SQL/RA/...) é que precisava da data real de entrada.
     for (const l of data.leads) {
-      if (!isMarketingFunnelLead(l)) continue;
+      if (pipelineFilterUpper.size > 0 && !pipelineFilterUpper.has(l.pipelineName.toUpperCase()))
+        continue;
       const day = l.createdAt.slice(0, 10);
       const ch = channelFor(l);
       for (const target of [ch, "Geral"]) {
         const m = byChannelDay.get(target)!;
         const cur = m.get(day) ?? emptyCounts();
         cur.novosLeads += 1;
-        if (l.isSql) cur.sql += 1;
-        if (l.isReuniaoAgendada) cur.reuniaoAgendada += 1;
-        if (l.isReuniaoRealizada) cur.reuniaoRealizada += 1;
-        if (l.isContratoEnviado) cur.contratoEnviado += 1;
-        if (l.isContratoAssinado) cur.contratoAssinado += 1;
         m.set(day, cur);
+      }
+    }
+
+    for (const e of funnelEvents ?? []) {
+      const ch = channelFor(e);
+      for (const target of [ch, "Geral"]) {
+        const m = byChannelDay.get(target)!;
+        const cur = m.get(e.achievedAt) ?? emptyCounts();
+        if (e.metric === "sql") cur.sql += 1;
+        if (e.metric === "reuniaoAgendada") cur.reuniaoAgendada += 1;
+        if (e.metric === "reuniaoRealizada") cur.reuniaoRealizada += 1;
+        if (e.metric === "contratoEnviado") cur.contratoEnviado += 1;
+        if (e.metric === "contratoAssinado") cur.contratoAssinado += 1;
+        m.set(e.achievedAt, cur);
       }
     }
 
@@ -419,7 +455,7 @@ function FunilMarketingPage() {
     }
 
     return { byChannelDay };
-  }, [data, adMetrics]);
+  }, [data, adMetrics, funnelEvents, pipelineFilter]);
 
   const funnelTotals = useMemo(() => {
     if (!table) return null;
@@ -449,7 +485,7 @@ function FunilMarketingPage() {
     return all.filter((c) => c === channelFilter);
   }, [channelFilter]);
 
-  const loading = isLoading || adLoading;
+  const loading = isLoading || adLoading || funnelLoading;
 
   function exportCsv() {
     if (!table) return;
@@ -485,6 +521,13 @@ function FunilMarketingPage() {
         subtitle="Indicadores semanais por canal — mesmo formato da planilha 'Indicadores Expansão', agora automático"
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <MultiSelectFilter
+              label="Funis"
+              options={data?.pipelineNames ?? []}
+              selected={pipelineFilter}
+              onChange={setPipelineFilter}
+              className="w-[200px]"
+            />
             <Select value={channelFilter} onValueChange={setChannelFilter}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue />

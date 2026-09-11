@@ -70,11 +70,14 @@ const ETAPAS_INICIAIS = new Set(["Novo Lead", "NOVO LEAD", "Contato Inicial"]);
 // bastão) → EXPANSÃO CLOSER (0 Reunião Realizada → ... → 4 Contrato → 5 Venda). Cada
 // flag abaixo é cumulativa: um lead que já está no Closer necessariamente passou por
 // SQL e RA na Pré Vendas, mesmo que o card de lá não mostre mais isso.
-const PIPELINE_CLOSER = "EXPANSÃO CLOSER";
-const STAGE_SQL = "SQL";
-const STAGE_REUNIAO_AGENDADA = "Reunião Agendada";
-const STAGE_CONTRATO = "Contrato";
-const STAGE_VENDA = "Venda";
+// Exportadas pra funnel-conversao.ts usar a MESMA classificação de etapa, só que
+// aplicada em cima de quando o negócio ENTROU na etapa (stageHistories), não da etapa
+// atual — ver funnel-conversao.ts pro porquê essa segunda forma de contar existe.
+export const PIPELINE_CLOSER = "EXPANSÃO CLOSER";
+export const STAGE_SQL = "SQL";
+export const STAGE_REUNIAO_AGENDADA = "Reunião Agendada";
+export const STAGE_CONTRATO = "Contrato";
+export const STAGE_VENDA = "Venda";
 
 function funnelFlags(pipelineName: string, stageName: string) {
   const inCloser = pipelineName.toUpperCase() === PIPELINE_CLOSER;
@@ -89,7 +92,9 @@ function funnelFlags(pipelineName: string, stageName: string) {
 // Códigos de origem usados pelos workflows de criação de card no n8n (ver Deal-* nodes).
 // Não é uma lista exaustiva de todo código que já existiu no CRM — só os que os fluxos
 // atuais realmente geram; qualquer outro cai no fallback "Outra origem".
-const ORIGIN_LABELS: Record<number, string> = {
+// Exportado pra ser reaproveitado por funnel-conversao.ts (mesmos códigos de origem,
+// pra classificar canal de negócios que vêm do histórico de etapa, não do fetch normal).
+export const ORIGIN_LABELS: Record<number, string> = {
   739346: "Sem UTM",
   739347: "Meta (pago)",
   739344: "Meta (orgânico)",
@@ -153,14 +158,28 @@ function extractPhone(deal: PipeRunDeal): string | null {
   return digits || null;
 }
 
-/** Formata um telefone brasileiro com DDI ("5582993089537" → "(82) 99308-9537").
- * Números fora do formato esperado (alguns leads de formulário chegam com dígito
- * duplicado) caem no fallback: devolve os dígitos como vieram, sem tentar adivinhar. */
+/** Formata um telefone brasileiro ("5582993089537" → "(82) 99308-9537").
+ * Leads de alguns formulários (Form Interesses, Form Lal) chegam com o "55"
+ * do país duplicado na frente (ex.: "555584986098064" — o número de verdade,
+ * "5584986098064", está lá dentro, só com 2 dígitos extras antes) — corta o
+ * excesso pelos últimos 13 dígitos antes de formatar. Fora desses tamanhos
+ * conhecidos (12/13 com DDI, 10/11 sem DDI), devolve os dígitos como vieram
+ * em vez de arriscar formatar errado — geralmente é lead de teste/robô mesmo,
+ * sem telefone real (ex.: "55", "5199999999"). */
 export function formatPhoneBR(digits: string | null): string | null {
   if (!digits) return null;
-  const withoutCountry = digits.startsWith("55") ? digits.slice(2) : digits;
-  const ddd = withoutCountry.slice(0, 2);
-  const rest = withoutCountry.slice(2);
+  const normalized = digits.length > 13 ? digits.slice(-13) : digits;
+  let ddd: string;
+  let rest: string;
+  if (normalized.length === 13 || normalized.length === 12) {
+    ddd = normalized.slice(2, 4);
+    rest = normalized.slice(4);
+  } else if (normalized.length === 11 || normalized.length === 10) {
+    ddd = normalized.slice(0, 2);
+    rest = normalized.slice(2);
+  } else {
+    return digits;
+  }
   if (rest.length === 9) return `(${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
   if (rest.length === 8) return `(${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
   return digits;
