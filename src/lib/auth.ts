@@ -16,7 +16,10 @@ export { ROLE_LABELS, type SessionUser, type UserRole };
 
 const KEY_LENGTH = 64;
 const SESSION_COOKIE_NAME = "blow_session";
-const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 dias
+// 400 dias é o teto que navegadores e o h3 aceitam para um cookie (COOKIE_MAX_AGE_LIMIT).
+// Na prática a sessão "nunca expira" enquanto a pessoa usa o hub: getSessionUser renova a
+// sessão a cada poucos dias (ver renewSessionIfOld em session.ts).
+export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 400;
 
 export function hashPassword(password: string): string {
   const salt = randomBytes(16).toString("hex");
