@@ -8,7 +8,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { TableHead } from "@/components/ui/table";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "motion/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {

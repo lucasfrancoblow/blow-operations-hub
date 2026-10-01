@@ -10,13 +10,13 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "motion/react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { TopNav } from "@/components/layout/TopNav";
+import { AppShell } from "@/components/layout/AppShell";
 import { ThemeProvider, THEME_INIT_SCRIPT } from "@/components/theme-provider";
 import { getCurrentUserFn } from "@/services/auth-service";
 import type { SessionUser } from "@/lib/auth";
@@ -97,10 +97,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "hubLOw — Hub de Operações BLOW" },
+      { title: "hubLOw — Hub da Expansão" },
       {
         name: "description",
-        content: "Painel central de automações, incidentes e integrações da BLOW.",
+        content: "Hub da Expansão bLOw: leads, funil, campanhas e ligações em tempo real.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -168,12 +168,9 @@ function RootComponent() {
           {isLoginRoute ? (
             <PageTransition />
           ) : (
-            <div className="min-h-screen w-full bg-background surface-grid">
-              <TopNav user={user as SessionUser} />
-              <main className="mx-auto min-w-0 px-4 py-6 sm:px-6 lg:px-8">
-                <PageTransition />
-              </main>
-            </div>
+            <AppShell user={user as SessionUser}>
+              <PageTransition />
+            </AppShell>
           )}
           <Toaster position="top-right" />
         </TooltipProvider>

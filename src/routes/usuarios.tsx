@@ -13,12 +13,6 @@ import {
   setUserProfileFn,
   setUserRoleFn,
 } from "@/services/auth-service";
-import {
-  grantProjectAccessFn,
-  listProjectsFn,
-  listUserProjectAccessFn,
-  revokeProjectAccessFn,
-} from "@/services/tasks-service";
 import type { UserRole } from "@/lib/auth";
 import { PAGE_KEYS, PAGE_LABELS, type PageKey } from "@/lib/page-access";
 import { PageHeader, SectionCard } from "@/components/hub/primitives";
@@ -131,29 +125,6 @@ function UsuariosPage() {
   // todo mundo que não é super_admin é restrito — inclusive admin agora.
   const showsPageAccessSection =
     profileTarget?.role === "member" || profileTarget?.role === "external";
-  const showsProjectAccessSection = profileTarget != null && profileTarget.role !== "super_admin";
-
-  const { data: allProjects = [] } = useQuery({
-    queryKey: ["task-projects"],
-    queryFn: () => listProjectsFn(),
-    enabled: showsProjectAccessSection,
-  });
-
-  const { data: memberProjectIds = [] } = useQuery({
-    queryKey: ["user-project-access", profileTarget?.id],
-    queryFn: () => listUserProjectAccessFn({ data: { userId: profileTarget!.id } }),
-    enabled: showsProjectAccessSection,
-  });
-
-  const projectAccessMutation = useMutation({
-    mutationFn: ({ projectId, grant }: { projectId: string; grant: boolean }) =>
-      grant
-        ? grantProjectAccessFn({ data: { projectId, userId: profileTarget!.id } })
-        : revokeProjectAccessFn({ data: { projectId, userId: profileTarget!.id } }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["user-project-access", profileTarget?.id] }),
-    onError: (error: Error) => toast.error(`Não foi possível atualizar o acesso: ${error.message}`),
-  });
 
   const changeRoleMutation = useMutation({
     mutationFn: (input: { id: string; role: UserRole }) => setUserRoleFn({ data: input }),
@@ -483,33 +454,6 @@ function UsuariosPage() {
                   <span className="text-sm">{PAGE_LABELS[key]}</span>
                 </label>
               ))}
-            </div>
-          )}
-
-          {showsProjectAccessSection && (
-            <div className="space-y-2 border-t border-border/60 pt-4">
-              <Label>User Stories de Tarefas que ele vê</Label>
-              {allProjects.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nenhuma User Story criada ainda.</p>
-              ) : (
-                allProjects.map((project) => (
-                  <label
-                    key={project.id}
-                    className="flex items-center gap-2.5 rounded-md px-1.5 py-1 hover:bg-muted/60"
-                  >
-                    <Checkbox
-                      checked={memberProjectIds.includes(project.id)}
-                      onCheckedChange={(checked) =>
-                        projectAccessMutation.mutate({
-                          projectId: project.id,
-                          grant: checked === true,
-                        })
-                      }
-                    />
-                    <span className="text-sm">{project.name}</span>
-                  </label>
-                ))
-              )}
             </div>
           )}
         </DialogContent>

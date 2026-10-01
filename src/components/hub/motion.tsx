@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { motion, useReducedMotion, type Variants } from "framer-motion";
+import { motion, useReducedMotion, type Variants } from "motion/react";
 
 // Curva de easing usada em todo o hub — combina com o tom "tech" pedido: entra
 // rápido e assenta suave, sem parecer elástico/brincalhão.

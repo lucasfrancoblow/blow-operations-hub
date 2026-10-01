@@ -10,10 +10,7 @@ export const PAGE_KEYS = [
   "funil-marketing",
   "daily-expansao",
   "ligacoes",
-  "automacoes",
-  "incidentes",
-  "tarefas",
-  "chamados",
+  "campanhas",
 ] as const;
 
 export type PageKey = (typeof PAGE_KEYS)[number];
@@ -23,10 +20,7 @@ export const PAGE_LABELS: Record<PageKey, string> = {
   "funil-marketing": "Funil de MKT",
   "daily-expansao": "Daily Expansão",
   ligacoes: "Ligações",
-  automacoes: "Automações",
-  incidentes: "Incidentes",
-  tarefas: "Tarefas",
-  chamados: "Chamados",
+  campanhas: "Campanhas",
 };
 
 function isAdminLike(role: SessionUser["role"] | undefined): boolean {

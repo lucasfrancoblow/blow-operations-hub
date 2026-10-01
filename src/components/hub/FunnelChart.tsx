@@ -1,4 +1,4 @@
-import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
+import { motion, useReducedMotion, AnimatePresence } from "motion/react";
 import { ChevronDown } from "lucide-react";
 import { AnimatedNumber } from "@/components/hub/motion";
 

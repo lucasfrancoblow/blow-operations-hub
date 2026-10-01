@@ -10,29 +10,24 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ChamadosRouteImport } from './routes/chamados'
+import { Route as CampanhasRouteImport } from './routes/campanhas'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as DailyExpansaoRouteImport } from './routes/daily-expansao'
 import { Route as DocumentacaoRouteImport } from './routes/documentacao'
 import { Route as FunilMarketingRouteImport } from './routes/funil-marketing'
-import { Route as IncidentesRouteImport } from './routes/incidentes'
 import { Route as LeadsRecentesRouteImport } from './routes/leads-recentes'
 import { Route as LigacoesRouteImport } from './routes/ligacoes'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as TarefasRouteImport } from './routes/tarefas'
 import { Route as UsuariosRouteImport } from './routes/usuarios'
-import { Route as AutomacoesIndexRouteImport } from './routes/automacoes.index'
-import { Route as AutomacoesAutomationIdRouteImport } from './routes/automacoes.$automationId'
-import { Route as ApiCronTaskDigestRouteImport } from './routes/api/cron/task-digest'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ChamadosRoute = ChamadosRouteImport.update({
-  id: '/chamados',
-  path: '/chamados',
+const CampanhasRoute = CampanhasRouteImport.update({
+  id: '/campanhas',
+  path: '/campanhas',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
@@ -55,11 +50,6 @@ const FunilMarketingRoute = FunilMarketingRouteImport.update({
   path: '/funil-marketing',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IncidentesRoute = IncidentesRouteImport.update({
-  id: '/incidentes',
-  path: '/incidentes',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LeadsRecentesRoute = LeadsRecentesRouteImport.update({
   id: '/leads-recentes',
   path: '/leads-recentes',
@@ -75,154 +65,99 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TarefasRoute = TarefasRouteImport.update({
-  id: '/tarefas',
-  path: '/tarefas',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const UsuariosRoute = UsuariosRouteImport.update({
   id: '/usuarios',
   path: '/usuarios',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AutomacoesIndexRoute = AutomacoesIndexRouteImport.update({
-  id: '/automacoes/',
-  path: '/automacoes/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AutomacoesAutomationIdRoute = AutomacoesAutomationIdRouteImport.update({
-  id: '/automacoes/$automationId',
-  path: '/automacoes/$automationId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiCronTaskDigestRoute = ApiCronTaskDigestRouteImport.update({
-  id: '/api/cron/task-digest',
-  path: '/api/cron/task-digest',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/chamados': typeof ChamadosRoute
+  '/campanhas': typeof CampanhasRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/daily-expansao': typeof DailyExpansaoRoute
   '/documentacao': typeof DocumentacaoRoute
   '/funil-marketing': typeof FunilMarketingRoute
-  '/incidentes': typeof IncidentesRoute
   '/leads-recentes': typeof LeadsRecentesRoute
   '/ligacoes': typeof LigacoesRoute
   '/login': typeof LoginRoute
-  '/tarefas': typeof TarefasRoute
   '/usuarios': typeof UsuariosRoute
-  '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
-  '/automacoes/': typeof AutomacoesIndexRoute
-  '/api/cron/task-digest': typeof ApiCronTaskDigestRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/chamados': typeof ChamadosRoute
+  '/campanhas': typeof CampanhasRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/daily-expansao': typeof DailyExpansaoRoute
   '/documentacao': typeof DocumentacaoRoute
   '/funil-marketing': typeof FunilMarketingRoute
-  '/incidentes': typeof IncidentesRoute
   '/leads-recentes': typeof LeadsRecentesRoute
   '/ligacoes': typeof LigacoesRoute
   '/login': typeof LoginRoute
-  '/tarefas': typeof TarefasRoute
   '/usuarios': typeof UsuariosRoute
-  '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
-  '/automacoes': typeof AutomacoesIndexRoute
-  '/api/cron/task-digest': typeof ApiCronTaskDigestRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/chamados': typeof ChamadosRoute
+  '/campanhas': typeof CampanhasRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/daily-expansao': typeof DailyExpansaoRoute
   '/documentacao': typeof DocumentacaoRoute
   '/funil-marketing': typeof FunilMarketingRoute
-  '/incidentes': typeof IncidentesRoute
   '/leads-recentes': typeof LeadsRecentesRoute
   '/ligacoes': typeof LigacoesRoute
   '/login': typeof LoginRoute
-  '/tarefas': typeof TarefasRoute
   '/usuarios': typeof UsuariosRoute
-  '/automacoes/$automationId': typeof AutomacoesAutomationIdRoute
-  '/automacoes/': typeof AutomacoesIndexRoute
-  '/api/cron/task-digest': typeof ApiCronTaskDigestRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/chamados'
+    | '/campanhas'
     | '/configuracoes'
     | '/daily-expansao'
     | '/documentacao'
     | '/funil-marketing'
-    | '/incidentes'
     | '/leads-recentes'
     | '/ligacoes'
     | '/login'
-    | '/tarefas'
     | '/usuarios'
-    | '/automacoes/$automationId'
-    | '/automacoes/'
-    | '/api/cron/task-digest'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/chamados'
+    | '/campanhas'
     | '/configuracoes'
     | '/daily-expansao'
     | '/documentacao'
     | '/funil-marketing'
-    | '/incidentes'
     | '/leads-recentes'
     | '/ligacoes'
     | '/login'
-    | '/tarefas'
     | '/usuarios'
-    | '/automacoes/$automationId'
-    | '/automacoes'
-    | '/api/cron/task-digest'
   id:
     | '__root__'
     | '/'
-    | '/chamados'
+    | '/campanhas'
     | '/configuracoes'
     | '/daily-expansao'
     | '/documentacao'
     | '/funil-marketing'
-    | '/incidentes'
     | '/leads-recentes'
     | '/ligacoes'
     | '/login'
-    | '/tarefas'
     | '/usuarios'
-    | '/automacoes/$automationId'
-    | '/automacoes/'
-    | '/api/cron/task-digest'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ChamadosRoute: typeof ChamadosRoute
+  CampanhasRoute: typeof CampanhasRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
   DailyExpansaoRoute: typeof DailyExpansaoRoute
   DocumentacaoRoute: typeof DocumentacaoRoute
   FunilMarketingRoute: typeof FunilMarketingRoute
-  IncidentesRoute: typeof IncidentesRoute
   LeadsRecentesRoute: typeof LeadsRecentesRoute
   LigacoesRoute: typeof LigacoesRoute
   LoginRoute: typeof LoginRoute
-  TarefasRoute: typeof TarefasRoute
   UsuariosRoute: typeof UsuariosRoute
-  AutomacoesAutomationIdRoute: typeof AutomacoesAutomationIdRoute
-  AutomacoesIndexRoute: typeof AutomacoesIndexRoute
-  ApiCronTaskDigestRoute: typeof ApiCronTaskDigestRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -234,11 +169,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/chamados': {
-      id: '/chamados'
-      path: '/chamados'
-      fullPath: '/chamados'
-      preLoaderRoute: typeof ChamadosRouteImport
+    '/campanhas': {
+      id: '/campanhas'
+      path: '/campanhas'
+      fullPath: '/campanhas'
+      preLoaderRoute: typeof CampanhasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/configuracoes': {
@@ -269,13 +204,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FunilMarketingRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/incidentes': {
-      id: '/incidentes'
-      path: '/incidentes'
-      fullPath: '/incidentes'
-      preLoaderRoute: typeof IncidentesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/leads-recentes': {
       id: '/leads-recentes'
       path: '/leads-recentes'
@@ -297,13 +225,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/tarefas': {
-      id: '/tarefas'
-      path: '/tarefas'
-      fullPath: '/tarefas'
-      preLoaderRoute: typeof TarefasRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/usuarios': {
       id: '/usuarios'
       path: '/usuarios'
@@ -311,46 +232,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UsuariosRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/automacoes/': {
-      id: '/automacoes/'
-      path: '/automacoes'
-      fullPath: '/automacoes/'
-      preLoaderRoute: typeof AutomacoesIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/automacoes/$automationId': {
-      id: '/automacoes/$automationId'
-      path: '/automacoes/$automationId'
-      fullPath: '/automacoes/$automationId'
-      preLoaderRoute: typeof AutomacoesAutomationIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/cron/task-digest': {
-      id: '/api/cron/task-digest'
-      path: '/api/cron/task-digest'
-      fullPath: '/api/cron/task-digest'
-      preLoaderRoute: typeof ApiCronTaskDigestRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ChamadosRoute: ChamadosRoute,
+  CampanhasRoute: CampanhasRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
   DailyExpansaoRoute: DailyExpansaoRoute,
   DocumentacaoRoute: DocumentacaoRoute,
   FunilMarketingRoute: FunilMarketingRoute,
-  IncidentesRoute: IncidentesRoute,
   LeadsRecentesRoute: LeadsRecentesRoute,
   LigacoesRoute: LigacoesRoute,
   LoginRoute: LoginRoute,
-  TarefasRoute: TarefasRoute,
   UsuariosRoute: UsuariosRoute,
-  AutomacoesAutomationIdRoute: AutomacoesAutomationIdRoute,
-  AutomacoesIndexRoute: AutomacoesIndexRoute,
-  ApiCronTaskDigestRoute: ApiCronTaskDigestRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

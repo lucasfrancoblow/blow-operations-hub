@@ -20,8 +20,8 @@ export async function requireSessionUser(): Promise<SessionUser> {
   return user;
 }
 
-/** Usado por qualquer server function ligada a uma aba controlável (tasks,
- * chamados, projetos, anexos) — fecha a brecha de hoje onde esconder a aba no
+/** Usado por qualquer server function ligada a uma aba controlável (leads,
+ * funil, ligações, campanhas) — fecha a brecha de hoje onde esconder a aba no
  * menu não impedia chamar a função direto. */
 export async function requirePageAccess(key: PageKey): Promise<SessionUser> {
   const user = await requireSessionUser();
@@ -29,12 +29,4 @@ export async function requirePageAccess(key: PageKey): Promise<SessionUser> {
     throw new Error("Você não tem acesso a essa página.");
   }
   return user;
-}
-
-export async function requireTasksAccess(): Promise<SessionUser> {
-  return requirePageAccess("tarefas");
-}
-
-export async function requireChamadosAccess(): Promise<SessionUser> {
-  return requirePageAccess("chamados");
 }

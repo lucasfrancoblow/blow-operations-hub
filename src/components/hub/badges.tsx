@@ -7,7 +7,6 @@ import type {
   IncidentStatus,
   SystemStatus,
 } from "@/types/hub";
-import type { TaskPriority, TaskStatus } from "@/types/tasks";
 
 const tone = {
   success: "border-success/30 bg-success/12 text-success",
@@ -95,29 +94,6 @@ export function CredentialStatusBadge({ value }: { value: CredentialStatus }) {
     Ativa: "success",
     "Revisão pendente": "warning",
     Expirada: "critical",
-  };
-  return <Pill variant={map[value]}>{value}</Pill>;
-}
-
-export function TaskPriorityBadge({ value }: { value: TaskPriority }) {
-  const map: Record<TaskPriority, Tone> = {
-    Crítica: "critical",
-    Alta: "brand",
-    Média: "warning",
-    Baixa: "info",
-  };
-  return <Pill variant={map[value]}>{value}</Pill>;
-}
-
-export function TaskStatusBadge({ value }: { value: TaskStatus }) {
-  const map: Record<TaskStatus, Tone> = {
-    "Aguardando aceite": "brand",
-    Backlog: "neutral",
-    "Em andamento": "info",
-    Bloqueado: "critical",
-    "Em revisão": "warning",
-    Concluído: "success",
-    Recusada: "critical",
   };
   return <Pill variant={map[value]}>{value}</Pill>;
 }

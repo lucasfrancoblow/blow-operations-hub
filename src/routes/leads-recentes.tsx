@@ -2,7 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { canAccessPage } from "@/lib/page-access";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "motion/react";
 import { CheckCircle2, Download, Inbox, MessageCircle, Radar } from "lucide-react";
 import { downloadCsv } from "@/lib/csv-export";
 import { Button } from "@/components/ui/button";
