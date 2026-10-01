@@ -315,7 +315,7 @@ export function FunnelChart({
                     </>
                   ) : (
                     <>
-                      <div className="flex w-[22%] items-center justify-end pr-2">
+                      <div className="flex w-[20%] items-center justify-end pr-1">
                         <span className="whitespace-nowrap text-sm font-semibold">{value}</span>
                       </div>
                       <div className="flex flex-1 items-center justify-center">
@@ -325,7 +325,7 @@ export function FunnelChart({
                           </span>
                         )}
                       </div>
-                      <div className="flex w-[34%] flex-col items-start justify-center pl-2">
+                      <div className="flex min-w-0 w-[40%] flex-col items-start justify-center overflow-hidden pl-2">
                         <span className="truncate text-xs font-medium text-foreground">
                           {stage.label}
                         </span>

@@ -267,7 +267,12 @@ export function LeadRadar({
   }, [blips]);
 
   return (
-    <div className={cn("grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,16rem)]", className)}>
+    <div
+      className={cn(
+        "grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,16rem)]",
+        className,
+      )}
+    >
       <div ref={wrapRef} className="relative mx-auto aspect-square w-full max-w-[34rem]">
         <canvas
           ref={canvasRef}
@@ -307,7 +312,7 @@ export function LeadRadar({
         )}
       </div>
 
-      <div className="space-y-5 text-sm">
+      <div className="min-w-0 space-y-5 text-sm">
         <div>
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Onde se inscreveram

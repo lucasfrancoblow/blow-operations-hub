@@ -32,7 +32,7 @@ export function GlowRadar({
   return (
     <div className={className ?? "h-72 w-full"}>
       <ResponsiveContainer width="100%" height="100%">
-        <RadarChart data={data} outerRadius="58%">
+        <RadarChart data={data} outerRadius="52%">
           <defs>
             <filter id={`glow-${id}`} x="-30%" y="-30%" width="160%" height="160%">
               <feGaussianBlur stdDeviation="3" result="b" />

@@ -193,7 +193,7 @@ export function SectionCard({
       <Card className="h-full border-border/60 bg-card backdrop-blur transition-shadow hover:shadow-lg hover:shadow-black/5">
         <CardHeader
           className={cn(
-            "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2",
+            "grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,1fr)_auto]",
             collapsible && "cursor-pointer select-none",
           )}
           onClick={collapsible ? () => setCollapsed((c) => !c) : undefined}

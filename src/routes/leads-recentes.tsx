@@ -365,7 +365,7 @@ function LeadsRecentesPage() {
           {/* Filtros */}
           <div className="space-y-4 rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="relative min-w-52 flex-1">
+              <div className="relative w-full sm:min-w-52 sm:flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={search}
@@ -492,7 +492,7 @@ function LeadsRecentesPage() {
                 <LeadRadar leads={filtered} onSelect={setSelected} />
               </SectionCard>
 
-              <div className="grid gap-4 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                 <SectionCard title="Leads por dia" className="lg:col-span-2">
                   <div className="h-56 w-full">
                     <ResponsiveContainer width="100%" height="100%">
@@ -541,7 +541,7 @@ function LeadsRecentesPage() {
                 />
               </SectionCard>
 
-              <div className="grid gap-4 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                 <SectionCard title="Melhores horários de entrada" className="lg:col-span-2">
                   <HourHeatmap grid={heat} />
                 </SectionCard>

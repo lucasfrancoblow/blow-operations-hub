@@ -70,6 +70,7 @@ import {
   type TvData,
   type TvSource,
 } from "@/components/hub/tv/tv-data";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { FunnelChart } from "@/components/ui/funnel-chart";
 import { parsePipeRunDate, todayDateString } from "@/lib/leads-recentes";
 import type { PipelineSnapshot } from "@/lib/pipeline-snapshot";
@@ -202,11 +203,13 @@ function LeadsPorDia({ d }: { d: TvData }) {
 }
 
 function FunilLeads({ d }: { d: TvData }) {
+  const mobile = useIsMobile();
   const c = funnelOf(d);
   if (!c.leads) return <Empty>Sem leads no período.</Empty>;
   return (
     <FunnelChart
-      style={{ aspectRatio: "4.4 / 1" }}
+      orientation={mobile ? "vertical" : "horizontal"}
+      style={{ aspectRatio: mobile ? "1 / 1.5" : "4.4 / 1" }}
       data={[
         { label: "Leads", value: c.leads },
         { label: "SQL", value: c.sql },
@@ -215,7 +218,6 @@ function FunilLeads({ d }: { d: TvData }) {
         { label: "Contrato enviado", value: c.contratoEnviado },
         { label: "Assinado", value: c.contratoAssinado },
       ].map((st) => ({ ...st, shape: Math.pow(st.value, 0.4) }))}
-      orientation="horizontal"
       color="var(--chart-2)"
       edges="curved"
     />

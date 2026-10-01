@@ -25,6 +25,9 @@ export function HourHeatmap({
 
   return (
     <div className={cn("w-full", className)}>
+      <p className="mb-2 text-[11px] text-muted-foreground md:hidden">
+        Deslize para o lado para ver tudo →
+      </p>
       <div className="overflow-x-auto">
         <div className="min-w-[560px]">
           <div className="ml-10 grid grid-cols-[repeat(24,minmax(0,1fr))] gap-1 pb-1 text-center text-[10px] text-muted-foreground">

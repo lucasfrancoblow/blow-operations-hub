@@ -649,7 +649,7 @@ function FunilMarketingPage() {
           </div>
 
           {funnelTotals && (
-            <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
               <SectionCard
                 title={`Funil — ${channelFilter === "Todos os canais" ? "Geral" : channelFilter}`}
               >

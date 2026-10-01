@@ -112,91 +112,85 @@ export function OriginFlow({
     hot && !((hot.side === "l" && hot.name === from) || (hot.side === "r" && hot.name === to));
 
   return (
-    <div className={cn("w-full overflow-x-auto", className)}>
-      <svg
-        viewBox={`0 0 ${W} ${layout.H}`}
-        className="mx-auto h-auto w-full min-w-[560px]"
-        role="img"
-        aria-label="Fluxo de leads da origem até a fase atual"
-      >
-        {layout.ribbons.map((r, i) => (
-          <motion.path
-            key={`${r.from}->${r.to}`}
-            d={`M ${x0} ${r.y0} C ${mid} ${r.y0}, ${mid} ${r.y1}, ${x1} ${r.y1} L ${x1} ${r.y1 + r.h} C ${mid} ${r.y1 + r.h}, ${mid} ${r.y0 + r.h}, ${x0} ${r.y0 + r.h} Z`}
-            fill={colorOf(r.from)}
-            initial={reduce ? false : { opacity: 0 }}
-            animate={{ opacity: dim(r.from, r.to) ? 0.08 : 0.42 }}
-            transition={{ duration: 0.5, delay: reduce ? 0 : i * 0.025 }}
-            onMouseEnter={() => setHot({ side: "l", name: r.from })}
-            onMouseLeave={() => setHot(null)}
-          >
-            <title>{`${r.from} → ${r.to}: ${r.value} ${unit}`}</title>
-          </motion.path>
-        ))}
+    <div className={cn("w-full", className)}>
+      <p className="mb-2 text-[11px] text-muted-foreground md:hidden">
+        Deslize para o lado para ver tudo →
+      </p>
+      <div className="overflow-x-auto">
+        <svg
+          viewBox={`0 0 ${W} ${layout.H}`}
+          className="mx-auto h-auto w-full min-w-[560px]"
+          role="img"
+          aria-label="Fluxo de leads da origem até a fase atual"
+        >
+          {layout.ribbons.map((r, i) => (
+            <motion.path
+              key={`${r.from}->${r.to}`}
+              d={`M ${x0} ${r.y0} C ${mid} ${r.y0}, ${mid} ${r.y1}, ${x1} ${r.y1} L ${x1} ${r.y1 + r.h} C ${mid} ${r.y1 + r.h}, ${mid} ${r.y0 + r.h}, ${x0} ${r.y0 + r.h} Z`}
+              fill={colorOf(r.from)}
+              initial={reduce ? false : { opacity: 0 }}
+              animate={{ opacity: dim(r.from, r.to) ? 0.08 : 0.42 }}
+              transition={{ duration: 0.5, delay: reduce ? 0 : i * 0.025 }}
+              onMouseEnter={() => setHot({ side: "l", name: r.from })}
+              onMouseLeave={() => setHot(null)}
+            >
+              <title>{`${r.from} → ${r.to}: ${r.value} ${unit}`}</title>
+            </motion.path>
+          ))}
 
-        {[...layout.L.values()].map((n) => (
-          <g
-            key={`l-${n.name}`}
-            onMouseEnter={() => setHot({ side: "l", name: n.name })}
-            onMouseLeave={() => setHot(null)}
-            className="cursor-default"
-          >
-            <rect x={LABEL_W} y={n.y} width={NODE_W} height={n.h} rx={3} fill={colorOf(n.name)} />
-            <text
-              x={LABEL_W - 8}
-              y={n.y + n.h / 2}
-              textAnchor="end"
-              dominantBaseline="middle"
-              className="fill-foreground text-[12px] font-medium"
+          {[...layout.L.values()].map((n) => (
+            <g
+              key={`l-${n.name}`}
+              onMouseEnter={() => setHot({ side: "l", name: n.name })}
+              onMouseLeave={() => setHot(null)}
+              className="cursor-default"
             >
-              {n.name.length > 22 ? `${n.name.slice(0, 21)}…` : n.name}
-            </text>
-            <text
-              x={LABEL_W - 8}
-              y={n.y + n.h / 2 + 13}
-              textAnchor="end"
-              dominantBaseline="middle"
-              className="fill-muted-foreground text-[10px]"
-            >
-              {n.total}
-            </text>
-          </g>
-        ))}
+              <rect x={LABEL_W} y={n.y} width={NODE_W} height={n.h} rx={3} fill={colorOf(n.name)} />
+              <text
+                x={LABEL_W - 8}
+                y={n.y + n.h / 2}
+                textAnchor="end"
+                dominantBaseline="middle"
+                className="fill-foreground text-[12px] font-medium"
+              >
+                {n.name.length > 22 ? `${n.name.slice(0, 21)}…` : n.name}
+                <tspan className="fill-muted-foreground font-normal" dx="6">
+                  {n.total}
+                </tspan>
+              </text>
+            </g>
+          ))}
 
-        {[...layout.R.values()].map((n) => (
-          <g
-            key={`r-${n.name}`}
-            onMouseEnter={() => setHot({ side: "r", name: n.name })}
-            onMouseLeave={() => setHot(null)}
-            className="cursor-default"
-          >
-            <rect
-              x={x1}
-              y={n.y}
-              width={NODE_W}
-              height={n.h}
-              rx={3}
-              className="fill-foreground/80"
-            />
-            <text
-              x={x1 + NODE_W + 8}
-              y={n.y + n.h / 2}
-              dominantBaseline="middle"
-              className="fill-foreground text-[12px] font-medium"
+          {[...layout.R.values()].map((n) => (
+            <g
+              key={`r-${n.name}`}
+              onMouseEnter={() => setHot({ side: "r", name: n.name })}
+              onMouseLeave={() => setHot(null)}
+              className="cursor-default"
             >
-              {n.name.length > 22 ? `${n.name.slice(0, 21)}…` : n.name}
-            </text>
-            <text
-              x={x1 + NODE_W + 8}
-              y={n.y + n.h / 2 + 13}
-              dominantBaseline="middle"
-              className="fill-muted-foreground text-[10px]"
-            >
-              {n.total}
-            </text>
-          </g>
-        ))}
-      </svg>
+              <rect
+                x={x1}
+                y={n.y}
+                width={NODE_W}
+                height={n.h}
+                rx={3}
+                className="fill-foreground/80"
+              />
+              <text
+                x={x1 + NODE_W + 8}
+                y={n.y + n.h / 2}
+                dominantBaseline="middle"
+                className="fill-foreground text-[12px] font-medium"
+              >
+                {n.name.length > 22 ? `${n.name.slice(0, 21)}…` : n.name}
+                <tspan className="fill-muted-foreground font-normal" dx="6">
+                  {n.total}
+                </tspan>
+              </text>
+            </g>
+          ))}
+        </svg>
+      </div>
     </div>
   );
 }

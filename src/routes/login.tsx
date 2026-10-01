@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { Zap } from "lucide-react";
+import { BlowMark } from "@/components/layout/BlowMark";
 
 import { loginFn } from "@/services/auth-service";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ export const Route = createFileRoute("/login")({
     const redirect = search["redirect"];
     return typeof redirect === "string" ? { redirect } : {};
   },
-  head: () => ({ meta: [{ title: "Entrar — hubLOw BLOW" }] }),
+  head: () => ({ meta: [{ title: "Entrar — hubLOw" }] }),
   component: LoginPage,
 });
 
@@ -53,12 +53,10 @@ function LoginPage() {
       <Card className="w-full max-w-sm border-border/60 bg-card shadow-lg">
         <CardContent className="pt-8">
           <div className="mb-6 flex flex-col items-center gap-3 text-center">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-              <Zap className="h-5 w-5" />
-            </div>
+            <BlowMark className="size-14" />
             <div>
-              <p className="text-lg font-semibold leading-tight">hubLOw</p>
-              <p className="text-xs text-muted-foreground">Operações BLOW</p>
+              <p className="text-lg font-semibold leading-tight">bLOw</p>
+              <p className="text-xs text-muted-foreground">Hub da Expansão</p>
             </div>
           </div>
 

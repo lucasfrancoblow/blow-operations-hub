@@ -232,7 +232,10 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
     <AnimatedSidebarProvider>
       <AnimatedSidebar ariaLabel="Navegação do hubLOw">
         <AnimatedSidebarHeader className="p-3 pb-2">
-          <Link to="/" className="flex min-h-11 items-center gap-3 overflow-hidden px-1.5">
+          <Link
+            to="/"
+            className="flex min-h-11 items-center gap-3 overflow-hidden px-1.5 max-md:pr-12"
+          >
             <BlowMark className="size-9" />
             <div className="min-w-0 flex-1 group-data-[state=collapsed]/sidebar:hidden">
               <p className="truncate text-sm font-semibold leading-tight">bLOw</p>

@@ -257,7 +257,7 @@ function CampanhasPage() {
             </SectionCard>
           )}
 
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <SectionCard title="Investimento e resultados por dia" className="lg:col-span-2">
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">

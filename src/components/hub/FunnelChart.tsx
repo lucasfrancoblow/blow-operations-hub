@@ -1,3 +1,4 @@
+import { useIsMobile } from "@/hooks/use-mobile";
 import { FunnelChart as FunnelViz } from "@/components/ui/funnel-chart";
 
 export interface FunnelStage {
@@ -20,13 +21,14 @@ const ACCENT_COLOR: Record<NonNullable<FunnelStage["accent"]>, string> = {
 /** Funil do 21st (bklitai/funnel-chart): cada etapa afunila proporcional ao volume da
  * primeira; o rótulo mostra a conversão sobre a etapa anterior e a saída do PipeRun. */
 export function FunnelChart({ stages }: { stages: FunnelStage[] }) {
+  const mobile = useIsMobile();
   return (
     <FunnelViz
-      orientation="horizontal"
+      orientation={mobile ? "vertical" : "horizontal"}
       edges="curved"
       layers={3}
       className="mx-auto"
-      style={{ aspectRatio: "3.4 / 1" }}
+      style={{ aspectRatio: mobile ? "1 / 1.5" : "3.4 / 1" }}
       data={stages.map((s, i) => {
         const prev = i > 0 ? stages[i - 1] : null;
         const conv = prev && prev.value > 0 ? Math.round((s.value / prev.value) * 100) : null;
