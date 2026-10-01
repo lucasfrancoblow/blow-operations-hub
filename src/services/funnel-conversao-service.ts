@@ -9,6 +9,8 @@ interface FunnelConversaoInput {
   pipelineNames: string[];
   /** Só entradas, sem saídas nem canal: bem mais rápido (Visão geral). */
   light: boolean;
+  /** Funis a deixar de fora (ex.: OUTBOUND), mesmo quando pipelineNames está vazio. */
+  excludePipelines: string[];
 }
 
 import { createSwrCache } from "@/lib/swr-cache";
@@ -22,9 +24,16 @@ export const getFunnelConversaoData = createServerFn({ method: "GET" })
     range: input?.range ?? defaultDateRange(),
     pipelineNames: input?.pipelineNames ?? [],
     light: input?.light ?? false,
+    excludePipelines: input?.excludePipelines ?? [],
   }))
-  .handler(async ({ data: { range, pipelineNames, light } }): Promise<FunnelStageEvent[]> => {
-    await requireSessionUser();
-    const key = `${range.from}_${range.to}_${[...pipelineNames].sort().join(",")}_${light}`;
-    return cache.get(key, () => loadFunnelStageEvents(range, pipelineNames, light));
-  });
+  .handler(
+    async ({
+      data: { range, pipelineNames, light, excludePipelines },
+    }): Promise<FunnelStageEvent[]> => {
+      await requireSessionUser();
+      const key = `${range.from}_${range.to}_${[...pipelineNames].sort().join(",")}_${light}_${[...excludePipelines].sort().join(",")}`;
+      return cache.get(key, () =>
+        loadFunnelStageEvents(range, pipelineNames, light, excludePipelines),
+      );
+    },
+  );

@@ -32,6 +32,7 @@ import {
 } from "@/components/hub/primitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -44,6 +45,7 @@ import { downloadCsv } from "@/lib/csv-export";
 import {
   defaultRadarDateRange,
   formatPhoneBR,
+  isOutbound,
   parsePipeRunDate,
   todayDateString,
   type DateRange,
@@ -145,10 +147,14 @@ function LeadsRecentesPage() {
   const [ufs, setUfs] = useState<string[]>([]);
   const [owners, setOwners] = useState<string[]>([]);
   const [status, setStatus] = useState<(typeof STATUS_OPTIONS)[number]>("Todos");
+  // Outbound = listas de prospecção importadas de uma vez (ex.: 1.030 negócios em 30/09); não são leads de marketing.
+  const [incluirOutbound, setIncluirOutbound] = useState(false);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<LeadRecente | null>(null);
 
   const all = data?.leads ?? [];
+
+  const hiddenOutbound = useMemo(() => all.filter((l) => isOutbound(l.pipelineName)).length, [all]);
 
   const options = useMemo(
     () => ({
@@ -163,6 +169,7 @@ function LeadsRecentesPage() {
   const base = useMemo(() => {
     const q = search.trim().toLowerCase();
     return all.filter((l) => {
+      if (!incluirOutbound && isOutbound(l.pipelineName)) return false;
       if (q && !`${l.title} ${l.cidade ?? ""} ${l.ownerName}`.toLowerCase().includes(q))
         return false;
       if (funis.length && !funis.includes(l.pipelineName)) return false;
@@ -173,7 +180,7 @@ function LeadsRecentesPage() {
       if (status !== "Todos" && l.status !== status) return false;
       return true;
     });
-  }, [all, search, funis, origens, inscricoes, ufs, owners, status]);
+  }, [all, search, funis, origens, inscricoes, ufs, owners, status, incluirOutbound]);
 
   const filtered = useMemo(
     () => (fases.length ? base.filter((l) => fases.includes(l.stageName)) : base),
@@ -421,6 +428,17 @@ function LeadsRecentesPage() {
                   </button>
                 ))}
               </div>
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                <Switch checked={incluirOutbound} onCheckedChange={setIncluirOutbound} />
+                <span>
+                  Incluir Outbound
+                  {!incluirOutbound && hiddenOutbound > 0 && (
+                    <span className="ml-1 text-warning">
+                      ({hiddenOutbound.toLocaleString("pt-BR")} fora)
+                    </span>
+                  )}
+                </span>
+              </label>
               {activeFilters > 0 && (
                 <Button variant="ghost" size="sm" onClick={clearFilters}>
                   <X className="h-4 w-4" /> Limpar ({activeFilters})

@@ -22,6 +22,7 @@ export interface StageSnapshot {
   count: number;
   value: number;
   stalled: number;
+  neverContacted: number;
 }
 
 export interface PipelineSnapshot {
@@ -32,6 +33,7 @@ export interface PipelineSnapshot {
   open: number;
   value: number;
   stalled: number;
+  neverContacted: number;
   stages: StageSnapshot[];
 }
 
@@ -58,7 +60,10 @@ export async function loadHubSnapshot(): Promise<HubSnapshot | null> {
   const stagesByPipeline = await Promise.all(pipelines.map((p) => fetchStages(p.id)));
   const now = Date.now();
 
-  const byStage = new Map<number, { count: number; value: number; stalled: number }>();
+  const byStage = new Map<
+    number,
+    { count: number; value: number; stalled: number; neverContacted: number }
+  >();
   const byOwner = new Map<string, OwnerSnapshot>();
   let stalledTotal = 0;
   let neverContacted = 0;
@@ -67,10 +72,11 @@ export async function loadHubSnapshot(): Promise<HubSnapshot | null> {
   for (const d of deals) {
     const since = d.last_stage_updated_at ?? d.updated_at ?? d.created_at;
     const stalled = now - parsePipeRunDate(since).getTime() > STALLED_DAYS * DAY_MS;
-    const cur = byStage.get(d.stage_id) ?? { count: 0, value: 0, stalled: 0 };
+    const cur = byStage.get(d.stage_id) ?? { count: 0, value: 0, stalled: 0, neverContacted: 0 };
     cur.count += 1;
     cur.value += d.value ?? 0;
     if (stalled) cur.stalled += 1;
+    if (!d.last_contact_at) cur.neverContacted += 1;
     byStage.set(d.stage_id, cur);
 
     const ownerName = d.owner?.name ?? "Sem responsável";
@@ -88,7 +94,7 @@ export async function loadHubSnapshot(): Promise<HubSnapshot | null> {
   const snapshots: PipelineSnapshot[] = pipelines.map((p, i) => {
     const stages: StageSnapshot[] = (stagesByPipeline[i] ?? [])
       .map((s) => {
-        const c = byStage.get(s.id) ?? { count: 0, value: 0, stalled: 0 };
+        const c = byStage.get(s.id) ?? { count: 0, value: 0, stalled: 0, neverContacted: 0 };
         return {
           id: s.id,
           name: s.name,
@@ -97,6 +103,7 @@ export async function loadHubSnapshot(): Promise<HubSnapshot | null> {
           count: c.count,
           value: c.value,
           stalled: c.stalled,
+          neverContacted: c.neverContacted,
         };
       })
       .sort((a, b) => a.order - b.order);
@@ -107,6 +114,7 @@ export async function loadHubSnapshot(): Promise<HubSnapshot | null> {
       open: stages.reduce((s, x) => s + x.count, 0),
       value: stages.reduce((s, x) => s + x.value, 0),
       stalled: stages.reduce((s, x) => s + x.stalled, 0),
+      neverContacted: stages.reduce((s, x) => s + x.neverContacted, 0),
       stages,
     };
   });

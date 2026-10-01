@@ -31,6 +31,8 @@ import {
   ORIGIN_LABELS,
   pipelineKey,
   STAGE_CONTRATO,
+  STAGE_ROGA_MARCADO,
+  STAGE_ROGA_REALIZADA,
   STAGE_REUNIAO_AGENDADA,
   STAGE_SQL,
   STAGE_VENDA,
@@ -49,12 +51,20 @@ const STAGE_NAME_TO_METRIC: Record<string, FunnelMetric> = {
   [STAGE_REUNIAO_AGENDADA.toUpperCase()]: "reuniaoAgendada",
   ["ATENDIMENTO AGENDADA"]: "reuniaoAgendada",
   ["REUNIÃO REALIZADA"]: "reuniaoRealizada",
+  [STAGE_ROGA_MARCADO.toUpperCase()]: "rogaMarcado",
+  [STAGE_ROGA_REALIZADA.toUpperCase()]: "rogaRealizado",
   [STAGE_CONTRATO.toUpperCase()]: "contratoEnviado",
   [STAGE_VENDA.toUpperCase()]: "contratoAssinado",
 };
 
 export type FunnelMetric =
-  "sql" | "reuniaoAgendada" | "reuniaoRealizada" | "contratoEnviado" | "contratoAssinado";
+  | "sql"
+  | "reuniaoAgendada"
+  | "reuniaoRealizada"
+  | "rogaMarcado"
+  | "rogaRealizado"
+  | "contratoEnviado"
+  | "contratoAssinado";
 
 export interface FunnelStageEvent {
   dealId: number;
@@ -108,6 +118,7 @@ export async function loadFunnelStageEvents(
   range: DateRange,
   pipelineNames: string[],
   light = false,
+  excludePipelines: string[] = [],
 ): Promise<FunnelStageEvent[]> {
   if (!isPipeRunConfigured()) return [];
 
@@ -118,10 +129,12 @@ export async function loadFunnelStageEvents(
   ]);
 
   const wantedUpper = new Set(pipelineNames.map((p) => pipelineKey(p)));
-  const pipelineIdsToLoad =
-    wantedUpper.size > 0
-      ? pipelines.filter((p) => wantedUpper.has(pipelineKey(p.name))).map((p) => p.id)
-      : pipelines.map((p) => p.id);
+  const excludedKeys = new Set(excludePipelines.map((p) => pipelineKey(p)));
+  const pipelineIdsToLoad = (
+    wantedUpper.size > 0 ? pipelines.filter((p) => wantedUpper.has(pipelineKey(p.name))) : pipelines
+  )
+    .filter((p) => !excludedKeys.has(pipelineKey(p.name)))
+    .map((p) => p.id);
 
   const pipelineNameById = new Map(pipelines.map((p) => [p.id, p.name] as const));
   const stagesByPipeline = await Promise.all(pipelineIdsToLoad.map((id) => fetchStages(id)));

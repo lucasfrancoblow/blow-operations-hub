@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   DndContext,
   DragOverlay,
@@ -64,15 +64,23 @@ import {
   funnelOf,
   hourGrid,
   int,
-  lastDaysRange,
+  filterLeadsData,
+  filterSnapshot,
   originQuality,
   topCampaigns,
   type TvData,
+  type TvFilters,
   type TvSource,
 } from "@/components/hub/tv/tv-data";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { rangeFor, TvFilterBar, type RangePreset } from "@/components/hub/tv/TvFilterBar";
 import { FunnelChart } from "@/components/ui/funnel-chart";
-import { parsePipeRunDate, todayDateString } from "@/lib/leads-recentes";
+import {
+  isOutbound,
+  parsePipeRunDate,
+  todayDateString,
+  type DateRange,
+} from "@/lib/leads-recentes";
 import type { PipelineSnapshot } from "@/lib/pipeline-snapshot";
 import { cn } from "@/lib/utils";
 import { getAdMetricsData } from "@/services/ad-metrics-service";
@@ -83,6 +91,7 @@ import { getHubSnapshot } from "@/services/pipeline-snapshot-service";
 
 const ROTATE_MS = 30_000;
 const STORAGE_KEY = "hublow-tv-layout-v2";
+const FILTERS_KEY = "hublow-tv-filters-v1";
 const EASE = [0.16, 1, 0.3, 1] as const;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -215,6 +224,8 @@ function FunilLeads({ d }: { d: TvData }) {
         { label: "SQL", value: c.sql },
         { label: "Reunião agendada", value: c.reuniaoAgendada },
         { label: "Reunião realizada", value: c.reuniaoRealizada },
+        { label: "RoGa marcado", value: c.rogaMarcado },
+        { label: "RoGa realizada", value: c.rogaRealizado },
         { label: "Contrato enviado", value: c.contratoEnviado },
         { label: "Assinado", value: c.contratoAssinado },
       ].map((st) => ({ ...st, shape: Math.pow(st.value, 0.4) }))}
@@ -615,10 +626,10 @@ function buildWidgets(snapshot: TvData["snapshot"]): Record<string, WidgetDef> {
       ),
     },
     "kpi-mes": {
-      title: "Leads em 30 dias",
+      title: "Leads no período",
       size: "kpi",
       render: (d) => (
-        <Kpi label="Leads em 30 dias" value={f(d).leads} tone="info" hint="criados no PipeRun" />
+        <Kpi label="Leads no período" value={f(d).leads} tone="info" hint="criados no PipeRun" />
       ),
     },
     "kpi-sql": {
@@ -628,7 +639,7 @@ function buildWidgets(snapshot: TvData["snapshot"]): Record<string, WidgetDef> {
         const c = f(d);
         return (
           <Kpi
-            label="SQL em 30 dias"
+            label="SQL no período"
             value={c.sql}
             tone="warning"
             hint={c.leads ? `${Math.round((c.sql / c.leads) * 100)}% dos leads` : ""}
@@ -644,9 +655,40 @@ function buildWidgets(snapshot: TvData["snapshot"]): Record<string, WidgetDef> {
           label="Contratos assinados"
           value={f(d).contratoAssinado}
           tone="success"
-          hint="em 30 dias"
+          hint="no período"
         />
       ),
+    },
+    "kpi-roga-marcado": {
+      title: "RoGa marcado",
+      size: "kpi",
+      render: (d) => (
+        <Kpi
+          label="RoGa marcado"
+          value={f(d).rogaMarcado}
+          tone="warning"
+          hint="entradas no período"
+        />
+      ),
+    },
+    "kpi-roga-realizado": {
+      title: "RoGa realizada",
+      size: "kpi",
+      render: (d) => {
+        const c = f(d);
+        return (
+          <Kpi
+            label="RoGa realizada"
+            value={c.rogaRealizado}
+            tone="success"
+            hint={
+              c.rogaMarcado
+                ? `${Math.round((c.rogaRealizado / c.rogaMarcado) * 100)}% dos marcados`
+                : "entradas no período"
+            }
+          />
+        );
+      },
     },
     "kpi-abertos": {
       title: "Negócios abertos",
@@ -700,7 +742,7 @@ function buildWidgets(snapshot: TvData["snapshot"]): Record<string, WidgetDef> {
     "leads-dia": { title: "Leads por dia", size: "lg", render: (d) => <LeadsPorDia d={d} /> },
     "feed-leads": { title: "Chegando agora", size: "sm", render: (d) => <FeedLeads d={d} /> },
     funil: {
-      title: "Funil de vendas (leads dos últimos 30 dias)",
+      title: "Funil de vendas (no período)",
       size: "full",
       render: (d) => <FunilLeads d={d} />,
     },
@@ -777,7 +819,7 @@ function buildWidgets(snapshot: TvData["snapshot"]): Record<string, WidgetDef> {
       title: "Ligações",
       size: "kpi",
       render: (d) => (
-        <Kpi label="Ligações em 30 dias" value={calls(d)?.totalCalls ?? 0} hint="3C+" />
+        <Kpi label="Ligações no período" value={calls(d)?.totalCalls ?? 0} hint="3C+" />
       ),
     },
     "kpi-atendidas": {
@@ -857,6 +899,8 @@ function buildScenes(snapshot: TvData["snapshot"]): Scene[] {
         "funil",
         "todos-funis",
         "kpi-sql",
+        "kpi-roga-marcado",
+        "kpi-roga-realizado",
         "kpi-contratos",
         "kpi-parados",
         "kpi-sem-contato",
@@ -896,7 +940,16 @@ function buildScenes(snapshot: TvData["snapshot"]): Scene[] {
       id: "conversao",
       title: "Conversão",
       icon: LayoutGrid,
-      widgets: ["kpi-mes", "kpi-sql", "kpi-contratos", "kpi-hoje", "funil", "medidores"],
+      widgets: [
+        "kpi-mes",
+        "kpi-sql",
+        "kpi-roga-marcado",
+        "kpi-roga-realizado",
+        "kpi-contratos",
+        "kpi-hoje",
+        "funil",
+        "medidores",
+      ],
     },
     {
       id: "time",
@@ -975,7 +1028,7 @@ function sourcesOf(id: string): TvSource[] {
     return ["calls"];
   if (/^(kpi-abertos|kpi-valor|kpi-parados|kpi-sem-contato|todos-funis|time|funil-\d)/.test(id))
     return ["snapshot"];
-  if (/^(kpi-sql|kpi-contratos|funil$|medidores)/.test(id)) return ["leads", "events"];
+  if (/^(kpi-sql|kpi-contratos|kpi-roga|funil$|medidores)/.test(id)) return ["leads", "events"];
   return ["leads"];
 }
 
@@ -1114,12 +1167,51 @@ export function TvDashboard({ userName }: { userName: string }) {
   const [now, setNow] = useState<Date | null>(null);
 
   const today = todayDateString();
-  const range = lastDaysRange(today, 30);
+  const [preset, setPreset] = useState<RangePreset>("30");
+  const [customRange, setCustomRange] = useState<DateRange>({ from: today, to: today });
+  const [funis, setFunis] = useState<string[]>([]);
+  const [incluirOutbound, setIncluirOutbound] = useState(false);
+  const range = useMemo(() => rangeFor(preset, customRange, today), [preset, customRange, today]);
+  const filters: TvFilters = useMemo(
+    () => ({ range, funis, incluirOutbound }),
+    [range, funis, incluirOutbound],
+  );
+
+  // Recupera os filtros da última visita (ficam só neste navegador).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(FILTERS_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as {
+        preset?: RangePreset;
+        custom?: DateRange;
+        funis?: string[];
+        incluirOutbound?: boolean;
+      };
+      if (saved.preset) setPreset(saved.preset);
+      if (saved.custom) setCustomRange(saved.custom);
+      if (saved.funis) setFunis(saved.funis);
+      if (typeof saved.incluirOutbound === "boolean") setIncluirOutbound(saved.incluirOutbound);
+    } catch {
+      // Sem localStorage: os filtros valem só nesta sessão.
+    }
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        FILTERS_KEY,
+        JSON.stringify({ preset, custom: customRange, funis, incluirOutbound }),
+      );
+    } catch {
+      // ignorado
+    }
+  }, [preset, customRange, funis, incluirOutbound]);
 
   const leadsQ = useQuery({
     queryKey: ["tv", "leads", range],
     queryFn: () => getLeadsRecentesData({ data: range }),
     refetchInterval: 60_000,
+    placeholderData: keepPreviousData,
   });
   const snapshotQ = useQuery({
     queryKey: ["tv", "snapshot"],
@@ -1130,23 +1222,48 @@ export function TvDashboard({ userName }: { userName: string }) {
     queryKey: ["tv", "ads", range],
     queryFn: () => getAdMetricsData({ data: range }),
     refetchInterval: 5 * 60_000,
+    placeholderData: keepPreviousData,
   });
   const callsQ = useQuery({
     queryKey: ["tv", "calls", range],
     queryFn: () => getCallMetricsData({ data: range }),
     refetchInterval: 5 * 60_000,
+    placeholderData: keepPreviousData,
   });
   const eventsQ = useQuery({
-    queryKey: ["tv", "events", range],
-    queryFn: () => getFunnelConversaoData({ data: { range, pipelineNames: [], light: true } }),
+    queryKey: ["tv", "events", range, funis.join(","), incluirOutbound],
+    queryFn: () =>
+      getFunnelConversaoData({
+        data: {
+          range,
+          pipelineNames: funis,
+          light: true,
+          excludePipelines: incluirOutbound ? [] : ["OUTBOUND"],
+        },
+      }),
     refetchInterval: 3 * 60_000,
+    placeholderData: keepPreviousData,
   });
+
+  const leadsFiltered = useMemo(
+    () => filterLeadsData(leadsQ.data ?? null, filters, range),
+    [leadsQ.data, filters, range],
+  );
+  const snapshotFiltered = useMemo(
+    () => filterSnapshot(snapshotQ.data ?? null, filters),
+    [snapshotQ.data, filters],
+  );
+  const hiddenOutbound = useMemo(
+    () => (leadsQ.data?.leads ?? []).filter((l) => isOutbound(l.pipelineName)).length,
+    [leadsQ.data],
+  );
+
   const data: TvData = useMemo(
     () => ({
-      leads: leadsQ.data ?? null,
+      leads: leadsFiltered,
       ads: adsQ.data ?? null,
       calls: callsQ.data ?? null,
-      snapshot: snapshotQ.data ?? null,
+      snapshot: snapshotFiltered,
       events: eventsQ.data ?? null,
       pending: {
         leads: leadsQ.isPending,
@@ -1157,10 +1274,10 @@ export function TvDashboard({ userName }: { userName: string }) {
       },
     }),
     [
-      leadsQ.data,
+      leadsFiltered,
       adsQ.data,
       callsQ.data,
-      snapshotQ.data,
+      snapshotFiltered,
       eventsQ.data,
       leadsQ.isPending,
       adsQ.isPending,
@@ -1349,6 +1466,24 @@ export function TvDashboard({ userName }: { userName: string }) {
           <div className="h-full w-full bg-primary/30" />
         )}
       </div>
+
+      {!tv && (
+        <TvFilterBar
+          preset={preset}
+          range={range}
+          onPreset={setPreset}
+          onCustomRange={(r) => {
+            setCustomRange(r);
+            setPreset("custom");
+          }}
+          pipelineOptions={(snapshotQ.data?.pipelines ?? []).map((p) => p.name)}
+          funis={funis}
+          onFunis={setFunis}
+          incluirOutbound={incluirOutbound}
+          onIncluirOutbound={setIncluirOutbound}
+          hiddenOutbound={hiddenOutbound}
+        />
+      )}
 
       {editing && (
         <p className="mb-4 rounded-xl border border-dashed border-primary/40 bg-primary/5 px-4 py-2 text-sm text-primary">

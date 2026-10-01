@@ -2,7 +2,14 @@
 
 import { adChannelFor, type AdMetricRow } from "@/lib/ad-metrics";
 import type { CallMetricsData } from "@/lib/call-metrics";
-import type { LeadsRecentesData } from "@/lib/leads-recentes";
+import {
+  isOutbound,
+  pipelineKey,
+  todayDateString,
+  type DateRange,
+  type LeadRecente,
+  type LeadsRecentesData,
+} from "@/lib/leads-recentes";
 import type { FunnelStageEvent } from "@/lib/funnel-conversao";
 import type { HubSnapshot } from "@/lib/pipeline-snapshot";
 
@@ -36,6 +43,8 @@ export function funnelOf(d: Pick<TvData, "leads" | "events">) {
     sql: n("sql"),
     reuniaoAgendada: n("reuniaoAgendada"),
     reuniaoRealizada: n("reuniaoRealizada"),
+    rogaMarcado: n("rogaMarcado"),
+    rogaRealizado: n("rogaRealizado"),
     contratoEnviado: n("contratoEnviado"),
     contratoAssinado: n("contratoAssinado"),
   };
@@ -48,6 +57,8 @@ export function funnelCounts(leads: LeadsRecentesData | null) {
     sql: list.filter((l) => l.isSql).length,
     reuniaoAgendada: list.filter((l) => l.isReuniaoAgendada).length,
     reuniaoRealizada: list.filter((l) => l.isReuniaoRealizada).length,
+    rogaMarcado: list.filter((l) => l.isRogaMarcado).length,
+    rogaRealizado: list.filter((l) => l.isRogaRealizado).length,
     contratoEnviado: list.filter((l) => l.isContratoEnviado).length,
     contratoAssinado: list.filter((l) => l.isContratoAssinado).length,
   };
@@ -153,4 +164,88 @@ export function originQuality(leads: LeadsRecentesData | null, top = 3) {
     return row;
   });
   return { data, names: ranked.map(([name]) => name) };
+}
+
+// ---------- Filtros da Visão geral ----------
+
+export interface TvFilters {
+  range: DateRange;
+  /** Vazio = todos os funis (respeitando "incluir Outbound"). */
+  funis: string[];
+  /** Outbound é prospecção em lista (ex.: 1.030 negócios importados de uma vez), não lead de marketing. */
+  incluirOutbound: boolean;
+}
+
+export function pipelineAllowed(name: string, f: Pick<TvFilters, "funis" | "incluirOutbound">) {
+  if (!f.incluirOutbound && isOutbound(name)) return false;
+  if (f.funis.length === 0) return true;
+  return f.funis.some((x) => pipelineKey(x) === pipelineKey(name));
+}
+
+function countBy<T>(items: T[], key: (item: T) => string) {
+  const m = new Map<string, number>();
+  for (const it of items) m.set(key(it), (m.get(key(it)) ?? 0) + 1);
+  return [...m.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+/** Recalcula os agregados de LeadsRecentesData em cima de uma lista já filtrada. */
+export function filterLeadsData(
+  data: LeadsRecentesData | null,
+  f: Pick<TvFilters, "funis" | "incluirOutbound">,
+  range: DateRange,
+): LeadsRecentesData | null {
+  if (!data) return null;
+  const leads = data.leads.filter((l: LeadRecente) => pipelineAllowed(l.pipelineName, f));
+  const today = todayDateString();
+  const start = new Date(`${range.from}T12:00:00Z`);
+  const end = new Date(`${range.to}T12:00:00Z`);
+  const dayCount = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1);
+  const perDay = new Map<string, number>();
+  for (const l of leads)
+    perDay.set(l.createdAt.slice(0, 10), (perDay.get(l.createdAt.slice(0, 10)) ?? 0) + 1);
+  const byDay = Array.from({ length: dayCount }, (_, i) => {
+    const d = new Date(start.getTime() + i * 86_400_000).toISOString().slice(0, 10);
+    return { date: d, total: perDay.get(d) ?? 0 };
+  });
+  return {
+    leads,
+    pipelineNames: data.pipelineNames,
+    origins: [...new Set(leads.map((l) => l.origin))].sort(),
+    destinos: [...new Set(leads.map((l) => l.destino))].sort(),
+    summary: {
+      total: leads.length,
+      novos: leads.filter((l) => !l.emAndamento).length,
+      emAndamento: leads.filter((l) => l.emAndamento).length,
+      hoje: leads.filter((l) => l.createdAt.slice(0, 10) === today).length,
+    },
+    byDay,
+    byOrigin: countBy(leads, (l) => l.origin).map(([origin, total]) => ({ origin, total })),
+    byPipeline: countBy(leads, (l) => l.pipelineName).map(([pipeline, total]) => ({
+      pipeline,
+      total,
+    })),
+    byDestino: countBy(leads, (l) => l.destino).map(([destino, total]) => ({ destino, total })),
+    ufs: [...new Set(leads.map((l) => l.uf).filter((u): u is string => !!u))].sort(),
+    stageNames: [...new Set(leads.map((l) => l.stageName))].sort(),
+  };
+}
+
+/** Mesma regra de funis aplicada ao retrato dos negócios abertos (totais recalculados). */
+export function filterSnapshot(
+  snapshot: HubSnapshot | null,
+  f: Pick<TvFilters, "funis" | "incluirOutbound">,
+): HubSnapshot | null {
+  if (!snapshot) return null;
+  const pipelines = snapshot.pipelines.filter((p) => pipelineAllowed(p.name, f));
+  return {
+    ...snapshot,
+    pipelines,
+    totals: {
+      ...snapshot.totals,
+      open: pipelines.reduce((s, p) => s + p.open, 0),
+      value: pipelines.reduce((s, p) => s + p.value, 0),
+      stalled: pipelines.reduce((s, p) => s + p.stalled, 0),
+      neverContacted: pipelines.reduce((s, p) => s + p.neverContacted, 0),
+    },
+  };
 }

@@ -167,6 +167,10 @@ function sumDays(dayMap: Map<string, WeekCounts>, days: string[]): WeekCounts {
     total.reuniaoAgendadaSaida += c.reuniaoAgendadaSaida;
     total.reuniaoRealizada += c.reuniaoRealizada;
     total.reuniaoRealizadaSaida += c.reuniaoRealizadaSaida;
+    total.rogaMarcado += c.rogaMarcado;
+    total.rogaMarcadoSaida += c.rogaMarcadoSaida;
+    total.rogaRealizado += c.rogaRealizado;
+    total.rogaRealizadoSaida += c.rogaRealizadoSaida;
     total.contratoEnviado += c.contratoEnviado;
     total.contratoEnviadoSaida += c.contratoEnviadoSaida;
     total.contratoAssinado += c.contratoAssinado;
@@ -188,6 +192,10 @@ interface WeekCounts {
   reuniaoAgendadaSaida: number;
   reuniaoRealizada: number;
   reuniaoRealizadaSaida: number;
+  rogaMarcado: number;
+  rogaMarcadoSaida: number;
+  rogaRealizado: number;
+  rogaRealizadoSaida: number;
   contratoEnviado: number;
   contratoEnviadoSaida: number;
   contratoAssinado: number;
@@ -205,6 +213,10 @@ function emptyCounts(): WeekCounts {
     reuniaoAgendadaSaida: 0,
     reuniaoRealizada: 0,
     reuniaoRealizadaSaida: 0,
+    rogaMarcado: 0,
+    rogaMarcadoSaida: 0,
+    rogaRealizado: 0,
+    rogaRealizadoSaida: 0,
     contratoEnviado: 0,
     contratoEnviadoSaida: 0,
     contratoAssinado: 0,
@@ -277,6 +289,26 @@ const ROWS: Array<{
     label: "RR (Reunião Realizada) — Saída",
     group: "Fundo de Funil",
     value: (c) => c.reuniaoRealizadaSaida,
+  },
+  {
+    label: "RoGa Marcado — Entrada",
+    group: "Fundo de Funil",
+    value: (c) => c.rogaMarcado,
+  },
+  {
+    label: "RoGa Marcado — Saída",
+    group: "Fundo de Funil",
+    value: (c) => c.rogaMarcadoSaida,
+  },
+  {
+    label: "RoGa Realizada — Entrada",
+    group: "Fundo de Funil",
+    value: (c) => c.rogaRealizado,
+  },
+  {
+    label: "RoGa Realizada — Saída",
+    group: "Fundo de Funil",
+    value: (c) => c.rogaRealizadoSaida,
   },
   {
     label: "Contratos Enviados — Entrada",
@@ -492,6 +524,14 @@ function FunilMarketingPage() {
           if (isEntrada) cur.reuniaoRealizada += 1;
           else cur.reuniaoRealizadaSaida += 1;
         }
+        if (e.metric === "rogaMarcado") {
+          if (isEntrada) cur.rogaMarcado += 1;
+          else cur.rogaMarcadoSaida += 1;
+        }
+        if (e.metric === "rogaRealizado") {
+          if (isEntrada) cur.rogaRealizado += 1;
+          else cur.rogaRealizadoSaida += 1;
+        }
         if (e.metric === "contratoEnviado") {
           if (isEntrada) cur.contratoEnviado += 1;
           else cur.contratoEnviadoSaida += 1;
@@ -567,6 +607,10 @@ function FunilMarketingPage() {
           reuniao_agendada_saida: c.reuniaoAgendadaSaida,
           reuniao_realizada_entrada: c.reuniaoRealizada,
           reuniao_realizada_saida: c.reuniaoRealizadaSaida,
+          roga_marcado_entrada: c.rogaMarcado,
+          roga_marcado_saida: c.rogaMarcadoSaida,
+          roga_realizada_entrada: c.rogaRealizado,
+          roga_realizada_saida: c.rogaRealizadoSaida,
           contrato_enviado_entrada: c.contratoEnviado,
           contrato_enviado_saida: c.contratoEnviadoSaida,
           contrato_assinado: c.contratoAssinado,
@@ -674,6 +718,18 @@ function FunilMarketingPage() {
                         value: funnelTotals.reuniaoRealizada,
                         accent: "warning",
                         saida: funnelTotals.reuniaoRealizadaSaida,
+                      },
+                      {
+                        label: "RoGa Marcado",
+                        value: funnelTotals.rogaMarcado,
+                        accent: "warning",
+                        saida: funnelTotals.rogaMarcadoSaida,
+                      },
+                      {
+                        label: "RoGa Realizada",
+                        value: funnelTotals.rogaRealizado,
+                        accent: "warning",
+                        saida: funnelTotals.rogaRealizadoSaida,
                       },
                       {
                         label: "Contrato Enviado",

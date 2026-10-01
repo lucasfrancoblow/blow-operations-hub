@@ -82,11 +82,25 @@ export function pipelineKey(name: string): string {
     .toUpperCase();
 }
 
+/** Funil de prospecção ativa: listas importadas de uma vez (ex.: 1.030 negócios em 30/09),
+ * não são leads de marketing — a Visão geral e o Radar os deixam de fora por padrão. */
+export const PIPELINE_OUTBOUND = "OUTBOUND";
+export const isOutbound = (pipelineName: string) => pipelineKey(pipelineName) === PIPELINE_OUTBOUND;
+
 export const PIPELINE_CLOSER = "EXPANSÃO CLOSER";
 export const STAGE_SQL = "SQL";
 export const STAGE_REUNIAO_AGENDADA = "Reunião Agendada";
 export const STAGE_CONTRATO = "Contrato";
 export const STAGE_VENDA = "Venda";
+// RoGa (funil Expansão Closer): "RoGa marcado" → "RoGa Realizada" → "Documentação Recebida"
+// → "Contrato" → "Venda". Marcado/realizado contam também quem já passou adiante.
+export const STAGE_ROGA_MARCADO = "RoGa marcado";
+export const STAGE_ROGA_REALIZADA = "RoGa Realizada";
+const STAGES_ROGA_REALIZADA_OU_DEPOIS = new Set(
+  [STAGE_ROGA_REALIZADA, "Documentação Recebida", STAGE_CONTRATO, STAGE_VENDA].map((n) =>
+    n.toUpperCase(),
+  ),
+);
 
 function funnelFlags(pipelineName: string, stageName: string) {
   const inCloser = pipelineName.toUpperCase() === PIPELINE_CLOSER;
@@ -95,7 +109,19 @@ function funnelFlags(pipelineName: string, stageName: string) {
   const isReuniaoRealizada = inCloser;
   const isContratoEnviado = inCloser && (stageName === STAGE_CONTRATO || stageName === STAGE_VENDA);
   const isContratoAssinado = inCloser && stageName === STAGE_VENDA;
-  return { isSql, isReuniaoAgendada, isReuniaoRealizada, isContratoEnviado, isContratoAssinado };
+  const stageUpper = stageName.toUpperCase();
+  const isRogaRealizado = inCloser && STAGES_ROGA_REALIZADA_OU_DEPOIS.has(stageUpper);
+  const isRogaMarcado =
+    isRogaRealizado || (inCloser && stageUpper === STAGE_ROGA_MARCADO.toUpperCase());
+  return {
+    isSql,
+    isReuniaoAgendada,
+    isReuniaoRealizada,
+    isRogaMarcado,
+    isRogaRealizado,
+    isContratoEnviado,
+    isContratoAssinado,
+  };
 }
 
 // Códigos de origem usados pelos workflows de criação de card no n8n (ver Deal-* nodes).
@@ -150,6 +176,8 @@ export interface LeadRecente {
   isSql: boolean;
   isReuniaoAgendada: boolean;
   isReuniaoRealizada: boolean;
+  isRogaMarcado: boolean;
+  isRogaRealizado: boolean;
   isContratoEnviado: boolean;
   isContratoAssinado: boolean;
   /** Só dígitos, com DDI (ex.: "5582993089537") — como o PipeRun devolve. Usar
