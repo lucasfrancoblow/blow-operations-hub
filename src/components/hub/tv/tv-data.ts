@@ -3,6 +3,7 @@
 import { adChannelFor, type AdMetricRow } from "@/lib/ad-metrics";
 import type { CallMetricsData } from "@/lib/call-metrics";
 import type { LeadsRecentesData } from "@/lib/leads-recentes";
+import type { FunnelStageEvent } from "@/lib/funnel-conversao";
 import type { HubSnapshot } from "@/lib/pipeline-snapshot";
 
 export interface TvData {
@@ -10,12 +11,35 @@ export interface TvData {
   ads: AdMetricRow[] | null;
   calls: CallMetricsData | null;
   snapshot: HubSnapshot | null;
+  /** Entradas em SQL/RA/RR/Contrato pelo histórico de etapas do PipeRun (mesma base do Funil de MKT). */
+  events: FunnelStageEvent[] | null;
+  /** Fontes ainda carregando: o widget mostra esqueleto só até a SUA fonte chegar. */
+  pending: Record<TvSource, boolean>;
 }
+
+export type TvSource = "leads" | "ads" | "calls" | "snapshot" | "events";
 
 export const brl = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
 export const int = (n: number) => n.toLocaleString("pt-BR");
+
+/** Funil do mês pelo histórico real de etapas (entradas), com os leads criados como topo.
+ * Cai para as marcas de etapa atual do lead enquanto o histórico não chegou. */
+export function funnelOf(d: Pick<TvData, "leads" | "events">) {
+  if (!d.events) return funnelCounts(d.leads);
+  const entradas = d.events.filter((e) => e.direction === "entrada");
+  const n = (metric: FunnelStageEvent["metric"]) =>
+    entradas.filter((e) => e.metric === metric).length;
+  return {
+    leads: d.leads?.leads.length ?? 0,
+    sql: n("sql"),
+    reuniaoAgendada: n("reuniaoAgendada"),
+    reuniaoRealizada: n("reuniaoRealizada"),
+    contratoEnviado: n("contratoEnviado"),
+    contratoAssinado: n("contratoAssinado"),
+  };
+}
 
 export function funnelCounts(leads: LeadsRecentesData | null) {
   const list = leads?.leads ?? [];

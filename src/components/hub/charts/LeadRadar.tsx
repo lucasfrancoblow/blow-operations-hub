@@ -22,6 +22,8 @@ export const CHANNEL_COLORS: Record<string, string> = {
 const colorFor = (origin: string) => CHANNEL_COLORS[origin] ?? "#375542";
 
 const MAX_BLIPS = 400;
+/** Limite de pontos por setor: importações em massa viram uma mancha ilegível. */
+const MAX_PER_SECTOR = 45;
 const MAX_SECTORS = 8;
 
 interface Blip {
@@ -89,12 +91,20 @@ export function LeadRadar({
     const byRecency = [...list].sort(
       (a, b) => parsePipeRunDate(b.createdAt).getTime() - parsePipeRunDate(a.createdAt).getTime(),
     );
-    const rank = new Map(byRecency.map((l, i) => [l.id, i] as const));
 
-    const blips: Blip[] = list.map((lead) => {
+    const shown = new Map<number, number>();
+    const visible = byRecency.filter((lead) => {
+      const sector = index.get(lead.inscricao) ?? sectors.length - 1;
+      const n = shown.get(sector) ?? 0;
+      shown.set(sector, n + 1);
+      return n < MAX_PER_SECTOR;
+    });
+    const rankVisible = new Map(visible.map((l, i) => [l.id, i] as const));
+    const blips: Blip[] = visible.map((lead) => {
       const sector = index.get(lead.inscricao) ?? sectors.length - 1;
       const age = Math.max(0, now - parsePipeRunDate(lead.createdAt).getTime());
-      const radius = 0.14 + 0.8 * (1 - (rank.get(lead.id) ?? 0) / Math.max(1, list.length - 1));
+      const radius =
+        0.14 + 0.8 * (1 - (rankVisible.get(lead.id) ?? 0) / Math.max(1, visible.length - 1));
       const span = (Math.PI * 2) / k;
       const theta = -Math.PI / 2 + sector * span + span * (0.12 + 0.76 * hash01(lead.id, 1));
       return {
@@ -141,17 +151,20 @@ export function LeadRadar({
 
     const draw = () => {
       ctx.clearRect(0, 0, size, size);
+      const dark = document.documentElement.classList.contains("dark");
+      const grid = dark ? "rgba(255,255,255,0.20)" : "rgba(55,85,66,0.22)";
+      const label = dark ? "rgba(255,255,255,0.75)" : "rgba(55,85,66,0.7)";
 
       // Anéis de alcance
       ctx.lineWidth = 1;
-      ctx.strokeStyle = "rgba(55,85,66,0.22)";
+      ctx.strokeStyle = grid;
       for (let i = 1; i <= 4; i++) {
         ctx.beginPath();
         ctx.arc(cx, cy, (R / 4) * i, 0, Math.PI * 2);
         ctx.stroke();
       }
       // Divisórias dos setores + numeração na borda
-      ctx.fillStyle = "rgba(55,85,66,0.7)";
+      ctx.fillStyle = label;
       ctx.font = "600 11px Inter, system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -193,7 +206,8 @@ export function LeadRadar({
         if (diff < 0.18) b.pulse = 1;
         else b.pulse = Math.max(0.25, b.pulse - 0.012);
 
-        const color = colorFor(b.lead.origin);
+        const color =
+          dark && b.lead.origin === "Outra origem" ? "#7FB394" : colorFor(b.lead.origin);
         const r = b.fresh ? 5 : 3.5;
         if (b.pulse > 0.4 || b.fresh) {
           const wave = b.fresh ? (frame % 90) / 90 : 1 - b.pulse;
@@ -219,7 +233,7 @@ export function LeadRadar({
       // Centro
       ctx.beginPath();
       ctx.arc(cx, cy, 4, 0, Math.PI * 2);
-      ctx.fillStyle = "#375542";
+      ctx.fillStyle = dark ? "#9FC4AA" : "#375542";
       ctx.fill();
 
       if (!reduce) {

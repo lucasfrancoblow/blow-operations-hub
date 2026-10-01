@@ -1,13 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   DndContext,
+  DragOverlay,
+  KeyboardSensor,
   PointerSensor,
   closestCenter,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
-import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
   Activity,
@@ -27,7 +36,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Area,
   AreaChart,
@@ -52,12 +61,14 @@ import {
   adTotals,
   brl,
   funnelCounts,
+  funnelOf,
   hourGrid,
   int,
   lastDaysRange,
   originQuality,
   topCampaigns,
   type TvData,
+  type TvSource,
 } from "@/components/hub/tv/tv-data";
 import { FunnelChart } from "@/components/ui/funnel-chart";
 import { parsePipeRunDate, todayDateString } from "@/lib/leads-recentes";
@@ -65,6 +76,7 @@ import type { PipelineSnapshot } from "@/lib/pipeline-snapshot";
 import { cn } from "@/lib/utils";
 import { getAdMetricsData } from "@/services/ad-metrics-service";
 import { getCallMetricsData } from "@/services/call-metrics-service";
+import { getFunnelConversaoData } from "@/services/funnel-conversao-service";
 import { getLeadsRecentesData } from "@/services/leads-recentes-service";
 import { getHubSnapshot } from "@/services/pipeline-snapshot-service";
 
@@ -190,7 +202,7 @@ function LeadsPorDia({ d }: { d: TvData }) {
 }
 
 function FunilLeads({ d }: { d: TvData }) {
-  const c = funnelCounts(d.leads);
+  const c = funnelOf(d);
   if (!c.leads) return <Empty>Sem leads no período.</Empty>;
   return (
     <FunnelChart
@@ -342,7 +354,7 @@ function Qualidade({ d }: { d: TvData }) {
 }
 
 function Medidores({ d }: { d: TvData }) {
-  const c = funnelCounts(d.leads);
+  const c = funnelOf(d);
   const list = d.leads?.leads ?? [];
   const contacted = list.length
     ? (list.filter((l) => l.lastContactAt).length / list.length) * 100
@@ -589,7 +601,7 @@ interface WidgetDef {
 }
 
 function buildWidgets(snapshot: TvData["snapshot"]): Record<string, WidgetDef> {
-  const f = (d: TvData) => funnelCounts(d.leads);
+  const f = (d: TvData) => funnelOf(d);
   const a = (d: TvData) => adTotals(d.ads);
   const calls = (d: TvData) => d.calls?.totals;
   const base: Record<string, WidgetDef> = {
@@ -954,6 +966,91 @@ function orderFor(scene: Scene, saved: Layout): string[] {
   return [...kept, ...scene.widgets.filter((id) => !kept.includes(id))];
 }
 
+/** Fonte(s) de dados de cada widget — o esqueleto aparece só até a SUA fonte chegar. */
+function sourcesOf(id: string): TvSource[] {
+  if (/^(kpi-invest|kpi-resultados|kpi-cpl|kpi-ctr|invest-|top-campanhas)/.test(id)) return ["ads"];
+  if (/^(kpi-ligacoes|kpi-atendidas|kpi-taxa|kpi-tempo|ligacoes-dia|ranking)/.test(id))
+    return ["calls"];
+  if (/^(kpi-abertos|kpi-valor|kpi-parados|kpi-sem-contato|todos-funis|time|funil-\d)/.test(id))
+    return ["snapshot"];
+  if (/^(kpi-sql|kpi-contratos|funil$|medidores)/.test(id)) return ["leads", "events"];
+  return ["leads"];
+}
+
+function WidgetSkeleton({ kpi }: { kpi: boolean }) {
+  return (
+    <div className="animate-pulse space-y-3" aria-busy="true">
+      {kpi ? (
+        <>
+          <div className="h-3 w-24 rounded bg-muted" />
+          <div className="h-9 w-20 rounded bg-muted" />
+          <div className="h-3 w-32 rounded bg-muted" />
+        </>
+      ) : (
+        <>
+          <div className="h-3 w-2/3 rounded bg-muted" />
+          <div className="h-3 w-full rounded bg-muted" />
+          <div className="h-3 w-5/6 rounded bg-muted" />
+          <div className="h-24 w-full rounded-xl bg-muted/70" />
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Conteúdo memorizado: arrastar um card não pode redesenhar os gráficos dos outros. */
+const WidgetBody = memo(function WidgetBody({
+  id,
+  def,
+  data,
+}: {
+  id: string;
+  def: WidgetDef;
+  data: TvData;
+}) {
+  const waiting = sourcesOf(id).some((src) => data.pending[src]);
+  return waiting ? <WidgetSkeleton kpi={def.size === "kpi"} /> : <>{def.render(data)}</>;
+});
+
+function WidgetCard({
+  id,
+  def,
+  data,
+  editing,
+  className,
+}: {
+  id: string;
+  def: WidgetDef;
+  data: TvData;
+  editing: boolean;
+  className?: string;
+}) {
+  const isKpi = def.size === "kpi";
+  return (
+    <div
+      className={cn(
+        "relative h-full rounded-2xl border border-border/70 bg-card p-5 shadow-sm",
+        className,
+      )}
+    >
+      {editing && (
+        <GripVertical className="absolute right-3 top-3 size-4 text-primary" aria-hidden="true" />
+      )}
+      {!isKpi && (
+        <h3 className="mb-4 font-display text-sm font-semibold text-muted-foreground">
+          {def.title}
+        </h3>
+      )}
+      <div className={cn(editing && "pointer-events-none", isKpi && "h-full")}>
+        <WidgetBody id={id} def={def} data={data} />
+      </div>
+    </div>
+  );
+}
+
+// Mola suave ao reordenar (inspirado no "Draggable Grid Dashboard" do 21st · uilayout.contact).
+const SORT_TRANSITION = { duration: 320, easing: "cubic-bezier(0.22, 1, 0.36, 1)" } as const;
+
 function SortableWidget({
   id,
   def,
@@ -968,39 +1065,38 @@ function SortableWidget({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
     disabled: !editing,
+    transition: SORT_TRANSITION,
   });
-  const isKpi = def.size === "kpi";
   return (
-    <motion.div
+    <div
       ref={setNodeRef}
-      layout={!editing}
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: EASE }}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
+      style={{ transform: CSS.Translate.toString(transform), transition }}
       className={cn(
         SIZE_CLASS[def.size],
-        "relative rounded-2xl border border-border/70 bg-card p-5 shadow-sm transition-shadow",
-        !editing && "hover:shadow-md",
-        editing && "cursor-grab border-dashed border-primary/50 active:cursor-grabbing",
-        isDragging && "z-10 scale-[1.02] shadow-xl ring-2 ring-primary/40",
+        editing && "cursor-grab touch-none",
+        "will-change-transform",
       )}
       {...(editing ? { ...attributes, ...listeners } : {})}
     >
-      {editing && (
-        <GripVertical className="absolute right-3 top-3 size-4 text-primary" aria-hidden="true" />
-      )}
-      {!isKpi && (
-        <h3 className="mb-4 font-display text-sm font-semibold text-muted-foreground">
-          {def.title}
-        </h3>
-      )}
-      <div
-        className={cn("pointer-events-none", !editing && "pointer-events-auto", isKpi && "h-full")}
+      <motion.div
+        className="h-full"
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: isDragging ? 0.35 : 1, y: 0 }}
+        transition={{ duration: 0.45, ease: EASE }}
       >
-        {def.render(data)}
-      </div>
-    </motion.div>
+        <WidgetCard
+          id={id}
+          def={def}
+          data={data}
+          editing={editing}
+          className={cn(
+            !editing && "transition-shadow hover:shadow-md",
+            editing && "border-dashed border-primary/50",
+            isDragging && "border-primary/70",
+          )}
+        />
+      </motion.div>
+    </div>
   );
 }
 
@@ -1038,13 +1134,39 @@ export function TvDashboard({ userName }: { userName: string }) {
     queryFn: () => getCallMetricsData({ data: range }),
     refetchInterval: 5 * 60_000,
   });
-  const data: TvData = {
-    leads: leadsQ.data ?? null,
-    ads: adsQ.data ?? null,
-    calls: callsQ.data ?? null,
-    snapshot: snapshotQ.data ?? null,
-  };
-  const loading = leadsQ.isLoading;
+  const eventsQ = useQuery({
+    queryKey: ["tv", "events", range],
+    queryFn: () => getFunnelConversaoData({ data: { range, pipelineNames: [], light: true } }),
+    refetchInterval: 3 * 60_000,
+  });
+  const data: TvData = useMemo(
+    () => ({
+      leads: leadsQ.data ?? null,
+      ads: adsQ.data ?? null,
+      calls: callsQ.data ?? null,
+      snapshot: snapshotQ.data ?? null,
+      events: eventsQ.data ?? null,
+      pending: {
+        leads: leadsQ.isPending,
+        ads: adsQ.isPending,
+        calls: callsQ.isPending,
+        snapshot: snapshotQ.isPending,
+        events: eventsQ.isPending,
+      },
+    }),
+    [
+      leadsQ.data,
+      adsQ.data,
+      callsQ.data,
+      snapshotQ.data,
+      eventsQ.data,
+      leadsQ.isPending,
+      adsQ.isPending,
+      callsQ.isPending,
+      snapshotQ.isPending,
+      eventsQ.isPending,
+    ],
+  );
 
   const defs = useMemo(() => buildWidgets(data.snapshot), [data.snapshot]);
   const scenes = useMemo(() => buildScenes(data.snapshot), [data.snapshot]);
@@ -1078,7 +1200,11 @@ export function TvDashboard({ userName }: { userName: string }) {
 
   const scene = scenes[sceneIdx % scenes.length]!;
   const order = orderFor(scene, layout);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
   const rotating = !paused && !editing && !reduce;
 
   const nextScene = useCallback(() => setSceneIdx((i) => (i + 1) % scenes.length), [scenes.length]);
@@ -1092,7 +1218,12 @@ export function TvDashboard({ userName }: { userName: string }) {
     }
   }
 
+  function onDragStart(e: DragStartEvent) {
+    setActiveId(String(e.active.id));
+  }
+
   function onDragEnd(e: DragEndEvent) {
+    setActiveId(null);
     const { active, over } = e;
     if (!over || active.id === over.id) return;
     const from = order.indexOf(String(active.id));
@@ -1223,42 +1354,50 @@ export function TvDashboard({ userName }: { userName: string }) {
         </p>
       )}
 
-      {loading ? (
-        <div className="grid grid-cols-12 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div
-              key={i}
-              className={cn(
-                "h-36 animate-pulse rounded-2xl bg-muted/70",
-                i < 4 ? SIZE_CLASS.kpi : SIZE_CLASS.md,
-              )}
-            />
-          ))}
-        </div>
-      ) : (
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={scene.id}
-            initial={{ opacity: 0, scale: 0.99 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.35, ease: EASE }}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={scene.id}
+          initial={{ opacity: 0, scale: 0.99 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3, ease: EASE }}
+        >
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+            onDragCancel={() => setActiveId(null)}
           >
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-              <SortableContext items={order} strategy={rectSortingStrategy}>
-                <div className="grid grid-cols-12 gap-4">
-                  {order.map((id) => {
-                    const def = defs[id];
-                    return def ? (
-                      <SortableWidget key={id} id={id} def={def} data={data} editing={editing} />
-                    ) : null;
-                  })}
+            <SortableContext items={order} strategy={rectSortingStrategy}>
+              <div className="grid grid-cols-12 gap-4">
+                {order.map((id) => {
+                  const def = defs[id];
+                  return def ? (
+                    <SortableWidget key={id} id={id} def={def} data={data} editing={editing} />
+                  ) : null;
+                })}
+              </div>
+            </SortableContext>
+            <DragOverlay
+              dropAnimation={{ duration: 280, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }}
+              zIndex={70}
+            >
+              {activeId && defs[activeId] ? (
+                <div className="rotate-[0.6deg] scale-[1.02] cursor-grabbing">
+                  <WidgetCard
+                    id={activeId}
+                    def={defs[activeId]}
+                    data={data}
+                    editing
+                    className="border-primary/60 shadow-2xl ring-2 ring-primary/30"
+                  />
                 </div>
-              </SortableContext>
-            </DndContext>
-          </motion.div>
-        </AnimatePresence>
-      )}
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        </motion.div>
+      </AnimatePresence>
 
       <p className="mt-6 text-center text-xs text-muted-foreground">
         Leads de {range.from.split("-").reverse().join("/")} a{" "}

@@ -29,6 +29,7 @@ import {
 } from "@/lib/piperun-client";
 import {
   ORIGIN_LABELS,
+  pipelineKey,
   STAGE_CONTRATO,
   STAGE_REUNIAO_AGENDADA,
   STAGE_SQL,
@@ -106,19 +107,20 @@ function toEvents(
 export async function loadFunnelStageEvents(
   range: DateRange,
   pipelineNames: string[],
+  light = false,
 ): Promise<FunnelStageEvent[]> {
   if (!isPipeRunConfigured()) return [];
 
   const [entradaRows, saidaRows, pipelines] = await Promise.all([
     fetchStageEntradasInRange(range.from, range.to),
-    fetchStageSaidasInRange(range.from, range.to),
+    light ? Promise.resolve([]) : fetchStageSaidasInRange(range.from, range.to),
     fetchPipelines(),
   ]);
 
-  const wantedUpper = new Set(pipelineNames.map((p) => p.toUpperCase()));
+  const wantedUpper = new Set(pipelineNames.map((p) => pipelineKey(p)));
   const pipelineIdsToLoad =
     wantedUpper.size > 0
-      ? pipelines.filter((p) => wantedUpper.has(p.name.toUpperCase())).map((p) => p.id)
+      ? pipelines.filter((p) => wantedUpper.has(pipelineKey(p.name))).map((p) => p.id)
       : pipelines.map((p) => p.id);
 
   const pipelineNameById = new Map(pipelines.map((p) => [p.id, p.name] as const));
@@ -136,7 +138,7 @@ export async function loadFunnelStageEvents(
   // Origem/UTM pro canal — buscado por lote de id porque o negócio pode ter sido
   // CRIADO fora do range selecionado (é literalmente o motivo de essa função existir).
   const dealIds = Array.from(new Set([...entradaRows, ...saidaRows].map((r) => r.deal_id)));
-  const deals = await fetchDealsByIds(dealIds);
+  const deals = light ? [] : await fetchDealsByIds(dealIds);
   const originByDealId = new Map(
     deals.map(
       (d) => [d.id, (d.origin_id && ORIGIN_LABELS[d.origin_id]) || "Outra origem"] as const,

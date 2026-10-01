@@ -73,6 +73,15 @@ const ETAPAS_INICIAIS = new Set(["Novo Lead", "NOVO LEAD", "Contato Inicial"]);
 // Exportadas pra funnel-conversao.ts usar a MESMA classificação de etapa, só que
 // aplicada em cima de quando o negócio ENTROU na etapa (stageHistories), não da etapa
 // atual — ver funnel-conversao.ts pro porquê essa segunda forma de contar existe.
+/** Chave de comparação de funil: maiúsculas e sem sufixo entre parênteses, para que
+ * "PRÉ VENDAS" e "PRÉ VENDAS (INBOUND)" sejam o mesmo funil (o PipeRun já renomeou funis). */
+export function pipelineKey(name: string): string {
+  return name
+    .replace(/\s*\([^)]*\)\s*$/, "")
+    .trim()
+    .toUpperCase();
+}
+
 export const PIPELINE_CLOSER = "EXPANSÃO CLOSER";
 export const STAGE_SQL = "SQL";
 export const STAGE_REUNIAO_AGENDADA = "Reunião Agendada";

@@ -10,7 +10,12 @@ import { getLeadsRecentesData } from "@/services/leads-recentes-service";
 import { getAdMetricsData } from "@/services/ad-metrics-service";
 import { getFunnelConversaoData } from "@/services/funnel-conversao-service";
 import { adChannelFor } from "@/lib/ad-metrics";
-import { defaultDateRange, type DateRange, type LeadRecente } from "@/lib/leads-recentes";
+import {
+  defaultDateRange,
+  pipelineKey,
+  type DateRange,
+  type LeadRecente,
+} from "@/lib/leads-recentes";
 import { canAccessPage } from "@/lib/page-access";
 import { DateRangePicker } from "@/components/hub/DateRangePicker";
 import { EmptyState, PageHeader, SectionCard, StatCard } from "@/components/hub/primitives";
@@ -452,12 +457,12 @@ function FunilMarketingPage() {
     const byChannelDay = new Map<string, Map<string, WeekCounts>>();
     for (const ch of [...CHANNEL_ORDER, "Geral"]) byChannelDay.set(ch, new Map());
 
-    const pipelineFilterUpper = new Set(pipelineFilter.map((p) => p.toUpperCase()));
+    const pipelineFilterUpper = new Set(pipelineFilter.map((p) => pipelineKey(p)));
 
     // Novos Leads continua pela data de criação do negócio — isso nunca esteve errado,
     // só o que vinha DEPOIS (SQL/RA/...) é que precisava da data real de entrada.
     for (const l of data.leads) {
-      if (pipelineFilterUpper.size > 0 && !pipelineFilterUpper.has(l.pipelineName.toUpperCase()))
+      if (pipelineFilterUpper.size > 0 && !pipelineFilterUpper.has(pipelineKey(l.pipelineName)))
         continue;
       const day = l.createdAt.slice(0, 10);
       const ch = channelFor(l);

@@ -8,11 +8,10 @@ import {
   type LeadsRecentesData,
 } from "@/lib/leads-recentes";
 
-// Cache em memória do processo do servidor, por range de datas: evita repaginar
-// negócios + funis + etapas a cada query independente disparada pela tela na
-// mesma janela de segundos, sem misturar resultado de um range com outro.
-const cache = new Map<string, { data: LeadsRecentesData | null; expiresAt: number }>();
-const CACHE_TTL_MS = 30_000;
+import { createSwrCache } from "@/lib/swr-cache";
+
+// Dado de até 45 s sai na hora; até 15 min sai na hora e atualiza por baixo.
+const cache = createSwrCache<LeadsRecentesData | null>(45_000, 15 * 60_000);
 
 /** Leads criados no range de datas informado no PipeRun (default: últimos 14 dias),
  * com etapa real do CRM. */
@@ -20,10 +19,5 @@ export const getLeadsRecentesData = createServerFn({ method: "GET" })
   .validator((input?: DateRange) => input ?? defaultDateRange())
   .handler(async ({ data: range }): Promise<LeadsRecentesData | null> => {
     await requireSessionUser();
-    const key = `${range.from}_${range.to}`;
-    const cached = cache.get(key);
-    if (cached && cached.expiresAt > Date.now()) return cached.data;
-    const data = await loadLeadsRecentesData(range);
-    cache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
-    return data;
+    return cache.get(`${range.from}_${range.to}`, () => loadLeadsRecentesData(range));
   });
