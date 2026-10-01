@@ -1,16 +1,10 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { canAccessPage } from "@/lib/page-access";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
-import { CheckCircle2, Download, Inbox, MessageCircle, Radar } from "lucide-react";
-import { downloadCsv } from "@/lib/csv-export";
-import { Button } from "@/components/ui/button";
+import { Download, Filter, Inbox, Radar as RadarIcon, Search, X } from "lucide-react";
 import {
   Area,
   AreaChart,
-  Bar,
-  BarChart,
   CartesianGrid,
   ResponsiveContainer,
   Tooltip as RTooltip,
@@ -18,27 +12,26 @@ import {
   YAxis,
 } from "recharts";
 
-import { getLeadsRecentesData } from "@/services/leads-recentes-service";
-import {
-  defaultRadarDateRange,
-  formatPhoneBR,
-  parsePipeRunDate,
-  todayDateString,
-  whatsappLink,
-  type DateRange,
-  type LeadRecente,
-} from "@/lib/leads-recentes";
 import { DateRangePicker } from "@/components/hub/DateRangePicker";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { LeadDetailDialog } from "@/components/hub/LeadDetailDialog";
 import { MultiSelectFilter } from "@/components/hub/MultiSelectFilter";
+import { CHANNEL_COLORS, LeadRadar } from "@/components/hub/charts/LeadRadar";
+import { HourHeatmap } from "@/components/hub/charts/HourHeatmap";
+import { OriginFlow } from "@/components/hub/charts/OriginFlow";
+import { PhaseChips } from "@/components/hub/charts/PhaseChips";
+import { RankBars } from "@/components/hub/charts/RankBars";
+import { Stagger, StaggerItem } from "@/components/hub/motion";
+import {
+  CardsSkeleton,
+  EmptyState,
+  PageHeader,
+  SectionCard,
+  StatCard,
+  TablePagination,
+  TableSkeleton,
+} from "@/components/hub/primitives";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -47,16 +40,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { downloadCsv } from "@/lib/csv-export";
 import {
-  EmptyState,
-  PageHeader,
-  SectionCard,
-  StatCard,
-  TablePagination,
-  TableSkeleton,
-} from "@/components/hub/primitives";
-import { Stagger, StaggerItem } from "@/components/hub/motion";
-import { LeadDetailDialog } from "@/components/hub/LeadDetailDialog";
+  defaultRadarDateRange,
+  formatPhoneBR,
+  parsePipeRunDate,
+  todayDateString,
+  type DateRange,
+  type LeadRecente,
+} from "@/lib/leads-recentes";
+import { canAccessPage } from "@/lib/page-access";
+import { cn } from "@/lib/utils";
+import { getLeadsRecentesData } from "@/services/leads-recentes-service";
 
 export const Route = createFileRoute("/leads-recentes")({
   beforeLoad: ({ context }) => {
@@ -66,97 +61,75 @@ export const Route = createFileRoute("/leads-recentes")({
   },
   head: () => ({
     meta: [
-      { title: "Radar de Leads — hubLOw BLOW" },
+      { title: "Radar de Leads — hubLOw" },
       {
         name: "description",
         content:
-          "Leads que chegaram no PipeRun no período selecionado, com o progresso real do CRM.",
-      },
-      { property: "og:title", content: "Radar de Leads — hubLOw BLOW" },
-      {
-        property: "og:description",
-        content:
-          "Feed em tempo real dos leads que entram no CRM, com progresso automático por etapa.",
+          "Leads do PipeRun por fase, origem e local de inscrição, com radar ao vivo e filtros.",
       },
     ],
   }),
   component: LeadsRecentesPage,
 });
 
-const PAGE_SIZE = 25;
-const PROGRESSO_FILTERS = [
-  { value: "todos", label: "Todos" },
-  { value: "novo", label: "Novos" },
-  { value: "andamento", label: "Em andamento" },
-];
+const PAGE_SIZE = 20;
+const STATUS_OPTIONS = ["Todos", "Aberto", "Ganho", "Perdido"] as const;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 function relativeTime(createdAt: string, now: number): string {
-  const diffMs = now - parsePipeRunDate(createdAt).getTime();
-  const min = Math.round(diffMs / 60_000);
+  const min = Math.round((now - parsePipeRunDate(createdAt).getTime()) / 60_000);
   if (min < 1) return "agora";
   if (min < 60) return `há ${min} min`;
   const h = Math.round(min / 60);
-  if (h < 24) return `há ${h}h`;
-  return `há ${Math.round(h / 24)}d`;
+  if (h < 24) return `há ${h} h`;
+  return `há ${Math.round(h / 24)} d`;
 }
 
-/** Feed ao vivo dos leads mais recentes — o "radar" de verdade da página: pulso animado
- * + tempo relativo que sobe sozinho, pra bater o olho e ver o que chegou agora. */
-function LiveLeadTicker({ leads }: { leads: LeadRecente[] }) {
-  const reduce = useReducedMotion();
-  const [now, setNow] = useState(() => Date.now());
+function presetRange(days: number): DateRange {
+  const to = todayDateString();
+  const d = new Date(`${to}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - (days - 1));
+  return { from: d.toISOString().slice(0, 10), to };
+}
 
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 15_000);
-    return () => clearInterval(id);
-  }, []);
+const PRESETS: Array<{ label: string; range: () => DateRange }> = [
+  { label: "Hoje", range: () => defaultRadarDateRange() },
+  { label: "7 dias", range: () => presetRange(7) },
+  { label: "30 dias", range: () => presetRange(30) },
+  {
+    label: "Mês",
+    range: () => {
+      const to = todayDateString();
+      return { from: `${to.slice(0, 8)}01`, to };
+    },
+  },
+];
 
-  const recent = leads.slice(0, 8);
-  if (recent.length === 0) return null;
+const tooltipStyle = {
+  background: "var(--color-popover)",
+  border: "1px solid var(--color-border)",
+  borderRadius: 12,
+  fontSize: 12,
+};
 
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/8 via-transparent to-transparent p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <span className="relative flex h-2.5 w-2.5">
-          {!reduce && (
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
-          )}
-          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success" />
-        </span>
-        <Radar className="h-4 w-4 text-primary" />
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Leads chegando agora
-        </p>
-      </div>
-      <div className="flex gap-3 overflow-x-auto pb-1">
-        {recent.map((lead, i) => (
-          <motion.div
-            key={lead.id}
-            initial={reduce ? undefined : { opacity: 0, x: -12 }}
-            animate={reduce ? undefined : { opacity: 1, x: 0 }}
-            transition={{ duration: 0.35, delay: i * 0.05, ease: [0.16, 1, 0.3, 1] }}
-            className="flex min-w-[200px] shrink-0 flex-col gap-1 rounded-xl border border-border/60 bg-card px-3 py-2 shadow-sm"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="truncate text-sm font-medium">{lead.title}</span>
-              <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-                {relativeTime(lead.createdAt, now)}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="truncate">{lead.origin}</span>
-              <span>·</span>
-              <span className="truncate">{lead.destino}</span>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-    </div>
-  );
+function count<K extends string>(items: LeadRecente[], key: (l: LeadRecente) => K | null) {
+  const m = new Map<string, number>();
+  for (const l of items) {
+    const k = key(l);
+    if (k) m.set(k, (m.get(k) ?? 0) + 1);
+  }
+  return [...m.entries()]
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value);
 }
 
 function LeadsRecentesPage() {
   const [range, setRange] = useState<DateRange>(() => defaultRadarDateRange());
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   const { data, isLoading } = useQuery({
     queryKey: ["piperun", "leads-recentes", range.from, range.to],
@@ -165,84 +138,155 @@ function LeadsRecentesPage() {
   });
 
   const [search, setSearch] = useState("");
-  const [pipelines, setPipelines] = useState<string[]>([]);
+  const [funis, setFunis] = useState<string[]>([]);
+  const [fases, setFases] = useState<string[]>([]);
   const [origens, setOrigens] = useState<string[]>([]);
-  const [destinos, setDestinos] = useState<string[]>([]);
+  const [inscricoes, setInscricoes] = useState<string[]>([]);
+  const [ufs, setUfs] = useState<string[]>([]);
   const [owners, setOwners] = useState<string[]>([]);
-  const [progresso, setProgresso] = useState("todos");
+  const [status, setStatus] = useState<(typeof STATUS_OPTIONS)[number]>("Todos");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<LeadRecente | null>(null);
 
-  // Nomes de responsável não vêm prontos do servidor (diferente de pipelineNames/
-  // origins/destinos) — derivados aqui mesmo em cima da lista completa, não da já
-  // filtrada, senão as opções do próprio filtro encolheriam ao usá-lo.
-  const ownerNames = useMemo(() => {
-    return Array.from(new Set((data?.leads ?? []).map((l) => l.ownerName))).sort();
-  }, [data]);
+  const all = data?.leads ?? [];
 
-  const filtered = useMemo(() => {
-    return (data?.leads ?? []).filter((l) => {
-      if (search && !l.title.toLowerCase().includes(search.toLowerCase())) return false;
-      if (pipelines.length > 0 && !pipelines.includes(l.pipelineName)) return false;
-      if (origens.length > 0 && !origens.includes(l.origin)) return false;
-      if (destinos.length > 0 && !destinos.includes(l.destino)) return false;
-      if (owners.length > 0 && !owners.includes(l.ownerName)) return false;
-      if (progresso === "novo" && l.emAndamento) return false;
-      if (progresso === "andamento" && !l.emAndamento) return false;
+  const options = useMemo(
+    () => ({
+      inscricoes: [...new Set(all.map((l) => l.inscricao))].sort(),
+      owners: [...new Set(all.map((l) => l.ownerName))].sort(),
+    }),
+    [all],
+  );
+
+  // Todos os filtros menos "fase": os chips de fase mostram quanto cada fase tem DENTRO
+  // dos outros filtros, sem encolher quando o usuário seleciona uma delas.
+  const base = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return all.filter((l) => {
+      if (q && !`${l.title} ${l.cidade ?? ""} ${l.ownerName}`.toLowerCase().includes(q))
+        return false;
+      if (funis.length && !funis.includes(l.pipelineName)) return false;
+      if (origens.length && !origens.includes(l.origin)) return false;
+      if (inscricoes.length && !inscricoes.includes(l.inscricao)) return false;
+      if (ufs.length && !(l.uf && ufs.includes(l.uf))) return false;
+      if (owners.length && !owners.includes(l.ownerName)) return false;
+      if (status !== "Todos" && l.status !== status) return false;
       return true;
     });
-  }, [data, search, pipelines, origens, destinos, owners, progresso]);
+  }, [all, search, funis, origens, inscricoes, ufs, owners, status]);
 
-  // KPIs e gráficos respondem aos mesmos filtros da tabela — recalculados em cima da
-  // lista já filtrada, não do agregado bruto do servidor. Sem isso, filtrar por
-  // "Google" continuava mostrando o total geral nos números e gráficos acima.
-  const filteredSummary = useMemo(() => {
+  const filtered = useMemo(
+    () => (fases.length ? base.filter((l) => fases.includes(l.stageName)) : base),
+    [base, fases],
+  );
+
+  const phaseChips = useMemo(() => {
+    const m = new Map<string, { count: number; order: number; color: string | null; n: number }>();
+    for (const l of base) {
+      const cur = m.get(l.stageName) ?? { count: 0, order: 0, color: l.stageColor, n: 0 };
+      cur.count += 1;
+      cur.order += l.stageOrder;
+      cur.n += 1;
+      m.set(l.stageName, cur);
+    }
+    return [...m.entries()]
+      .map(([key, v]) => ({
+        key,
+        label: key,
+        count: v.count,
+        color: v.color,
+        order: v.order / v.n,
+      }))
+      .sort((a, b) => a.order - b.order);
+  }, [base]);
+
+  useEffect(() => setPage(1), [filtered.length]);
+
+  const kpis = useMemo(() => {
     const today = todayDateString();
+    const advanced = filtered.filter((l) => l.isSql).length;
+    const open = filtered.filter((l) => l.status === "Aberto");
     return {
       total: filtered.length,
-      novos: filtered.filter((l) => !l.emAndamento).length,
-      emAndamento: filtered.filter((l) => l.emAndamento).length,
       hoje: filtered.filter((l) => l.createdAt.slice(0, 10) === today).length,
+      semContato: open.filter((l) => !l.lastContactAt).length,
+      sql: advanced,
+      taxaSql: filtered.length ? Math.round((advanced / filtered.length) * 100) : 0,
     };
   }, [filtered]);
 
-  const filteredByDay = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const l of filtered) {
-      const day = l.createdAt.slice(0, 10);
-      counts.set(day, (counts.get(day) ?? 0) + 1);
-    }
-    return (data?.byDay ?? []).map((d) => ({ date: d.date, total: counts.get(d.date) ?? 0 }));
+  const byDay = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const l of filtered)
+      m.set(l.createdAt.slice(0, 10), (m.get(l.createdAt.slice(0, 10)) ?? 0) + 1);
+    return (data?.byDay ?? []).map((d) => ({
+      label: `${d.date.slice(8)}/${d.date.slice(5, 7)}`,
+      total: m.get(d.date) ?? 0,
+    }));
   }, [filtered, data]);
 
-  function groupBy<K extends string>(items: LeadRecente[], key: (l: LeadRecente) => K) {
-    const counts = new Map<string, number>();
-    for (const l of items) {
-      const k = key(l);
-      counts.set(k, (counts.get(k) ?? 0) + 1);
+  const heat = useMemo(() => {
+    const grid = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0));
+    for (const l of filtered) {
+      const hour = Number(l.createdAt.slice(11, 13));
+      const dow = new Date(`${l.createdAt.slice(0, 10)}T12:00:00Z`).getUTCDay();
+      if (!Number.isNaN(hour)) grid[dow]![hour]! += 1;
     }
-    return Array.from(counts, ([k, total]) => ({ key: k, total })).sort(
-      (a, b) => b.total - a.total,
-    );
-  }
+    return grid;
+  }, [filtered]);
 
-  const filteredByOrigin = useMemo(
-    () => groupBy(filtered, (l) => l.origin).map((r) => ({ origin: r.key, total: r.total })),
-    [filtered],
-  );
-  const filteredByDestino = useMemo(
-    () => groupBy(filtered, (l) => l.destino).map((r) => ({ destino: r.key, total: r.total })),
-    [filtered],
-  );
-  const filteredByPipeline = useMemo(
-    () =>
-      groupBy(filtered, (l) => l.pipelineName).map((r) => ({ pipeline: r.key, total: r.total })),
-    [filtered],
-  );
+  const flow = useMemo(() => {
+    const m = new Map<string, number>();
+    const order = new Map<string, { sum: number; n: number }>();
+    for (const l of filtered) {
+      const k = `${l.origin}\u0000${l.stageName}`;
+      m.set(k, (m.get(k) ?? 0) + 1);
+      const o = order.get(l.stageName) ?? { sum: 0, n: 0 };
+      o.sum += l.stageOrder;
+      o.n += 1;
+      order.set(l.stageName, o);
+    }
+    const links = [...m.entries()].map(([k, value]) => {
+      const [from, to] = k.split("\u0000") as [string, string];
+      return { from, to, value };
+    });
+    const rightOrder = [...order.entries()]
+      .sort((a, b) => a[1].sum / a[1].n - b[1].sum / b[1].n)
+      .map(([name]) => name);
+    return { links, rightOrder };
+  }, [filtered]);
+
+  const byInscricao = useMemo(() => count(filtered, (l) => l.inscricao).slice(0, 8), [filtered]);
+  const byUf = useMemo(() => count(filtered, (l) => l.uf).slice(0, 8), [filtered]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const current = Math.min(page, pages);
   const rows = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+
+  const activeFilters =
+    funis.length +
+    fases.length +
+    origens.length +
+    inscricoes.length +
+    ufs.length +
+    owners.length +
+    (status !== "Todos" ? 1 : 0) +
+    (search ? 1 : 0);
+
+  function clearFilters() {
+    setSearch("");
+    setFunis([]);
+    setFases([]);
+    setOrigens([]);
+    setInscricoes([]);
+    setUfs([]);
+    setOwners([]);
+    setStatus("Todos");
+  }
+
+  function toggleFase(key: string) {
+    setFases((cur) => (cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key]));
+  }
 
   function exportCsv() {
     downloadCsv(
@@ -250,27 +294,53 @@ function LeadsRecentesPage() {
       filtered.map((l) => ({
         titulo: l.title,
         telefone: formatPhoneBR(l.phone) ?? "",
-        pipeline: l.pipelineName,
-        etapa: l.stageName,
+        funil: l.pipelineName,
+        fase: l.stageName,
         responsavel: l.ownerName,
         origem: l.origin,
-        destino: l.destino,
+        onde_se_inscreveu: l.inscricao,
+        utm_source: l.utmSource ?? "",
+        utm_medium: l.utmMedium ?? "",
         campanha_utm: l.utmCampaign ?? "",
+        cidade: l.cidade ?? "",
+        uf: l.uf ?? "",
+        investimento: l.investimento ?? "",
         status: l.status,
         valor: l.value,
         criado_em: l.createdAt,
-        em_andamento: l.emAndamento ? "sim" : "não",
       })),
     );
   }
+
+  const isPreset = (p: (typeof PRESETS)[number]) => {
+    const r = p.range();
+    return r.from === range.from && r.to === range.to;
+  };
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Radar de Leads"
-        subtitle="Dados reais do PipeRun — progresso automático por etapa"
+        subtitle="Todos os leads do PipeRun: em que fase estão e onde se inscreveram."
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <div className="flex rounded-full bg-muted/60 p-1">
+              {PRESETS.map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => setRange(p.range())}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                    isPreset(p)
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
             <DateRangePicker value={range} onChange={setRange} />
             <Button
               variant="outline"
@@ -278,7 +348,7 @@ function LeadsRecentesPage() {
               disabled={filtered.length === 0}
               onClick={exportCsv}
             >
-              <Download className="h-4 w-4" /> Exportar CSV
+              <Download className="h-4 w-4" /> CSV
             </Button>
           </div>
         }
@@ -292,39 +362,115 @@ function LeadsRecentesPage() {
         />
       ) : (
         <>
-          {!isLoading && data && <LiveLeadTicker leads={data.leads} />}
+          {/* Filtros */}
+          <div className="space-y-4 rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative min-w-52 flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar por nome, cidade ou responsável"
+                  className="pl-9"
+                />
+              </div>
+              <MultiSelectFilter
+                label="Funil"
+                options={data?.pipelineNames ?? []}
+                selected={funis}
+                onChange={setFunis}
+              />
+              <MultiSelectFilter
+                label="Origem"
+                options={data?.origins ?? []}
+                selected={origens}
+                onChange={setOrigens}
+              />
+              <MultiSelectFilter
+                label="Onde se inscreveu"
+                options={options.inscricoes}
+                selected={inscricoes}
+                onChange={setInscricoes}
+              />
+              <MultiSelectFilter
+                label="UF"
+                options={data?.ufs ?? []}
+                selected={ufs}
+                onChange={setUfs}
+              />
+              <MultiSelectFilter
+                label="Responsável"
+                options={options.owners}
+                selected={owners}
+                onChange={setOwners}
+              />
+              <div className="flex rounded-full bg-muted/60 p-1">
+                {STATUS_OPTIONS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setStatus(s)}
+                    className={cn(
+                      "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                      status === s
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+              {activeFilters > 0 && (
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                  <X className="h-4 w-4" /> Limpar ({activeFilters})
+                </Button>
+              )}
+            </div>
+
+            <div>
+              <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <Filter className="size-3" /> Fase em que está
+                {fases.length > 0 && (
+                  <button
+                    type="button"
+                    className="ml-2 normal-case text-primary hover:underline"
+                    onClick={() => setFases([])}
+                  >
+                    limpar fases
+                  </button>
+                )}
+              </p>
+              {isLoading ? (
+                <div className="h-16 animate-pulse rounded-xl bg-muted/60" />
+              ) : (
+                <PhaseChips items={phaseChips} selected={fases} onToggle={toggleFase} />
+              )}
+            </div>
+          </div>
 
           {isLoading ? (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Card key={i} className="border-border/60 bg-card">
-                  <CardContent className="py-5">
-                    <div className="h-4 w-24 animate-pulse rounded bg-muted/60" />
-                    <div className="mt-2 h-7 w-12 animate-pulse rounded bg-muted/60" />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <CardsSkeleton count={4} />
           ) : (
             <Stagger className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StaggerItem>
-                <StatCard label="Total no período" value={filteredSummary.total} accent="primary" />
+                <StatCard label="Leads no filtro" value={kpis.total} accent="primary" />
               </StaggerItem>
               <StaggerItem>
-                <StatCard label="Hoje" value={filteredSummary.hoje} accent="primary" />
+                <StatCard label="Entraram hoje" value={kpis.hoje} accent="primary" />
               </StaggerItem>
               <StaggerItem>
                 <StatCard
-                  label="Novos"
-                  value={filteredSummary.novos}
+                  label="Abertos sem contato"
+                  value={kpis.semContato}
                   accent="warning"
                   tone="warning"
                 />
               </StaggerItem>
               <StaggerItem>
                 <StatCard
-                  label="Em andamento"
-                  value={filteredSummary.emAndamento}
+                  label={`Chegaram a SQL (${kpis.taxaSql}%)`}
+                  value={kpis.sql}
                   accent="success"
                   tone="success"
                 />
@@ -333,343 +479,167 @@ function LeadsRecentesPage() {
           )}
 
           {!isLoading && (
-            <div className="grid gap-4">
-              <SectionCard title="Leads por dia">
-                <div className="h-56 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={filteredByDay} margin={{ left: -20, right: 8, top: 8 }}>
-                      <defs>
-                        <linearGradient id="gLeads" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.5} />
-                          <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                      <XAxis
-                        dataKey="date"
-                        tickFormatter={(v: string) => v.slice(8) + "/" + v.slice(5, 7)}
-                        stroke="var(--color-muted-foreground)"
-                        fontSize={11}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <YAxis
-                        stroke="var(--color-muted-foreground)"
-                        fontSize={11}
-                        tickLine={false}
-                        axisLine={false}
-                        allowDecimals={false}
-                      />
-                      <RTooltip
-                        contentStyle={{
-                          background: "var(--color-popover)",
-                          border: "1px solid var(--color-border)",
-                          borderRadius: 12,
-                          fontSize: 12,
-                        }}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="total"
-                        name="Leads"
-                        stroke="var(--color-primary)"
-                        fill="url(#gLeads)"
-                        strokeWidth={2}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
+            <>
+              <SectionCard
+                title="Radar ao vivo"
+                action={
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <RadarIcon className="size-3.5 text-primary" /> clique num ponto para abrir o
+                    lead
+                  </span>
+                }
+              >
+                <LeadRadar leads={filtered} onSelect={setSelected} />
               </SectionCard>
 
               <div className="grid gap-4 lg:grid-cols-3">
-                <SectionCard title="Leads por origem (UTM)">
+                <SectionCard title="Leads por dia" className="lg:col-span-2">
                   <div className="h-56 w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={filteredByOrigin.slice(0, 6)}
-                        layout="vertical"
-                        margin={{ left: 8, right: 12 }}
-                      >
+                      <AreaChart data={byDay} margin={{ left: -20, right: 8, top: 8 }}>
+                        <defs>
+                          <linearGradient id="gLeads" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.45} />
+                            <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
                         <CartesianGrid
                           strokeDasharray="3 3"
                           stroke="var(--color-border)"
-                          horizontal={false}
+                          vertical={false}
                         />
-                        <XAxis
-                          type="number"
-                          stroke="var(--color-muted-foreground)"
+                        <XAxis dataKey="label" fontSize={11} tickLine={false} axisLine={false} />
+                        <YAxis
                           fontSize={11}
                           tickLine={false}
                           axisLine={false}
                           allowDecimals={false}
                         />
-                        <YAxis
-                          type="category"
-                          dataKey="origin"
-                          width={100}
-                          stroke="var(--color-muted-foreground)"
-                          fontSize={11}
-                          tickLine={false}
-                          axisLine={false}
+                        <RTooltip contentStyle={tooltipStyle} />
+                        <Area
+                          type="monotone"
+                          dataKey="total"
+                          name="Leads"
+                          stroke="var(--color-primary)"
+                          fill="url(#gLeads)"
+                          strokeWidth={2.5}
                         />
-                        <RTooltip
-                          cursor={{ fill: "var(--color-muted)" }}
-                          contentStyle={{
-                            background: "var(--color-popover)",
-                            border: "1px solid var(--color-border)",
-                            borderRadius: 12,
-                            fontSize: 12,
-                          }}
-                        />
-                        <Bar dataKey="total" name="Leads" fill="var(--color-primary)" radius={4} />
-                      </BarChart>
+                      </AreaChart>
                     </ResponsiveContainer>
                   </div>
                 </SectionCard>
-
-                <SectionCard title="Leads por destino (LP / Forms)">
-                  <div className="h-56 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={filteredByDestino.slice(0, 6)}
-                        layout="vertical"
-                        margin={{ left: 8, right: 12 }}
-                      >
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          stroke="var(--color-border)"
-                          horizontal={false}
-                        />
-                        <XAxis
-                          type="number"
-                          stroke="var(--color-muted-foreground)"
-                          fontSize={11}
-                          tickLine={false}
-                          axisLine={false}
-                          allowDecimals={false}
-                        />
-                        <YAxis
-                          type="category"
-                          dataKey="destino"
-                          width={100}
-                          stroke="var(--color-muted-foreground)"
-                          fontSize={11}
-                          tickLine={false}
-                          axisLine={false}
-                        />
-                        <RTooltip
-                          cursor={{ fill: "var(--color-muted)" }}
-                          contentStyle={{
-                            background: "var(--color-popover)",
-                            border: "1px solid var(--color-border)",
-                            borderRadius: 12,
-                            fontSize: 12,
-                          }}
-                        />
-                        <Bar dataKey="total" name="Leads" fill="var(--color-warning)" radius={4} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </SectionCard>
-
-                <SectionCard title="Leads por funil">
-                  <div className="h-56 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={filteredByPipeline.slice(0, 6)}
-                        layout="vertical"
-                        margin={{ left: 8, right: 12 }}
-                      >
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          stroke="var(--color-border)"
-                          horizontal={false}
-                        />
-                        <XAxis
-                          type="number"
-                          stroke="var(--color-muted-foreground)"
-                          fontSize={11}
-                          tickLine={false}
-                          axisLine={false}
-                          allowDecimals={false}
-                        />
-                        <YAxis
-                          type="category"
-                          dataKey="pipeline"
-                          width={100}
-                          stroke="var(--color-muted-foreground)"
-                          fontSize={11}
-                          tickLine={false}
-                          axisLine={false}
-                        />
-                        <RTooltip
-                          cursor={{ fill: "var(--color-muted)" }}
-                          contentStyle={{
-                            background: "var(--color-popover)",
-                            border: "1px solid var(--color-border)",
-                            borderRadius: 12,
-                            fontSize: 12,
-                          }}
-                        />
-                        <Bar dataKey="total" name="Leads" fill="var(--color-info)" radius={4} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+                <SectionCard title="Onde se inscreveram">
+                  <RankBars rows={byInscricao.map((r) => ({ label: r.label, value: r.value }))} />
                 </SectionCard>
               </div>
-            </div>
+
+              <SectionCard title="Da origem até a fase atual">
+                <OriginFlow
+                  links={flow.links}
+                  rightOrder={flow.rightOrder}
+                  colorOf={(o) => CHANNEL_COLORS[o] ?? "#375542"}
+                />
+              </SectionCard>
+
+              <div className="grid gap-4 lg:grid-cols-3">
+                <SectionCard title="Melhores horários de entrada" className="lg:col-span-2">
+                  <HourHeatmap grid={heat} />
+                </SectionCard>
+                <SectionCard title="Leads por estado">
+                  <RankBars
+                    rows={byUf.map((r) => ({ label: r.label, value: r.value }))}
+                    empty="Nenhum lead informou UF."
+                  />
+                </SectionCard>
+              </div>
+            </>
           )}
 
-          <div className="grid gap-3 rounded-xl border border-border/60 bg-card/60 p-3 sm:grid-cols-2 xl:grid-cols-6">
-            <Input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              placeholder="Buscar por nome"
-            />
-            <MultiSelectFilter
-              label="Funis"
-              options={data?.pipelineNames ?? []}
-              selected={pipelines}
-              onChange={(v) => {
-                setPipelines(v);
-                setPage(1);
-              }}
-            />
-            <MultiSelectFilter
-              label="Origens"
-              options={data?.origins ?? []}
-              selected={origens}
-              onChange={(v) => {
-                setOrigens(v);
-                setPage(1);
-              }}
-            />
-            <MultiSelectFilter
-              label="Destinos"
-              options={data?.destinos ?? []}
-              selected={destinos}
-              onChange={(v) => {
-                setDestinos(v);
-                setPage(1);
-              }}
-            />
-            <MultiSelectFilter
-              label="Responsáveis"
-              options={ownerNames}
-              selected={owners}
-              onChange={(v) => {
-                setOwners(v);
-                setPage(1);
-              }}
-            />
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Progresso
-              </span>
-              <Select
-                value={progresso}
-                onValueChange={(v) => {
-                  setProgresso(v);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PROGRESSO_FILTERS.map((f) => (
-                    <SelectItem key={f.value} value={f.value}>
-                      {f.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {isLoading ? (
-            <TableSkeleton />
-          ) : filtered.length === 0 ? (
-            <EmptyState
-              icon={<CheckCircle2 className="h-5 w-5" />}
-              title="Nenhum lead encontrado"
-              description="Ajuste os filtros ou a busca."
-            />
-          ) : (
-            <div className="overflow-hidden rounded-xl border border-border/60 bg-card/60">
-              <div className="overflow-x-auto">
+          {/* Tabela */}
+          <SectionCard title={`Leads (${filtered.length})`}>
+            {isLoading ? (
+              <TableSkeleton />
+            ) : filtered.length === 0 ? (
+              <EmptyState
+                icon={<Inbox className="h-5 w-5" />}
+                title="Nenhum lead com esses filtros"
+                description="Ajuste o período ou limpe os filtros."
+              />
+            ) : (
+              <>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="min-w-[200px]">Nome</TableHead>
-                      <TableHead>Telefone</TableHead>
-                      <TableHead>Funil</TableHead>
-                      <TableHead>Etapa</TableHead>
-                      <TableHead>Origem</TableHead>
-                      <TableHead>Destino</TableHead>
+                      <TableHead>Lead</TableHead>
+                      <TableHead>Fase</TableHead>
+                      <TableHead>Onde se inscreveu</TableHead>
+                      <TableHead>Canal</TableHead>
                       <TableHead>Responsável</TableHead>
-                      <TableHead>Criado em</TableHead>
+                      <TableHead className="text-right">Entrou</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((lead) => (
+                    {rows.map((l) => (
                       <TableRow
-                        key={lead.id}
-                        className="cursor-pointer hover:bg-muted/30"
-                        onClick={() => setSelected(lead)}
+                        key={l.id}
+                        className="cursor-pointer"
+                        onClick={() => setSelected(l)}
                       >
-                        <TableCell className="font-medium">{lead.title}</TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {lead.phone ? (
-                            <a
-                              href={whatsappLink(lead.phone)!}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center gap-1 text-primary hover:underline"
-                            >
-                              <MessageCircle className="h-3 w-3" /> {formatPhoneBR(lead.phone)}
-                            </a>
-                          ) : (
-                            "—"
-                          )}
+                        <TableCell className="max-w-64">
+                          <p className="truncate font-medium">{l.title}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {[l.cidade, l.uf].filter(Boolean).join(" / ") || "—"}
+                          </p>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{lead.pipelineName}</TableCell>
-                        <TableCell className="text-muted-foreground">{lead.stageName}</TableCell>
-                        <TableCell className="text-muted-foreground">{lead.origin}</TableCell>
-                        <TableCell className="text-muted-foreground">{lead.destino}</TableCell>
-                        <TableCell className="text-muted-foreground">{lead.ownerName}</TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {parsePipeRunDate(lead.createdAt).toLocaleDateString("pt-BR", {
-                            timeZone: "America/Sao_Paulo",
-                          })}
+                        <TableCell>
+                          <span className="inline-flex items-center gap-2">
+                            <span
+                              className="size-2 shrink-0 rounded-full"
+                              style={{ background: l.stageColor ?? "var(--color-primary)" }}
+                            />
+                            <span>
+                              <span className="block text-sm">{l.stageName}</span>
+                              <span className="block text-xs text-muted-foreground">
+                                {l.pipelineName}
+                              </span>
+                            </span>
+                          </span>
+                        </TableCell>
+                        <TableCell className="max-w-48 truncate">{l.inscricao}</TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center gap-2 text-sm">
+                            <span
+                              className="size-2 rounded-full"
+                              style={{ background: CHANNEL_COLORS[l.origin] ?? "#375542" }}
+                            />
+                            {l.origin}
+                          </span>
+                        </TableCell>
+                        <TableCell>{l.ownerName}</TableCell>
+                        <TableCell className="text-right text-sm tabular-nums text-muted-foreground">
+                          {relativeTime(l.createdAt, now)}
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-              </div>
-              <TablePagination
-                current={current}
-                totalPages={pages}
-                totalItems={filtered.length}
-                itemLabel="leads"
-                onPageChange={setPage}
-              />
-            </div>
-          )}
+                <TablePagination
+                  current={current}
+                  totalPages={pages}
+                  totalItems={filtered.length}
+                  itemLabel="leads"
+                  onPageChange={setPage}
+                />
+              </>
+            )}
+          </SectionCard>
         </>
       )}
 
       <LeadDetailDialog
         lead={selected}
-        open={Boolean(selected)}
-        onOpenChange={(open) => {
-          if (!open) setSelected(null);
-        }}
+        open={selected !== null}
+        onOpenChange={(open) => !open && setSelected(null)}
       />
     </div>
   );

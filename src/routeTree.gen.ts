@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CampanhasRouteImport } from './routes/campanhas'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
-import { Route as DailyExpansaoRouteImport } from './routes/daily-expansao'
 import { Route as DocumentacaoRouteImport } from './routes/documentacao'
 import { Route as FunilMarketingRouteImport } from './routes/funil-marketing'
 import { Route as LeadsRecentesRouteImport } from './routes/leads-recentes'
@@ -33,11 +32,6 @@ const CampanhasRoute = CampanhasRouteImport.update({
 const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
   id: '/configuracoes',
   path: '/configuracoes',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DailyExpansaoRoute = DailyExpansaoRouteImport.update({
-  id: '/daily-expansao',
-  path: '/daily-expansao',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocumentacaoRoute = DocumentacaoRouteImport.update({
@@ -75,7 +69,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/campanhas': typeof CampanhasRoute
   '/configuracoes': typeof ConfiguracoesRoute
-  '/daily-expansao': typeof DailyExpansaoRoute
   '/documentacao': typeof DocumentacaoRoute
   '/funil-marketing': typeof FunilMarketingRoute
   '/leads-recentes': typeof LeadsRecentesRoute
@@ -87,7 +80,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/campanhas': typeof CampanhasRoute
   '/configuracoes': typeof ConfiguracoesRoute
-  '/daily-expansao': typeof DailyExpansaoRoute
   '/documentacao': typeof DocumentacaoRoute
   '/funil-marketing': typeof FunilMarketingRoute
   '/leads-recentes': typeof LeadsRecentesRoute
@@ -100,7 +92,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/campanhas': typeof CampanhasRoute
   '/configuracoes': typeof ConfiguracoesRoute
-  '/daily-expansao': typeof DailyExpansaoRoute
   '/documentacao': typeof DocumentacaoRoute
   '/funil-marketing': typeof FunilMarketingRoute
   '/leads-recentes': typeof LeadsRecentesRoute
@@ -114,7 +105,6 @@ export interface FileRouteTypes {
     | '/'
     | '/campanhas'
     | '/configuracoes'
-    | '/daily-expansao'
     | '/documentacao'
     | '/funil-marketing'
     | '/leads-recentes'
@@ -126,7 +116,6 @@ export interface FileRouteTypes {
     | '/'
     | '/campanhas'
     | '/configuracoes'
-    | '/daily-expansao'
     | '/documentacao'
     | '/funil-marketing'
     | '/leads-recentes'
@@ -138,7 +127,6 @@ export interface FileRouteTypes {
     | '/'
     | '/campanhas'
     | '/configuracoes'
-    | '/daily-expansao'
     | '/documentacao'
     | '/funil-marketing'
     | '/leads-recentes'
@@ -151,7 +139,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CampanhasRoute: typeof CampanhasRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
-  DailyExpansaoRoute: typeof DailyExpansaoRoute
   DocumentacaoRoute: typeof DocumentacaoRoute
   FunilMarketingRoute: typeof FunilMarketingRoute
   LeadsRecentesRoute: typeof LeadsRecentesRoute
@@ -181,13 +168,6 @@ declare module '@tanstack/react-router' {
       path: '/configuracoes'
       fullPath: '/configuracoes'
       preLoaderRoute: typeof ConfiguracoesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/daily-expansao': {
-      id: '/daily-expansao'
-      path: '/daily-expansao'
-      fullPath: '/daily-expansao'
-      preLoaderRoute: typeof DailyExpansaoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/documentacao': {
@@ -239,7 +219,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CampanhasRoute: CampanhasRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
-  DailyExpansaoRoute: DailyExpansaoRoute,
   DocumentacaoRoute: DocumentacaoRoute,
   FunilMarketingRoute: FunilMarketingRoute,
   LeadsRecentesRoute: LeadsRecentesRoute,

@@ -60,7 +60,19 @@ export function LeadDetailDialog({
                 }
               />
               <KeyValue label="Responsável" value={lead.ownerName} />
+              <KeyValue label="Onde se inscreveu" value={lead.inscricao} />
               <KeyValue label="Origem" value={lead.origin} />
+              <KeyValue
+                label="UTM (fonte / mídia)"
+                value={[lead.utmSource, lead.utmMedium].filter(Boolean).join(" / ") || "—"}
+              />
+              <KeyValue
+                label="Cidade / UF"
+                value={[lead.cidade, lead.uf].filter(Boolean).join(" / ") || "—"}
+              />
+              {lead.investimento && (
+                <KeyValue label="Perfil de investimento" value={lead.investimento} />
+              )}
               <KeyValue label="Status" value={lead.status} />
               <KeyValue label="Valor" value={formatCurrency(lead.value)} />
               <KeyValue

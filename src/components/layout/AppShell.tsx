@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Bell,
   CheckCircle2,
-  Headphones,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -16,12 +15,12 @@ import {
   TrendingUp,
   Users,
   X,
-  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import type { ReactNode } from "react";
 
+import { BlowMark } from "@/components/layout/BlowMark";
 import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 import { displayName } from "@/lib/display-name";
@@ -82,12 +81,6 @@ const NAV_SECTIONS: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { title: "Campanhas", url: "/campanhas", icon: Megaphone, pageKey: "campanhas" },
       { title: "Ligações", url: "/ligacoes", icon: Phone, pageKey: "ligacoes" },
-      {
-        title: "Daily Expansão",
-        url: "/daily-expansao",
-        icon: Headphones,
-        pageKey: "daily-expansao",
-      },
     ],
   },
 ];
@@ -240,11 +233,9 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
       <AnimatedSidebar ariaLabel="Navegação do hubLOw">
         <AnimatedSidebarHeader className="p-3 pb-2">
           <Link to="/" className="flex min-h-11 items-center gap-3 overflow-hidden px-1.5">
-            <div className="grid size-8 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground shadow-sm shadow-primary/30">
-              <Zap className="size-4" />
-            </div>
+            <BlowMark className="size-9" />
             <div className="min-w-0 flex-1 group-data-[state=collapsed]/sidebar:hidden">
-              <p className="truncate text-sm font-semibold leading-tight">hubLOw</p>
+              <p className="truncate text-sm font-semibold leading-tight">bLOw</p>
               <p className="truncate text-[11px] text-muted-foreground">Hub da Expansão</p>
             </div>
           </Link>

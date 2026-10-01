@@ -5,20 +5,13 @@
 
 import type { SessionUser } from "@/lib/auth";
 
-export const PAGE_KEYS = [
-  "leads-recentes",
-  "funil-marketing",
-  "daily-expansao",
-  "ligacoes",
-  "campanhas",
-] as const;
+export const PAGE_KEYS = ["leads-recentes", "funil-marketing", "ligacoes", "campanhas"] as const;
 
 export type PageKey = (typeof PAGE_KEYS)[number];
 
 export const PAGE_LABELS: Record<PageKey, string> = {
   "leads-recentes": "Radar de Leads",
   "funil-marketing": "Funil de MKT",
-  "daily-expansao": "Daily Expansão",
   ligacoes: "Ligações",
   campanhas: "Campanhas",
 };

@@ -11,17 +11,19 @@ import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from "@d
 import { CSS } from "@dnd-kit/utilities";
 import {
   Activity,
+  GitBranch,
   GripVertical,
   LayoutGrid,
   Maximize2,
   Megaphone,
   Minimize2,
+  Move,
   Pause,
   Phone,
   Play,
+  Radar as RadarIcon,
   RotateCcw,
-  Move,
-  TrendingUp,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -38,26 +40,38 @@ import {
   YAxis,
 } from "recharts";
 
+import { CHANNEL_COLORS, LeadRadar } from "@/components/hub/charts/LeadRadar";
+import { GlowRadar } from "@/components/hub/charts/GlowRadar";
+import { HourHeatmap } from "@/components/hub/charts/HourHeatmap";
+import { OriginFlow } from "@/components/hub/charts/OriginFlow";
+import { RadialGauge } from "@/components/hub/charts/RadialGauge";
+import { RankBars } from "@/components/hub/charts/RankBars";
 import { AnimatedNumber } from "@/components/hub/motion";
 import {
   adsByChannel,
   adTotals,
   brl,
   funnelCounts,
+  hourGrid,
   int,
-  monthRange,
+  lastDaysRange,
+  originQuality,
   topCampaigns,
   type TvData,
 } from "@/components/hub/tv/tv-data";
+import { FunnelChart } from "@/components/ui/funnel-chart";
 import { parsePipeRunDate, todayDateString } from "@/lib/leads-recentes";
+import type { PipelineSnapshot } from "@/lib/pipeline-snapshot";
 import { cn } from "@/lib/utils";
 import { getAdMetricsData } from "@/services/ad-metrics-service";
 import { getCallMetricsData } from "@/services/call-metrics-service";
 import { getLeadsRecentesData } from "@/services/leads-recentes-service";
+import { getHubSnapshot } from "@/services/pipeline-snapshot-service";
 
-const ROTATE_MS = 25_000;
-const STORAGE_KEY = "hublow-tv-layout-v1";
+const ROTATE_MS = 30_000;
+const STORAGE_KEY = "hublow-tv-layout-v2";
 const EASE = [0.16, 1, 0.3, 1] as const;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 type Size = "kpi" | "sm" | "md" | "lg" | "full";
 const SIZE_CLASS: Record<Size, string> = {
@@ -80,7 +94,14 @@ function timeAgo(iso: string): string {
   return `há ${Math.floor(h / 24)} d`;
 }
 
-// ---------- Widgets ----------
+const tooltipStyle = {
+  background: "var(--color-popover)",
+  border: "1px solid var(--color-border)",
+  borderRadius: 12,
+  fontSize: 12,
+};
+
+// ---------- Peças ----------
 
 function Kpi({
   label,
@@ -93,13 +114,14 @@ function Kpi({
   value: number;
   format?: (n: number) => string;
   hint?: string;
-  tone?: "primary" | "success" | "info" | "warning";
+  tone?: "primary" | "success" | "info" | "warning" | "critical";
 }) {
-  const toneBar = {
+  const bar = {
     primary: "bg-primary",
     success: "bg-success",
     info: "bg-info",
     warning: "bg-warning",
+    critical: "bg-critical",
   }[tone];
   return (
     <div className="flex h-full flex-col justify-between gap-3">
@@ -112,7 +134,7 @@ function Kpi({
         />
         {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
       </div>
-      <span className={cn("h-1 w-10 rounded-full", toneBar)} />
+      <span className={cn("h-1 w-10 rounded-full", bar)} />
     </div>
   );
 }
@@ -126,15 +148,16 @@ function Empty({ children }: { children: ReactNode }) {
 }
 
 function ChartBox({ children }: { children: ReactNode }) {
-  return <div className="h-56 w-full group-data-[tv=true]/tv:h-72">{children}</div>;
+  return <div className="h-72 w-full group-data-[tv=true]/tv:h-96">{children}</div>;
 }
 
-const tooltipStyle = {
-  background: "var(--color-popover)",
-  border: "1px solid var(--color-border)",
-  borderRadius: 12,
-  fontSize: 12,
-};
+/** Rampa de laranja da marca: etapa inicial clara → etapa final intensa (em vez das cores do Kanban). */
+function stageRamp(index: number, total: number): string {
+  const pct = total <= 1 ? 100 : 28 + (72 * index) / (total - 1);
+  return `color-mix(in oklab, var(--color-primary) ${pct}%, var(--color-muted))`;
+}
+
+// ---------- Widgets de dados ----------
 
 function LeadsPorDia({ d }: { d: TvData }) {
   const data = (d.leads?.byDay ?? []).map((x) => ({ ...x, label: dayLabel(x.date) }));
@@ -166,46 +189,24 @@ function LeadsPorDia({ d }: { d: TvData }) {
   );
 }
 
-function Funil({ d }: { d: TvData }) {
+function FunilLeads({ d }: { d: TvData }) {
   const c = funnelCounts(d.leads);
-  const steps = [
-    { label: "Leads", value: c.leads },
-    { label: "SQL", value: c.sql },
-    { label: "Reunião agendada", value: c.reuniaoAgendada },
-    { label: "Reunião realizada", value: c.reuniaoRealizada },
-    { label: "Contrato enviado", value: c.contratoEnviado },
-    { label: "Contrato assinado", value: c.contratoAssinado },
-  ];
-  const max = Math.max(1, steps[0]!.value);
   if (!c.leads) return <Empty>Sem leads no período.</Empty>;
   return (
-    <ul className="space-y-3">
-      {steps.map((s, i) => {
-        const prev = i === 0 ? null : steps[i - 1]!.value;
-        const conv = prev ? Math.round((s.value / prev) * 100) : null;
-        return (
-          <li key={s.label}>
-            <div className="mb-1 flex items-baseline justify-between text-sm">
-              <span className="text-muted-foreground">{s.label}</span>
-              <span className="tabular-nums">
-                <span className="font-semibold">{int(s.value)}</span>
-                {conv !== null && (
-                  <span className="ml-2 text-xs text-muted-foreground">{conv}%</span>
-                )}
-              </span>
-            </div>
-            <div className="h-2.5 overflow-hidden rounded-full bg-muted">
-              <motion.div
-                className="h-full rounded-full bg-gradient-to-r from-primary to-primary/60"
-                initial={{ width: 0 }}
-                animate={{ width: `${Math.max(2, (s.value / max) * 100)}%` }}
-                transition={{ duration: 0.9, ease: EASE, delay: i * 0.08 }}
-              />
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+    <FunnelChart
+      style={{ aspectRatio: "4.4 / 1" }}
+      data={[
+        { label: "Leads", value: c.leads },
+        { label: "SQL", value: c.sql },
+        { label: "Reunião agendada", value: c.reuniaoAgendada },
+        { label: "Reunião realizada", value: c.reuniaoRealizada },
+        { label: "Contrato enviado", value: c.contratoEnviado },
+        { label: "Assinado", value: c.contratoAssinado },
+      ].map((st) => ({ ...st, shape: Math.pow(st.value, 0.4) }))}
+      orientation="horizontal"
+      color="var(--chart-2)"
+      edges="curved"
+    />
   );
 }
 
@@ -232,7 +233,8 @@ function FeedLeads({ d }: { d: TvData }) {
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{l.title}</p>
               <p className="truncate text-xs text-muted-foreground">
-                {l.origin} · {l.stageName}
+                {l.inscricao} · {l.stageName}
+                {l.uf ? ` · ${l.uf}` : ""}
               </p>
             </div>
             <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(l.createdAt)}</span>
@@ -243,66 +245,249 @@ function FeedLeads({ d }: { d: TvData }) {
   );
 }
 
-function BarList({
-  rows,
-  format = int,
-}: {
-  rows: Array<{ label: string; value: number }>;
-  format?: (n: number) => string;
-}) {
-  const max = Math.max(1, ...rows.map((r) => r.value));
-  if (!rows.length) return <Empty>Sem dados no período.</Empty>;
+function Rank({ rows }: { rows: Array<{ label: string; value: number }> }) {
+  return <RankBars rows={rows} />;
+}
+
+function PorOrigem({ d }: { d: TvData }) {
   return (
-    <ul className="space-y-3">
-      {rows.map((r, i) => (
-        <li key={r.label}>
-          <div className="mb-1 flex justify-between gap-3 text-sm">
-            <span className="truncate text-muted-foreground">{r.label}</span>
-            <span className="font-semibold tabular-nums">{format(r.value)}</span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-muted">
-            <motion.div
-              className="h-full rounded-full bg-primary"
-              initial={{ width: 0 }}
-              animate={{ width: `${(r.value / max) * 100}%` }}
-              transition={{ duration: 0.8, ease: EASE, delay: i * 0.06 }}
+    <RankBars
+      rows={(d.leads?.byOrigin ?? []).slice(0, 6).map((o) => ({
+        label: o.origin,
+        value: o.total,
+        color: CHANNEL_COLORS[o.origin] ?? "#375542",
+      }))}
+    />
+  );
+}
+
+function PorInscricao({ d }: { d: TvData }) {
+  const m = new Map<string, number>();
+  for (const l of d.leads?.leads ?? []) m.set(l.inscricao, (m.get(l.inscricao) ?? 0) + 1);
+  const rows = [...m.entries()]
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 7);
+  return <Rank rows={rows} />;
+}
+
+function PorUf({ d }: { d: TvData }) {
+  const m = new Map<string, number>();
+  for (const l of d.leads?.leads ?? []) if (l.uf) m.set(l.uf, (m.get(l.uf) ?? 0) + 1);
+  const rows = [...m.entries()]
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
+  return <RankBars rows={rows} empty="Nenhum lead informou UF." />;
+}
+
+function RadarLeads({ d }: { d: TvData }) {
+  const recent = (d.leads?.leads ?? []).filter(
+    (l) => Date.now() - parsePipeRunDate(l.createdAt).getTime() < 7 * DAY_MS,
+  );
+  return <LeadRadar leads={recent} />;
+}
+
+function Fluxo({ d }: { d: TvData }) {
+  const links = new Map<string, number>();
+  const order = new Map<string, { sum: number; n: number }>();
+  for (const l of d.leads?.leads ?? []) {
+    const k = `${l.origin}\u0000${l.stageName}`;
+    links.set(k, (links.get(k) ?? 0) + 1);
+    const o = order.get(l.stageName) ?? { sum: 0, n: 0 };
+    o.sum += l.stageOrder;
+    o.n += 1;
+    order.set(l.stageName, o);
+  }
+  return (
+    <OriginFlow
+      links={[...links.entries()].map(([k, value]) => {
+        const [from, to] = k.split("\u0000") as [string, string];
+        return { from, to, value };
+      })}
+      rightOrder={[...order.entries()]
+        .sort((a, b) => a[1].sum / a[1].n - b[1].sum / b[1].n)
+        .map(([n]) => n)}
+      colorOf={(o) => CHANNEL_COLORS[o] ?? "#375542"}
+    />
+  );
+}
+
+function Qualidade({ d }: { d: TvData }) {
+  const { data, names } = originQuality(d.leads);
+  if (!names.length) return <Empty>Sem leads no período.</Empty>;
+  return (
+    <div>
+      <GlowRadar
+        data={data}
+        series={names.map((n, i) => ({
+          key: `s${i}`,
+          label: n,
+          color: CHANNEL_COLORS[n] ?? "#375542",
+        }))}
+      />
+      <ul className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        {names.map((n, i) => (
+          <li key={n} className="flex items-center gap-1.5">
+            <span
+              className="size-2 rounded-full"
+              style={{ background: CHANNEL_COLORS[n] ?? "#375542" }}
             />
-          </div>
-        </li>
-      ))}
+            {n}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function Medidores({ d }: { d: TvData }) {
+  const c = funnelCounts(d.leads);
+  const list = d.leads?.leads ?? [];
+  const contacted = list.length
+    ? (list.filter((l) => l.lastContactAt).length / list.length) * 100
+    : 0;
+  const sql = c.leads ? (c.sql / c.leads) * 100 : 0;
+  const ra = c.sql ? (c.reuniaoAgendada / c.sql) * 100 : 0;
+  const rr = c.reuniaoAgendada ? (c.reuniaoRealizada / c.reuniaoAgendada) * 100 : 0;
+  return (
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <RadialGauge
+        value={contacted}
+        label="Com contato"
+        hint="leads já abordados"
+        color="#2A78D6"
+      />
+      <RadialGauge value={sql} label="Lead → SQL" hint="qualificação" color="#D74015" />
+      <RadialGauge value={ra} label="SQL → Reunião" hint="agendamento" color="#EDA100" />
+      <RadialGauge value={rr} label="Reunião → Realizada" hint="comparecimento" color="#375542" />
+    </div>
+  );
+}
+
+function Mapa({ d }: { d: TvData }) {
+  return <HourHeatmap grid={hourGrid(d.leads)} />;
+}
+
+function StagesBar({ pipeline }: { pipeline: PipelineSnapshot }) {
+  const max = Math.max(1, ...pipeline.stages.map((s) => s.count));
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-sm">
+        <span className="text-muted-foreground">
+          <b className="text-foreground">{int(pipeline.open)}</b> abertos
+        </span>
+        <span className="text-muted-foreground">
+          <b className="text-foreground">{brl(pipeline.value)}</b> em valor
+        </span>
+        <span className={pipeline.stalled ? "text-warning" : "text-muted-foreground"}>
+          <b>{int(pipeline.stalled)}</b> parados +7 dias
+        </span>
+      </div>
+      <ul className="space-y-2.5">
+        {pipeline.stages.map((s, i) => (
+          <li
+            key={s.id}
+            className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 text-sm"
+          >
+            <span className="truncate text-muted-foreground">{s.name}</span>
+            <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+              <motion.div
+                className="h-full rounded-full"
+                style={{ background: stageRamp(i, pipeline.stages.length) }}
+                initial={{ width: 0 }}
+                animate={{ width: `${(s.count / max) * 100}%` }}
+                transition={{ duration: 0.8, ease: EASE, delay: i * 0.04 }}
+              />
+            </div>
+            <span className="min-w-8 text-right font-semibold tabular-nums">
+              {s.count}
+              {s.stalled > 0 && (
+                <span className="ml-1 text-xs font-normal text-warning">·{s.stalled}</span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function TodosFunis({ d }: { d: TvData }) {
+  const pipelines = d.snapshot?.pipelines ?? [];
+  if (!d.snapshot) return <Empty>PipeRun não configurado.</Empty>;
+  return (
+    <ul className="space-y-5">
+      {pipelines.map((p) => {
+        const total = Math.max(1, p.open);
+        return (
+          <li key={p.id}>
+            <div className="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
+              <span className="font-medium">
+                {p.name}
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  {p.kind === "pos-venda" ? "pós-venda" : "vendas"}
+                </span>
+              </span>
+              <span className="tabular-nums text-muted-foreground">
+                <b className="text-foreground">{int(p.open)}</b> abertos · {brl(p.value)}
+              </span>
+            </div>
+            <div className="flex h-3 overflow-hidden rounded-full bg-muted">
+              {p.stages
+                .map((s, i) => ({ s, i }))
+                .filter(({ s }) => s.count > 0)
+                .map(({ s, i }) => (
+                  <motion.div
+                    key={s.id}
+                    title={`${s.name}: ${s.count}`}
+                    className="h-full border-r border-card/60 last:border-r-0"
+                    style={{ background: stageRamp(i, p.stages.length) }}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(s.count / total) * 100}%` }}
+                    transition={{ duration: 0.8, ease: EASE, delay: i * 0.04 }}
+                  />
+                ))}
+            </div>
+          </li>
+        );
+      })}
     </ul>
   );
 }
 
-function PorOrigem({ d }: { d: TvData }) {
-  const rows = (d.leads?.byOrigin ?? [])
-    .slice()
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 6)
-    .map((o) => ({ label: o.origin, value: o.total }));
-  return <BarList rows={rows} />;
-}
-
-function PorFunil({ d }: { d: TvData }) {
-  const rows = (d.leads?.byPipeline ?? [])
-    .slice()
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 6)
-    .map((o) => ({ label: o.pipeline, value: o.total }));
-  return <BarList rows={rows} />;
+function Time({ d }: { d: TvData }) {
+  const owners = (d.snapshot?.owners ?? []).slice(0, 8);
+  if (!d.snapshot) return <Empty>PipeRun não configurado.</Empty>;
+  return (
+    <RankBars
+      rows={owners.map((o) => ({
+        label: o.name,
+        value: o.open,
+        sub: o.stalled ? `${o.stalled} parados` : "",
+        display: `${int(o.open)} · ${brl(o.value)}`,
+      }))}
+    />
+  );
 }
 
 function InvestimentoCanal({ d }: { d: TvData }) {
-  const rows = adsByChannel(d.ads).map((c) => ({ label: c.channel, value: c.spend }));
   if (!d.ads) return <Empty>Métricas de anúncios não configuradas.</Empty>;
-  return <BarList rows={rows} format={brl} />;
+  return (
+    <RankBars
+      rows={adsByChannel(d.ads).map((c) => ({
+        label: c.channel,
+        value: c.spend,
+        display: brl(c.spend),
+      }))}
+    />
+  );
 }
 
 function InvestimentoDia({ d }: { d: TvData }) {
   const byDay = new Map<string, number>();
-  for (const r of d.ads ?? []) {
+  for (const r of d.ads ?? [])
     byDay.set(r.data_referencia, (byDay.get(r.data_referencia) ?? 0) + r.valor_usado);
-  }
   const data = [...byDay.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, spend]) => ({ label: dayLabel(date), spend: Math.round(spend) }));
@@ -383,13 +568,16 @@ function LigacoesDia({ d }: { d: TvData }) {
 }
 
 function RankingAgentes({ d }: { d: TvData }) {
-  const rows = (d.calls?.byAgent ?? [])
-    .slice()
-    .sort((a, b) => b.connectedCalls - a.connectedCalls)
-    .slice(0, 7)
-    .map((a) => ({ label: a.agentName, value: a.connectedCalls }));
   if (!d.calls) return <Empty>Métricas de ligações não configuradas.</Empty>;
-  return <BarList rows={rows} />;
+  return (
+    <RankBars
+      rows={d.calls.byAgent
+        .slice()
+        .sort((a, b) => b.connectedCalls - a.connectedCalls)
+        .slice(0, 7)
+        .map((a) => ({ label: a.agentName, value: a.connectedCalls }))}
+    />
+  );
 }
 
 // ---------- Registro de widgets e cenas ----------
@@ -400,11 +588,11 @@ interface WidgetDef {
   render: (d: TvData) => ReactNode;
 }
 
-function widgets(): Record<string, WidgetDef> {
+function buildWidgets(snapshot: TvData["snapshot"]): Record<string, WidgetDef> {
   const f = (d: TvData) => funnelCounts(d.leads);
   const a = (d: TvData) => adTotals(d.ads);
   const calls = (d: TvData) => d.calls?.totals;
-  return {
+  const base: Record<string, WidgetDef> = {
     "kpi-hoje": {
       title: "Leads hoje",
       size: "kpi",
@@ -413,10 +601,10 @@ function widgets(): Record<string, WidgetDef> {
       ),
     },
     "kpi-mes": {
-      title: "Leads no mês",
+      title: "Leads em 30 dias",
       size: "kpi",
       render: (d) => (
-        <Kpi label="Leads no mês" value={f(d).leads} tone="info" hint="criados no PipeRun" />
+        <Kpi label="Leads em 30 dias" value={f(d).leads} tone="info" hint="criados no PipeRun" />
       ),
     },
     "kpi-sql": {
@@ -426,7 +614,7 @@ function widgets(): Record<string, WidgetDef> {
         const c = f(d);
         return (
           <Kpi
-            label="SQL no mês"
+            label="SQL em 30 dias"
             value={c.sql}
             tone="warning"
             hint={c.leads ? `${Math.round((c.sql / c.leads) * 100)}% dos leads` : ""}
@@ -442,27 +630,85 @@ function widgets(): Record<string, WidgetDef> {
           label="Contratos assinados"
           value={f(d).contratoAssinado}
           tone="success"
-          hint="no mês"
+          hint="em 30 dias"
+        />
+      ),
+    },
+    "kpi-abertos": {
+      title: "Negócios abertos",
+      size: "kpi",
+      render: (d) => (
+        <Kpi
+          label="Negócios abertos"
+          value={d.snapshot?.totals.open ?? 0}
+          tone="info"
+          hint="todos os funis"
+        />
+      ),
+    },
+    "kpi-valor": {
+      title: "Valor em aberto",
+      size: "kpi",
+      render: (d) => (
+        <Kpi
+          label="Valor em aberto"
+          value={d.snapshot?.totals.value ?? 0}
+          format={brl}
+          tone="success"
+          hint="soma dos negócios abertos"
+        />
+      ),
+    },
+    "kpi-parados": {
+      title: "Parados",
+      size: "kpi",
+      render: (d) => (
+        <Kpi
+          label="Parados +7 dias"
+          value={d.snapshot?.totals.stalled ?? 0}
+          tone="warning"
+          hint="sem mudar de fase"
+        />
+      ),
+    },
+    "kpi-sem-contato": {
+      title: "Sem contato",
+      size: "kpi",
+      render: (d) => (
+        <Kpi
+          label="Nunca contatados"
+          value={d.snapshot?.totals.neverContacted ?? 0}
+          tone="critical"
+          hint="abertos sem 1º contato"
         />
       ),
     },
     "leads-dia": { title: "Leads por dia", size: "lg", render: (d) => <LeadsPorDia d={d} /> },
     "feed-leads": { title: "Chegando agora", size: "sm", render: (d) => <FeedLeads d={d} /> },
-    funil: { title: "Funil de vendas", size: "md", render: (d) => <Funil d={d} /> },
-    origem: { title: "Leads por origem", size: "md", render: (d) => <PorOrigem d={d} /> },
-    "por-funil": { title: "Leads por funil", size: "md", render: (d) => <PorFunil d={d} /> },
-    "funil-grande": { title: "Funil de vendas", size: "lg", render: (d) => <Funil d={d} /> },
+    funil: {
+      title: "Funil de vendas (leads dos últimos 30 dias)",
+      size: "full",
+      render: (d) => <FunilLeads d={d} />,
+    },
+    medidores: { title: "Conversão entre fases", size: "full", render: (d) => <Medidores d={d} /> },
+    "todos-funis": {
+      title: "Todos os funis hoje (negócios abertos por fase)",
+      size: "full",
+      render: (d) => <TodosFunis d={d} />,
+    },
+    time: { title: "Carteira por responsável", size: "md", render: (d) => <Time d={d} /> },
+    origem: { title: "Leads por canal", size: "md", render: (d) => <PorOrigem d={d} /> },
+    inscricao: { title: "Onde se inscreveram", size: "lg", render: (d) => <PorInscricao d={d} /> },
+    uf: { title: "Leads por estado", size: "sm", render: (d) => <PorUf d={d} /> },
+    radar: { title: "Radar de leads (7 dias)", size: "full", render: (d) => <RadarLeads d={d} /> },
+    fluxo: { title: "Da origem até a fase atual", size: "full", render: (d) => <Fluxo d={d} /> },
+    mapa: { title: "Melhores horários de entrada", size: "full", render: (d) => <Mapa d={d} /> },
+    qualidade: { title: "Qualidade por canal", size: "md", render: (d) => <Qualidade d={d} /> },
     "kpi-invest": {
       title: "Investimento",
       size: "kpi",
       render: (d) => (
-        <Kpi
-          label="Investimento"
-          value={a(d).spend}
-          format={brl}
-          tone="primary"
-          hint="Meta + Google"
-        />
+        <Kpi label="Investimento" value={a(d).spend} format={brl} hint="Meta + Google" />
       ),
     },
     "kpi-resultados": {
@@ -516,7 +762,9 @@ function widgets(): Record<string, WidgetDef> {
     "kpi-ligacoes": {
       title: "Ligações",
       size: "kpi",
-      render: (d) => <Kpi label="Ligações no mês" value={calls(d)?.totalCalls ?? 0} hint="3C+" />,
+      render: (d) => (
+        <Kpi label="Ligações em 30 dias" value={calls(d)?.totalCalls ?? 0} hint="3C+" />
+      ),
     },
     "kpi-atendidas": {
       title: "Atendidas",
@@ -558,6 +806,16 @@ function widgets(): Record<string, WidgetDef> {
       render: (d) => <RankingAgentes d={d} />,
     },
   };
+
+  // Um widget por funil: fase a fase, com cor da etapa no PipeRun.
+  for (const p of snapshot?.pipelines ?? []) {
+    base[`funil-${p.id}`] = {
+      title: p.name,
+      size: "md",
+      render: () => <StagesBar pipeline={p} />,
+    };
+  }
+  return base;
 }
 
 interface Scene {
@@ -567,57 +825,115 @@ interface Scene {
   widgets: string[];
 }
 
-const SCENES: Scene[] = [
-  {
-    id: "geral",
-    title: "Visão geral",
-    icon: Activity,
-    widgets: [
-      "kpi-hoje",
-      "kpi-mes",
-      "kpi-sql",
-      "kpi-contratos",
-      "leads-dia",
-      "feed-leads",
-      "funil",
-      "origem",
-    ],
-  },
-  {
-    id: "funil",
-    title: "Funil",
-    icon: TrendingUp,
-    widgets: [
-      "kpi-mes",
-      "kpi-sql",
-      "kpi-contratos",
-      "kpi-hoje",
-      "funil-grande",
-      "origem",
-      "por-funil",
-    ],
-  },
-  {
-    id: "campanhas",
-    title: "Campanhas",
-    icon: Megaphone,
-    widgets: [
-      "kpi-invest",
-      "kpi-resultados",
-      "kpi-cpl",
-      "kpi-ctr",
-      "invest-dia",
-      "invest-canal",
-      "top-campanhas",
-    ],
-  },
-  {
-    id: "ligacoes",
-    title: "Ligações",
-    icon: Phone,
-    widgets: ["kpi-ligacoes", "kpi-atendidas", "kpi-taxa", "kpi-tempo", "ligacoes-dia", "ranking"],
-  },
-];
+function buildScenes(snapshot: TvData["snapshot"]): Scene[] {
+  // Negócios do PipeRun desta conta não costumam ter valor: sem soma, o card só ocuparia espaço.
+  const hasValue = (snapshot?.totals.value ?? 0) > 0;
+  const scenes: Scene[] = [
+    {
+      id: "geral",
+      title: "Visão geral",
+      icon: Activity,
+      widgets: [
+        "kpi-hoje",
+        "kpi-mes",
+        "kpi-abertos",
+        "kpi-valor",
+        "leads-dia",
+        "feed-leads",
+        "funil",
+        "todos-funis",
+        "kpi-sql",
+        "kpi-contratos",
+        "kpi-parados",
+        "kpi-sem-contato",
+      ],
+    },
+    {
+      id: "funis",
+      title: "Funis e fases",
+      icon: GitBranch,
+      widgets: [
+        "kpi-abertos",
+        "kpi-valor",
+        "kpi-parados",
+        "kpi-sem-contato",
+        ...(snapshot?.pipelines ?? []).map((p) => `funil-${p.id}`),
+      ],
+    },
+    {
+      id: "radar",
+      title: "Radar",
+      icon: RadarIcon,
+      widgets: [
+        "kpi-hoje",
+        "kpi-mes",
+        "kpi-sql",
+        "kpi-sem-contato",
+        "radar",
+        "inscricao",
+        "uf",
+        "origem",
+        "qualidade",
+        "fluxo",
+        "mapa",
+      ],
+    },
+    {
+      id: "conversao",
+      title: "Conversão",
+      icon: LayoutGrid,
+      widgets: ["kpi-mes", "kpi-sql", "kpi-contratos", "kpi-hoje", "funil", "medidores"],
+    },
+    {
+      id: "time",
+      title: "Time",
+      icon: Users,
+      widgets: [
+        "kpi-abertos",
+        "kpi-parados",
+        "kpi-sem-contato",
+        "kpi-valor",
+        "time",
+        "ranking",
+        "kpi-ligacoes",
+        "kpi-atendidas",
+        "ligacoes-dia",
+      ],
+    },
+    {
+      id: "campanhas",
+      title: "Campanhas",
+      icon: Megaphone,
+      widgets: [
+        "kpi-invest",
+        "kpi-resultados",
+        "kpi-cpl",
+        "kpi-ctr",
+        "invest-dia",
+        "invest-canal",
+        "top-campanhas",
+      ],
+    },
+    {
+      id: "ligacoes",
+      title: "Ligações",
+      icon: Phone,
+      widgets: [
+        "kpi-ligacoes",
+        "kpi-atendidas",
+        "kpi-taxa",
+        "kpi-tempo",
+        "ligacoes-dia",
+        "ranking",
+      ],
+    },
+  ];
+  if (hasValue) return scenes;
+  return scenes.map((sc) => ({
+    ...sc,
+    widgets: [...new Set(sc.widgets.map((w) => (w === "kpi-valor" ? "kpi-parados" : w)))],
+  }));
+}
 
 // ---------- Layout arrastável ----------
 
@@ -692,7 +1008,6 @@ function SortableWidget({
 
 export function TvDashboard({ userName }: { userName: string }) {
   const reduce = useReducedMotion();
-  const defs = useMemo(widgets, []);
   const [sceneIdx, setSceneIdx] = useState(0);
   const [paused, setPaused] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -701,12 +1016,17 @@ export function TvDashboard({ userName }: { userName: string }) {
   const [now, setNow] = useState<Date | null>(null);
 
   const today = todayDateString();
-  const range = monthRange(today);
+  const range = lastDaysRange(today, 30);
 
   const leadsQ = useQuery({
     queryKey: ["tv", "leads", range],
     queryFn: () => getLeadsRecentesData({ data: range }),
     refetchInterval: 60_000,
+  });
+  const snapshotQ = useQuery({
+    queryKey: ["tv", "snapshot"],
+    queryFn: () => getHubSnapshot(),
+    refetchInterval: 3 * 60_000,
   });
   const adsQ = useQuery({
     queryKey: ["tv", "ads", range],
@@ -722,8 +1042,12 @@ export function TvDashboard({ userName }: { userName: string }) {
     leads: leadsQ.data ?? null,
     ads: adsQ.data ?? null,
     calls: callsQ.data ?? null,
+    snapshot: snapshotQ.data ?? null,
   };
   const loading = leadsQ.isLoading;
+
+  const defs = useMemo(() => buildWidgets(data.snapshot), [data.snapshot]);
+  const scenes = useMemo(() => buildScenes(data.snapshot), [data.snapshot]);
 
   useEffect(() => setLayout(readLayout()), []);
   useEffect(() => {
@@ -752,18 +1076,17 @@ export function TvDashboard({ userName }: { userName: string }) {
     }
   }, [tv]);
 
-  const scene = SCENES[sceneIdx]!;
+  const scene = scenes[sceneIdx % scenes.length]!;
   const order = orderFor(scene, layout);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const rotating = !paused && !editing && !reduce;
 
-  const nextScene = useCallback(() => setSceneIdx((i) => (i + 1) % SCENES.length), []);
+  const nextScene = useCallback(() => setSceneIdx((i) => (i + 1) % scenes.length), [scenes.length]);
 
-  function saveOrder(next: string[]) {
-    const merged = { ...layout, [scene.id]: next };
-    setLayout(merged);
+  function saveLayout(next: Layout) {
+    setLayout(next);
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch {
       // Sem localStorage: o layout vale só nesta sessão.
     }
@@ -774,17 +1097,12 @@ export function TvDashboard({ userName }: { userName: string }) {
     if (!over || active.id === over.id) return;
     const from = order.indexOf(String(active.id));
     const to = order.indexOf(String(over.id));
-    saveOrder(arrayMove(order, from, to));
+    saveLayout({ ...layout, [scene.id]: arrayMove(order, from, to) });
   }
 
   function resetLayout() {
     const { [scene.id]: _removed, ...rest } = layout;
-    setLayout(rest);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(rest));
-    } catch {
-      // ignorado
-    }
+    saveLayout(rest);
   }
 
   const firstName = userName.split(/[.\s]+/)[0] ?? userName;
@@ -797,7 +1115,6 @@ export function TvDashboard({ userName }: { userName: string }) {
         tv && "fixed inset-0 z-[60] overflow-auto bg-background surface-grid p-6 lg:p-10",
       )}
     >
-      {/* Cabeçalho */}
       <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-3">
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
@@ -808,14 +1125,17 @@ export function TvDashboard({ userName }: { userName: string }) {
           </h1>
         </div>
 
-        <nav className="flex items-center gap-1 rounded-full bg-muted/60 p-1" aria-label="Cenas">
-          {SCENES.map((s, i) => (
+        <nav
+          className="flex max-w-full items-center gap-1 overflow-x-auto rounded-full bg-muted/60 p-1"
+          aria-label="Cenas"
+        >
+          {scenes.map((s, i) => (
             <button
               key={s.id}
               type="button"
               onClick={() => setSceneIdx(i)}
               className={cn(
-                "relative flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                "relative flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
                 i === sceneIdx
                   ? "text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground",
@@ -882,7 +1202,6 @@ export function TvDashboard({ userName }: { userName: string }) {
         </div>
       </div>
 
-      {/* Barra de progresso da rotação */}
       <div className="mb-6 h-0.5 overflow-hidden rounded-full bg-border/60">
         {rotating ? (
           <motion.div
@@ -911,7 +1230,7 @@ export function TvDashboard({ userName }: { userName: string }) {
               key={i}
               className={cn(
                 "h-36 animate-pulse rounded-2xl bg-muted/70",
-                i < 4 ? SIZE_CLASS.kpi : i < 6 ? SIZE_CLASS.md : SIZE_CLASS.md,
+                i < 4 ? SIZE_CLASS.kpi : SIZE_CLASS.md,
               )}
             />
           ))}
@@ -942,9 +1261,9 @@ export function TvDashboard({ userName }: { userName: string }) {
       )}
 
       <p className="mt-6 text-center text-xs text-muted-foreground">
-        Dados de {range.from.split("-").reverse().join("/")} a{" "}
-        {range.to.split("-").reverse().join("/")} · PipeRun, 3C+, Meta e Google Ads · atualiza
-        sozinho
+        Leads de {range.from.split("-").reverse().join("/")} a{" "}
+        {range.to.split("-").reverse().join("/")} · funis em tempo real · PipeRun, 3C+, Meta e
+        Google Ads · atualiza sozinho
       </p>
     </div>
   );

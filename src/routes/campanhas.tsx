@@ -24,7 +24,7 @@ import {
   StatCard,
   useSortState,
 } from "@/components/hub/primitives";
-import { adsByChannel, adTotals, brl, int, monthRange } from "@/components/hub/tv/tv-data";
+import { adsByChannel, adTotals, brl, int, lastDaysRange } from "@/components/hub/tv/tv-data";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -75,7 +75,7 @@ const tooltipStyle = {
 };
 
 function CampanhasPage() {
-  const [range, setRange] = useState<DateRange>(() => monthRange(todayDateString()));
+  const [range, setRange] = useState<DateRange>(() => lastDaysRange(todayDateString(), 30));
   const [search, setSearch] = useState("");
   const [channel, setChannel] = useState<string>("Todos");
   const { sort, toggleSort } = useSortState<SortKey>();
@@ -227,7 +227,7 @@ function CampanhasPage() {
             </StaggerItem>
             <StaggerItem>
               <StatCard
-                label="CTR de link (x100)"
+                label="CTR de link"
                 value={Math.round(totals.ctr * 100)}
                 formatter={(n) => `${(n / 100).toFixed(2).replace(".", ",")}%`}
                 accent="success"

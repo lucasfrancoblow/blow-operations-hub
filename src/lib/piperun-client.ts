@@ -37,12 +37,22 @@ export interface PipeRunDeal {
   owner?: PipeRunOwner;
   person_id: number | null;
   person?: PipeRunPerson;
-  status: number; // 0 = aberto, 1 = ganho, 2 = perdido
+  // 0 = aberto, 1 = ganho — "perdido" NÃO é 2 nesta conta: confirmado ao vivo em
+  // 2026-09-14 que negócios perdidos vêm com status=3 (com lost_reason_id preenchido).
+  // O Kanban nativo do PipeRun conta TODO negócio cujo stage_id atual é aquela etapa,
+  // aberto ou não — por isso o badge de uma etapa pode mostrar milhares mesmo com poucas
+  // dezenas realmente em aberto (negócio perdido fica "parado" visualmente na etapa).
+  status: number;
   origin_id: number | null;
   value: number;
   created_at: string;
   updated_at: string;
   last_contact_at: string | null;
+  /** Última mudança de etapa ("YYYY-MM-DD HH:mm:ss", Brasília) — base do "parado na fase". */
+  last_stage_updated_at?: string | null;
+  closed_at?: string | null;
+  lost_reason_id?: number | null;
+  temperature?: number | null;
   customFields?: PipeRunCustomField[];
 }
 
@@ -55,6 +65,10 @@ export interface PipeRunStage {
   id: number;
   pipeline_id: number;
   name: string;
+  /** Posição da etapa no funil (0 = entrada). */
+  order?: number;
+  /** Cor da etapa no Kanban do PipeRun (hex). */
+  color?: string | null;
 }
 
 interface PipeRunPage<T> {

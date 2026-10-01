@@ -111,12 +111,29 @@ const DEAL_STATUS_LABELS: Record<number, string> = {
 export interface LeadRecente {
   id: number;
   title: string;
+  pipelineId: number;
   pipelineName: string;
+  stageId: number;
   stageName: string;
+  /** Posição da fase no funil (0 = entrada) e cor dela no Kanban do PipeRun. */
+  stageOrder: number;
+  stageColor: string | null;
   ownerName: string;
   origin: string;
   destino: string;
   utmCampaign: string | null;
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmContent: string | null;
+  /** Onde a pessoa se inscreveu: Form/LP quando a campanha é conhecida; senão a
+   * própria campanha/UTM; "Não identificado" quando o lead chegou sem rastreio. */
+  inscricao: string;
+  cidade: string | null;
+  uf: string | null;
+  /** Resposta do formulário ("Tenho R$ 348 mil para investir"), quando existir. */
+  investimento: string | null;
+  lastContactAt: string | null;
+  lastStageUpdatedAt: string | null;
   status: string;
   value: number;
   createdAt: string;
@@ -146,6 +163,8 @@ export interface LeadsRecentesData {
   byOrigin: Array<{ origin: string; total: number }>;
   byPipeline: Array<{ pipeline: string; total: number }>;
   byDestino: Array<{ destino: string; total: number }>;
+  ufs: string[];
+  stageNames: string[];
 }
 
 /** O PipeRun pode ter mais de um telefone por pessoa — prioriza o marcado como
@@ -191,24 +210,55 @@ export function whatsappLink(digits: string | null): string | null {
   return `https://wa.me/${digits}`;
 }
 
+export interface StageMeta {
+  name: string;
+  order: number;
+  color: string | null;
+}
+
+function customField(deal: PipeRunDeal, name: string): string | null {
+  return deal.customFields?.find((c) => c.name === name)?.value?.trim() || null;
+}
+
+function inscricaoFor(destino: string, utmCampaign: string | null, utmContent: string | null) {
+  if (destino !== "Outro" && destino !== "Sem campanha") return destino;
+  return utmCampaign ?? utmContent ?? "Não identificado";
+}
+
 function toLeadRecente(
   deal: PipeRunDeal,
   pipelineNames: Map<number, string>,
-  stageNames: Map<number, string>,
+  stages: Map<number, StageMeta>,
 ): LeadRecente {
-  const stageName = stageNames.get(deal.stage_id) ?? "Etapa não identificada";
+  const stage = stages.get(deal.stage_id);
+  const stageName = stage?.name ?? "Etapa não identificada";
   const pipelineName = pipelineNames.get(deal.pipeline_id) ?? "Funil não identificado";
   const utmCampaign =
     deal.customFields?.find((c) => c.name === "utm_campaign")?.value?.trim() || null;
+  const utmContent = customField(deal, "utm_content");
+  const destino = classifyDestino(utmCampaign, pipelineName);
   return {
     id: deal.id,
     title: deal.title || `Negócio #${deal.id}`,
+    pipelineId: deal.pipeline_id,
     pipelineName,
+    stageId: deal.stage_id,
     stageName,
+    stageOrder: stage?.order ?? 0,
+    stageColor: stage?.color ?? null,
     ownerName: deal.owner?.name ?? "Sem responsável",
     origin: (deal.origin_id && ORIGIN_LABELS[deal.origin_id]) || "Outra origem",
-    destino: classifyDestino(utmCampaign, pipelineName),
+    destino,
     utmCampaign,
+    utmSource: customField(deal, "utm_source"),
+    utmMedium: customField(deal, "utm_medium"),
+    utmContent,
+    inscricao: inscricaoFor(destino, utmCampaign, utmContent),
+    cidade: customField(deal, "Cidade"),
+    uf: customField(deal, "UF")?.toUpperCase() ?? null,
+    investimento: customField(deal, "Investimento"),
+    lastContactAt: deal.last_contact_at,
+    lastStageUpdatedAt: deal.last_stage_updated_at ?? null,
     status: DEAL_STATUS_LABELS[deal.status] ?? "Desconhecido",
     value: deal.value,
     createdAt: deal.created_at,
@@ -251,10 +301,14 @@ export async function loadLeadsRecentesData(
 
   const pipelineIdsInUse = Array.from(new Set(deals.map((d) => d.pipeline_id)));
   const stagesByPipeline = await Promise.all(pipelineIdsInUse.map((id) => fetchStages(id)));
-  const stageNames = new Map(stagesByPipeline.flat().map((s) => [s.id, s.name] as const));
+  const stageMeta = new Map<number, StageMeta>(
+    stagesByPipeline
+      .flat()
+      .map((s) => [s.id, { name: s.name, order: s.order ?? 0, color: s.color ?? null }] as const),
+  );
 
   const leads = deals
-    .map((d) => toLeadRecente(d, pipelineNames, stageNames))
+    .map((d) => toLeadRecente(d, pipelineNames, stageMeta))
     .sort(
       (a, b) => parsePipeRunDate(b.createdAt).getTime() - parsePipeRunDate(a.createdAt).getTime(),
     );
@@ -307,5 +361,7 @@ export async function loadLeadsRecentesData(
     byOrigin,
     byPipeline,
     byDestino,
+    ufs: Array.from(new Set(leads.map((l) => l.uf).filter((u): u is string => !!u))).sort(),
+    stageNames: Array.from(new Set(leads.map((l) => l.stageName))).sort(),
   };
 }
