@@ -19,7 +19,9 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   external: "Externo",
 };
 
-export interface SessionUser {
+// `type` (não `interface`): o router valida o retorno do beforeLoad como serializável e
+// interfaces não têm assinatura de índice implícita.
+export type SessionUser = {
   id: string;
   username: string;
   fullName: string | null;
@@ -27,4 +29,4 @@ export interface SessionUser {
   /** Chaves de página liberadas pra esse usuário (ver src/lib/page-access.ts) — só
    * relevante pra "member"; admin/super_admin sempre têm acesso a tudo. */
   pageAccess: string[];
-}
+};
