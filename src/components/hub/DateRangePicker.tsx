@@ -15,7 +15,10 @@ const PRESETS = [
 ];
 
 function toISO(d: Date) {
-  return d.toISOString().slice(0, 10);
+  // Data local: toISOString() é UTC e, à noite no Brasil, já cai no dia seguinte.
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
 }
 
 function formatBR(iso: string) {

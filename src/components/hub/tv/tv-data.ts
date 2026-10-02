@@ -245,6 +245,7 @@ export function filterSnapshot(
       open: pipelines.reduce((s, p) => s + p.open, 0),
       value: pipelines.reduce((s, p) => s + p.value, 0),
       stalled: pipelines.reduce((s, p) => s + p.stalled, 0),
+      abandoned: pipelines.reduce((s, p) => s + p.abandoned, 0),
       neverContacted: pipelines.reduce((s, p) => s + p.neverContacted, 0),
     },
   };

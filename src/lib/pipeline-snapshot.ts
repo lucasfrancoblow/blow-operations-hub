@@ -10,8 +10,12 @@ import {
 } from "@/lib/piperun-client";
 import { parsePipeRunDate } from "@/lib/leads-recentes";
 
-/** Fase sem movimentação há mais que isso conta como "parada". */
+/** Fase sem mudar de etapa há mais que isso conta como "parada". */
 const STALLED_DAYS = 7;
+/** Passando disso o negócio é considerado abandonado: sai do "parado" e vira "antigo". */
+const ABANDONED_DAYS = 90;
+/** Negócios de teste (equipe/dev) não devem pesar no alerta de parados. */
+const TEST_DEAL = /\bteste\b|\btest\b|ruan visnieski/i;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface StageSnapshot {
@@ -22,6 +26,8 @@ export interface StageSnapshot {
   count: number;
   value: number;
   stalled: number;
+  /** Parados há mais de 90 dias na etapa (não entram em `stalled`). */
+  abandoned: number;
   neverContacted: number;
 }
 
@@ -33,6 +39,7 @@ export interface PipelineSnapshot {
   open: number;
   value: number;
   stalled: number;
+  abandoned: number;
   neverContacted: number;
   stages: StageSnapshot[];
 }
@@ -47,7 +54,13 @@ export interface OwnerSnapshot {
 export interface HubSnapshot {
   pipelines: PipelineSnapshot[];
   owners: OwnerSnapshot[];
-  totals: { open: number; value: number; stalled: number; neverContacted: number };
+  totals: {
+    open: number;
+    value: number;
+    stalled: number;
+    abandoned: number;
+    neverContacted: number;
+  };
   updatedAt: string;
 }
 
@@ -62,20 +75,32 @@ export async function loadHubSnapshot(): Promise<HubSnapshot | null> {
 
   const byStage = new Map<
     number,
-    { count: number; value: number; stalled: number; neverContacted: number }
+    { count: number; value: number; stalled: number; abandoned: number; neverContacted: number }
   >();
   const byOwner = new Map<string, OwnerSnapshot>();
   let stalledTotal = 0;
+  let abandonedTotal = 0;
   let neverContacted = 0;
   let valueTotal = 0;
 
   for (const d of deals) {
-    const since = d.last_stage_updated_at ?? d.updated_at ?? d.created_at;
-    const stalled = now - parsePipeRunDate(since).getTime() > STALLED_DAYS * DAY_MS;
-    const cur = byStage.get(d.stage_id) ?? { count: 0, value: 0, stalled: 0, neverContacted: 0 };
+    // Sem stage_changed_at o negócio nunca saiu da 1ª etapa: vale a data de criação.
+    const since = d.stage_changed_at ?? d.created_at;
+    const idleMs = now - parsePipeRunDate(since).getTime();
+    const counts = !TEST_DEAL.test(d.title ?? "");
+    const abandoned = counts && idleMs > ABANDONED_DAYS * DAY_MS;
+    const stalled = counts && !abandoned && idleMs > STALLED_DAYS * DAY_MS;
+    const cur = byStage.get(d.stage_id) ?? {
+      count: 0,
+      value: 0,
+      stalled: 0,
+      abandoned: 0,
+      neverContacted: 0,
+    };
     cur.count += 1;
     cur.value += d.value ?? 0;
     if (stalled) cur.stalled += 1;
+    if (abandoned) cur.abandoned += 1;
     if (!d.last_contact_at) cur.neverContacted += 1;
     byStage.set(d.stage_id, cur);
 
@@ -87,6 +112,7 @@ export async function loadHubSnapshot(): Promise<HubSnapshot | null> {
     byOwner.set(ownerName, o);
 
     if (stalled) stalledTotal += 1;
+    if (abandoned) abandonedTotal += 1;
     if (!d.last_contact_at) neverContacted += 1;
     valueTotal += d.value ?? 0;
   }
@@ -94,7 +120,13 @@ export async function loadHubSnapshot(): Promise<HubSnapshot | null> {
   const snapshots: PipelineSnapshot[] = pipelines.map((p, i) => {
     const stages: StageSnapshot[] = (stagesByPipeline[i] ?? [])
       .map((s) => {
-        const c = byStage.get(s.id) ?? { count: 0, value: 0, stalled: 0, neverContacted: 0 };
+        const c = byStage.get(s.id) ?? {
+          count: 0,
+          value: 0,
+          stalled: 0,
+          abandoned: 0,
+          neverContacted: 0,
+        };
         return {
           id: s.id,
           name: s.name,
@@ -103,6 +135,7 @@ export async function loadHubSnapshot(): Promise<HubSnapshot | null> {
           count: c.count,
           value: c.value,
           stalled: c.stalled,
+          abandoned: c.abandoned,
           neverContacted: c.neverContacted,
         };
       })
@@ -114,6 +147,7 @@ export async function loadHubSnapshot(): Promise<HubSnapshot | null> {
       open: stages.reduce((s, x) => s + x.count, 0),
       value: stages.reduce((s, x) => s + x.value, 0),
       stalled: stages.reduce((s, x) => s + x.stalled, 0),
+      abandoned: stages.reduce((s, x) => s + x.abandoned, 0),
       neverContacted: stages.reduce((s, x) => s + x.neverContacted, 0),
       stages,
     };
@@ -122,7 +156,13 @@ export async function loadHubSnapshot(): Promise<HubSnapshot | null> {
   return {
     pipelines: snapshots.sort((a, b) => b.open - a.open),
     owners: [...byOwner.values()].sort((a, b) => b.open - a.open),
-    totals: { open: deals.length, value: valueTotal, stalled: stalledTotal, neverContacted },
+    totals: {
+      open: deals.length,
+      value: valueTotal,
+      stalled: stalledTotal,
+      abandoned: abandonedTotal,
+      neverContacted,
+    },
     updatedAt: new Date().toISOString(),
   };
 }

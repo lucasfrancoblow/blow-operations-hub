@@ -91,7 +91,16 @@ import { getHubSnapshot } from "@/services/pipeline-snapshot-service";
 
 const ROTATE_MS = 30_000;
 const STORAGE_KEY = "hublow-tv-layout-v2";
-const FILTERS_KEY = "hublow-tv-filters-v1";
+const FILTERS_KEY = "hublow-tv-filters-v2";
+
+interface SceneDate {
+  preset: RangePreset;
+  custom: DateRange;
+}
+const DEFAULT_SCENE_DATE = (today: string): SceneDate => ({
+  preset: "30",
+  custom: { from: today, to: today },
+});
 const EASE = [0.16, 1, 0.3, 1] as const;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -406,8 +415,13 @@ function StagesBar({ pipeline }: { pipeline: PipelineSnapshot }) {
           <b className="text-foreground">{brl(pipeline.value)}</b> em valor
         </span>
         <span className={pipeline.stalled ? "text-warning" : "text-muted-foreground"}>
-          <b>{int(pipeline.stalled)}</b> parados +7 dias
+          <b>{int(pipeline.stalled)}</b> parados de 7 a 90 dias
         </span>
+        {pipeline.abandoned > 0 && (
+          <span className="text-muted-foreground">
+            <b className="text-foreground">{int(pipeline.abandoned)}</b> antigos +90 dias
+          </span>
+        )}
       </div>
       <ul className="space-y-2.5">
         {pipeline.stages.map((s, i) => (
@@ -428,7 +442,12 @@ function StagesBar({ pipeline }: { pipeline: PipelineSnapshot }) {
             <span className="min-w-8 text-right font-semibold tabular-nums">
               {s.count}
               {s.stalled > 0 && (
-                <span className="ml-1 text-xs font-normal text-warning">·{s.stalled}</span>
+                <span
+                  className="ml-1 text-xs font-normal text-warning"
+                  title={`${s.stalled} parados de 7 a 90 dias na etapa`}
+                >
+                  ·{s.stalled}
+                </span>
               )}
             </span>
           </li>
@@ -622,7 +641,11 @@ function buildWidgets(snapshot: TvData["snapshot"]): Record<string, WidgetDef> {
       title: "Leads hoje",
       size: "kpi",
       render: (d) => (
-        <Kpi label="Leads hoje" value={d.leads?.summary.hoje ?? 0} hint="entraram desde 00h" />
+        <Kpi
+          label="Leads hoje"
+          value={d.leads?.summary.hoje ?? 0}
+          hint="sempre hoje · não segue o período"
+        />
       ),
     },
     "kpi-mes": {
@@ -698,7 +721,7 @@ function buildWidgets(snapshot: TvData["snapshot"]): Record<string, WidgetDef> {
           label="Negócios abertos"
           value={d.snapshot?.totals.open ?? 0}
           tone="info"
-          hint="todos os funis"
+          hint="agora · não segue o período"
         />
       ),
     },
@@ -711,7 +734,7 @@ function buildWidgets(snapshot: TvData["snapshot"]): Record<string, WidgetDef> {
           value={d.snapshot?.totals.value ?? 0}
           format={brl}
           tone="success"
-          hint="soma dos negócios abertos"
+          hint="agora · soma dos abertos"
         />
       ),
     },
@@ -720,10 +743,10 @@ function buildWidgets(snapshot: TvData["snapshot"]): Record<string, WidgetDef> {
       size: "kpi",
       render: (d) => (
         <Kpi
-          label="Parados +7 dias"
+          label="Parados 7–90 dias"
           value={d.snapshot?.totals.stalled ?? 0}
           tone="warning"
-          hint="sem mudar de fase"
+          hint={`agora · sem mudar de etapa · ${int(d.snapshot?.totals.abandoned ?? 0)} antigos +90d`}
         />
       ),
     },
@@ -735,7 +758,7 @@ function buildWidgets(snapshot: TvData["snapshot"]): Record<string, WidgetDef> {
           label="Nunca contatados"
           value={d.snapshot?.totals.neverContacted ?? 0}
           tone="critical"
-          hint="abertos sem 1º contato"
+          hint="agora · abertos sem 1º contato"
         />
       ),
     },
@@ -1167,10 +1190,28 @@ export function TvDashboard({ userName }: { userName: string }) {
   const [now, setNow] = useState<Date | null>(null);
 
   const today = todayDateString();
-  const [preset, setPreset] = useState<RangePreset>("30");
-  const [customRange, setCustomRange] = useState<DateRange>({ from: today, to: today });
+  // O período é por aba (cena): cada uma guarda o seu. Funil e Outbound valem para todas.
+  const [dates, setDates] = useState<Record<string, SceneDate>>({});
   const [funis, setFunis] = useState<string[]>([]);
   const [incluirOutbound, setIncluirOutbound] = useState(false);
+  const snapshotQ = useQuery({
+    queryKey: ["tv", "snapshot"],
+    queryFn: () => getHubSnapshot(),
+    refetchInterval: 3 * 60_000,
+  });
+  const sceneId = useMemo(() => {
+    const list = buildScenes(snapshotQ.data ?? null);
+    return list[sceneIdx % list.length]!.id;
+  }, [snapshotQ.data, sceneIdx]);
+  const { preset, custom: customRange } = dates[sceneId] ?? DEFAULT_SCENE_DATE(today);
+  const setSceneDate = useCallback(
+    (patch: Partial<SceneDate>) =>
+      setDates((prev) => ({
+        ...prev,
+        [sceneId]: { ...(prev[sceneId] ?? DEFAULT_SCENE_DATE(today)), ...patch },
+      })),
+    [sceneId, today],
+  );
   const range = useMemo(() => rangeFor(preset, customRange, today), [preset, customRange, today]);
   const filters: TvFilters = useMemo(
     () => ({ range, funis, incluirOutbound }),
@@ -1183,13 +1224,11 @@ export function TvDashboard({ userName }: { userName: string }) {
       const raw = localStorage.getItem(FILTERS_KEY);
       if (!raw) return;
       const saved = JSON.parse(raw) as {
-        preset?: RangePreset;
-        custom?: DateRange;
+        dates?: Record<string, SceneDate>;
         funis?: string[];
         incluirOutbound?: boolean;
       };
-      if (saved.preset) setPreset(saved.preset);
-      if (saved.custom) setCustomRange(saved.custom);
+      if (saved.dates) setDates(saved.dates);
       if (saved.funis) setFunis(saved.funis);
       if (typeof saved.incluirOutbound === "boolean") setIncluirOutbound(saved.incluirOutbound);
     } catch {
@@ -1198,25 +1237,17 @@ export function TvDashboard({ userName }: { userName: string }) {
   }, []);
   useEffect(() => {
     try {
-      localStorage.setItem(
-        FILTERS_KEY,
-        JSON.stringify({ preset, custom: customRange, funis, incluirOutbound }),
-      );
+      localStorage.setItem(FILTERS_KEY, JSON.stringify({ dates, funis, incluirOutbound }));
     } catch {
       // ignorado
     }
-  }, [preset, customRange, funis, incluirOutbound]);
+  }, [dates, funis, incluirOutbound]);
 
   const leadsQ = useQuery({
     queryKey: ["tv", "leads", range],
     queryFn: () => getLeadsRecentesData({ data: range }),
     refetchInterval: 60_000,
     placeholderData: keepPreviousData,
-  });
-  const snapshotQ = useQuery({
-    queryKey: ["tv", "snapshot"],
-    queryFn: () => getHubSnapshot(),
-    refetchInterval: 3 * 60_000,
   });
   const adsQ = useQuery({
     queryKey: ["tv", "ads", range],
@@ -1471,11 +1502,8 @@ export function TvDashboard({ userName }: { userName: string }) {
         <TvFilterBar
           preset={preset}
           range={range}
-          onPreset={setPreset}
-          onCustomRange={(r) => {
-            setCustomRange(r);
-            setPreset("custom");
-          }}
+          onPreset={(p) => setSceneDate({ preset: p })}
+          onCustomRange={(r) => setSceneDate({ custom: r, preset: "custom" })}
           pipelineOptions={(snapshotQ.data?.pipelines ?? []).map((p) => p.name)}
           funis={funis}
           onFunis={setFunis}

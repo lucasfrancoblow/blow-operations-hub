@@ -48,8 +48,11 @@ export interface PipeRunDeal {
   created_at: string;
   updated_at: string;
   last_contact_at: string | null;
-  /** Última mudança de etapa ("YYYY-MM-DD HH:mm:ss", Brasília) — base do "parado na fase". */
+  /** Atenção: igual a updated_at (muda a cada edição), NÃO é a entrada na etapa. */
   last_stage_updated_at?: string | null;
+  /** Entrada real na etapa atual ("YYYY-MM-DD HH:mm:ss", Brasília) — base do "parado na
+   * fase". Confere com /stageHistories. Vem null se o negócio nunca saiu da 1ª etapa. */
+  stage_changed_at?: string | null;
   closed_at?: string | null;
   lost_reason_id?: number | null;
   temperature?: number | null;
