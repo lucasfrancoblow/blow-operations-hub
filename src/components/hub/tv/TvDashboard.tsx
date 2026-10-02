@@ -49,6 +49,7 @@ import {
   YAxis,
 } from "recharts";
 
+import { BrazilMap } from "@/components/hub/charts/BrazilMap";
 import { CHANNEL_COLORS, LeadRadar } from "@/components/hub/charts/LeadRadar";
 import { GlowRadar } from "@/components/hub/charts/GlowRadar";
 import { HourHeatmap } from "@/components/hub/charts/HourHeatmap";
@@ -779,6 +780,11 @@ function buildWidgets(snapshot: TvData["snapshot"]): Record<string, WidgetDef> {
     origem: { title: "Leads por canal", size: "md", render: (d) => <PorOrigem d={d} /> },
     inscricao: { title: "Onde se inscreveram", size: "lg", render: (d) => <PorInscricao d={d} /> },
     uf: { title: "Leads por estado", size: "sm", render: (d) => <PorUf d={d} /> },
+    "mapa-brasil": {
+      title: "Mapa de leads por estado",
+      size: "full",
+      render: (d) => <BrazilMap leads={d.leads?.leads ?? []} />,
+    },
     radar: { title: "Radar de leads (7 dias)", size: "full", render: (d) => <RadarLeads d={d} /> },
     fluxo: { title: "Da origem até a fase atual", size: "full", render: (d) => <Fluxo d={d} /> },
     mapa: { title: "Melhores horários de entrada", size: "full", render: (d) => <Mapa d={d} /> },
@@ -920,6 +926,7 @@ function buildScenes(snapshot: TvData["snapshot"]): Scene[] {
         "leads-dia",
         "feed-leads",
         "funil",
+        "mapa-brasil",
         "todos-funis",
         "kpi-sql",
         "kpi-roga-marcado",
