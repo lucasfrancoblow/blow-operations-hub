@@ -92,16 +92,8 @@ import { getHubSnapshot } from "@/services/pipeline-snapshot-service";
 
 const ROTATE_MS = 30_000;
 const STORAGE_KEY = "hublow-tv-layout-v2";
-const FILTERS_KEY = "hublow-tv-filters-v2";
+const FILTERS_KEY = "hublow-tv-filters-v3";
 
-interface SceneDate {
-  preset: RangePreset;
-  custom: DateRange;
-}
-const DEFAULT_SCENE_DATE = (today: string): SceneDate => ({
-  preset: "30",
-  custom: { from: today, to: today },
-});
 const EASE = [0.16, 1, 0.3, 1] as const;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -1197,8 +1189,10 @@ export function TvDashboard({ userName }: { userName: string }) {
   const [now, setNow] = useState<Date | null>(null);
 
   const today = todayDateString();
-  // O período é por aba (cena): cada uma guarda o seu. Funil e Outbound valem para todas.
-  const [dates, setDates] = useState<Record<string, SceneDate>>({});
+  // Um só período para o painel inteiro: todas as abas usam as mesmas consultas, então ao
+  // mudar a data tudo recarrega junto (em segundo plano) e as outras abas já abrem prontas.
+  const [preset, setPreset] = useState<RangePreset>("30");
+  const [customRange, setCustomRange] = useState<DateRange>({ from: today, to: today });
   const [funis, setFunis] = useState<string[]>([]);
   const [incluirOutbound, setIncluirOutbound] = useState(false);
   const snapshotQ = useQuery({
@@ -1206,19 +1200,6 @@ export function TvDashboard({ userName }: { userName: string }) {
     queryFn: () => getHubSnapshot(),
     refetchInterval: 3 * 60_000,
   });
-  const sceneId = useMemo(() => {
-    const list = buildScenes(snapshotQ.data ?? null);
-    return list[sceneIdx % list.length]!.id;
-  }, [snapshotQ.data, sceneIdx]);
-  const { preset, custom: customRange } = dates[sceneId] ?? DEFAULT_SCENE_DATE(today);
-  const setSceneDate = useCallback(
-    (patch: Partial<SceneDate>) =>
-      setDates((prev) => ({
-        ...prev,
-        [sceneId]: { ...(prev[sceneId] ?? DEFAULT_SCENE_DATE(today)), ...patch },
-      })),
-    [sceneId, today],
-  );
   const range = useMemo(() => rangeFor(preset, customRange, today), [preset, customRange, today]);
   const filters: TvFilters = useMemo(
     () => ({ range, funis, incluirOutbound }),
@@ -1231,11 +1212,13 @@ export function TvDashboard({ userName }: { userName: string }) {
       const raw = localStorage.getItem(FILTERS_KEY);
       if (!raw) return;
       const saved = JSON.parse(raw) as {
-        dates?: Record<string, SceneDate>;
+        preset?: RangePreset;
+        custom?: DateRange;
         funis?: string[];
         incluirOutbound?: boolean;
       };
-      if (saved.dates) setDates(saved.dates);
+      if (saved.preset) setPreset(saved.preset);
+      if (saved.custom) setCustomRange(saved.custom);
       if (saved.funis) setFunis(saved.funis);
       if (typeof saved.incluirOutbound === "boolean") setIncluirOutbound(saved.incluirOutbound);
     } catch {
@@ -1244,11 +1227,14 @@ export function TvDashboard({ userName }: { userName: string }) {
   }, []);
   useEffect(() => {
     try {
-      localStorage.setItem(FILTERS_KEY, JSON.stringify({ dates, funis, incluirOutbound }));
+      localStorage.setItem(
+        FILTERS_KEY,
+        JSON.stringify({ preset, custom: customRange, funis, incluirOutbound }),
+      );
     } catch {
       // ignorado
     }
-  }, [dates, funis, incluirOutbound]);
+  }, [preset, customRange, funis, incluirOutbound]);
 
   const leadsQ = useQuery({
     queryKey: ["tv", "leads", range],
@@ -1509,8 +1495,11 @@ export function TvDashboard({ userName }: { userName: string }) {
         <TvFilterBar
           preset={preset}
           range={range}
-          onPreset={(p) => setSceneDate({ preset: p })}
-          onCustomRange={(r) => setSceneDate({ custom: r, preset: "custom" })}
+          onPreset={setPreset}
+          onCustomRange={(r) => {
+            setCustomRange(r);
+            setPreset("custom");
+          }}
           pipelineOptions={(snapshotQ.data?.pipelines ?? []).map((p) => p.name)}
           funis={funis}
           onFunis={setFunis}
