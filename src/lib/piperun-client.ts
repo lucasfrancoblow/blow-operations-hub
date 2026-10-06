@@ -328,3 +328,25 @@ export async function moveDealToStage(
 export async function addDealNote(dealId: number, text: string): Promise<void> {
   await piperunRequest("POST", "/notes", { deal_id: dealId, text: `<p>${text}</p>` });
 }
+
+/** Negócio já com os campos personalizados preenchidos (os valores do BANT/SPIN). */
+export async function fetchDealWithCustomFields(dealId: number): Promise<PipeRunDeal | null> {
+  try {
+    const result = await piperunRequest<{ data: PipeRunDeal }>(
+      "GET",
+      `/deals/${dealId}?with=customFields`,
+    );
+    return result.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Textos das notas de um negócio (só o que precisamos pra checar se já existe uma). */
+export async function fetchDealNoteTexts(dealId: number): Promise<string[]> {
+  const notes = await fetchAllPages<{ text: string | null }>("/notes", {
+    deal_id: String(dealId),
+    show: "100",
+  });
+  return notes.map((n) => n.text ?? "");
+}
