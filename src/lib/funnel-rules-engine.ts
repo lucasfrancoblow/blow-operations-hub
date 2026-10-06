@@ -56,11 +56,11 @@ async function applyRule(
     return { status: "ignorado", reason: "já tratado há instantes" };
   }
 
-  const passedCount = history.filter((h) => h.in_stage_id === rule.requiredStageId).length;
-  const autoReturns = previousRuns.filter((r) => r.outcome === "devolvido").length;
-  // Cada devolução automática do hub cria uma entrada na etapa obrigatória: desconta,
-  // senão bastava o SDR arrastar o card pro SQL de novo logo após ser devolvido.
-  if (passedCount - autoReturns > 0) return { status: "ok" };
+  // Regra "uma vez só": se o hub já devolveu esse card por essa regra, a segunda tentativa
+  // passa — o aviso já foi dado e quem decide é o time.
+  if (previousRuns.some((r) => r.outcome === "devolvido")) return { status: "ok" };
+
+  if (history.some((h) => h.in_stage_id === rule.requiredStageId)) return { status: "ok" };
 
   if (rule.mode === "simulacao") {
     await recordRun({
