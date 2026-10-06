@@ -49,10 +49,18 @@ function line(label: string, value: string | null): string {
   return `<b>${label}:</b> ${value === null ? "<i>não informado</i>" : escapeHtml(value)}`;
 }
 
-export async function addBantNoteIfNeeded(dealId: number): Promise<BantResult> {
+/** `anyStage`: usado só pra preencher cards antigos à mão (scripts/backfill-bant-note.ts);
+ * o webhook sempre confere a etapa. */
+export async function addBantNoteIfNeeded(
+  dealId: number,
+  { anyStage = false }: { anyStage?: boolean } = {},
+): Promise<BantResult> {
   let deal = await fetchDealWithCustomFields(dealId);
   if (!deal) return { status: "ignorado", reason: "negócio não encontrado no PipeRun" };
-  if (deal.pipeline_id !== CLOSER_PIPELINE_ID || deal.stage_id !== REUNIAO_PREVISTA_STAGE_ID) {
+  if (
+    !anyStage &&
+    (deal.pipeline_id !== CLOSER_PIPELINE_ID || deal.stage_id !== REUNIAO_PREVISTA_STAGE_ID)
+  ) {
     return { status: "ignorado", reason: "não é um card novo da Reunião Prevista do Closer" };
   }
   if (deal.status !== 0) return { status: "ignorado", reason: "negócio não está aberto" };
