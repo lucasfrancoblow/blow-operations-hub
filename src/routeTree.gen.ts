@@ -21,6 +21,7 @@ import { Route as RegrasFunilRouteImport } from './routes/regras-funil'
 import { Route as UsuariosRouteImport } from './routes/usuarios'
 import { Route as ApiPiperunDealCreatedRouteImport } from './routes/api/piperun-deal-created'
 import { Route as ApiPiperunDealMovedRouteImport } from './routes/api/piperun-deal-moved'
+import { Route as ApiMcpTokenRouteImport } from './routes/api/mcp.$token'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -82,6 +83,11 @@ const ApiPiperunDealMovedRoute = ApiPiperunDealMovedRouteImport.update({
   path: '/api/piperun-deal-moved',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMcpTokenRoute = ApiMcpTokenRouteImport.update({
+  id: '/api/mcp/$token',
+  path: '/api/mcp/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -96,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/usuarios': typeof UsuariosRoute
   '/api/piperun-deal-created': typeof ApiPiperunDealCreatedRoute
   '/api/piperun-deal-moved': typeof ApiPiperunDealMovedRoute
+  '/api/mcp/$token': typeof ApiMcpTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/usuarios': typeof UsuariosRoute
   '/api/piperun-deal-created': typeof ApiPiperunDealCreatedRoute
   '/api/piperun-deal-moved': typeof ApiPiperunDealMovedRoute
+  '/api/mcp/$token': typeof ApiMcpTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/usuarios': typeof UsuariosRoute
   '/api/piperun-deal-created': typeof ApiPiperunDealCreatedRoute
   '/api/piperun-deal-moved': typeof ApiPiperunDealMovedRoute
+  '/api/mcp/$token': typeof ApiMcpTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/api/piperun-deal-created'
     | '/api/piperun-deal-moved'
+    | '/api/mcp/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/api/piperun-deal-created'
     | '/api/piperun-deal-moved'
+    | '/api/mcp/$token'
   id:
     | '__root__'
     | '/'
@@ -169,6 +180,7 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/api/piperun-deal-created'
     | '/api/piperun-deal-moved'
+    | '/api/mcp/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -184,6 +196,7 @@ export interface RootRouteChildren {
   UsuariosRoute: typeof UsuariosRoute
   ApiPiperunDealCreatedRoute: typeof ApiPiperunDealCreatedRoute
   ApiPiperunDealMovedRoute: typeof ApiPiperunDealMovedRoute
+  ApiMcpTokenRoute: typeof ApiMcpTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -272,6 +285,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPiperunDealMovedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/mcp/$token': {
+      id: '/api/mcp/$token'
+      path: '/api/mcp/$token'
+      fullPath: '/api/mcp/$token'
+      preLoaderRoute: typeof ApiMcpTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -288,6 +308,7 @@ const rootRouteChildren: RootRouteChildren = {
   UsuariosRoute: UsuariosRoute,
   ApiPiperunDealCreatedRoute: ApiPiperunDealCreatedRoute,
   ApiPiperunDealMovedRoute: ApiPiperunDealMovedRoute,
+  ApiMcpTokenRoute: ApiMcpTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
