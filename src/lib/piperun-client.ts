@@ -267,3 +267,64 @@ export function fetchStages(pipelineId: number): Promise<PipeRunStage[]> {
     return result.data;
   });
 }
+
+// --- Leitura/escrita pontual de UM negócio (usado pelas "Regras do funil") ---------
+
+async function piperunRequest<T>(
+  method: "GET" | "PUT" | "POST",
+  path: string,
+  body?: Record<string, unknown>,
+): Promise<T> {
+  const token = getToken();
+  if (!token) throw new Error("PIPERUN_API_KEY não configurada no servidor.");
+
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers: {
+      token,
+      Accept: "application/json",
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  if (!response.ok) {
+    throw new Error(`PipeRun API respondeu ${response.status} em ${method} ${path}`);
+  }
+  return (await response.json()) as T;
+}
+
+/** Estado ATUAL de um negócio direto da API — o webhook só avisa "o card X mexeu"; a
+ * decisão sempre usa o que o PipeRun diz agora, nunca o que veio no corpo do webhook. */
+export async function fetchDealById(dealId: number): Promise<PipeRunDeal | null> {
+  try {
+    const result = await piperunRequest<{ data: PipeRunDeal }>("GET", `/deals/${dealId}`);
+    return result.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Todas as passagens de etapa de UM negócio (uma linha por entrada em etapa). */
+export function fetchDealStageHistory(dealId: number): Promise<PipeRunStageHistory[]> {
+  return fetchAllPages<PipeRunStageHistory>("/stageHistories", {
+    deal_id: String(dealId),
+    show: "100",
+  });
+}
+
+/** Move o negócio pra outra etapa do MESMO funil. */
+export async function moveDealToStage(
+  dealId: number,
+  pipelineId: number,
+  stageId: number,
+): Promise<void> {
+  await piperunRequest("PUT", `/deals/${dealId}`, {
+    pipeline_id: pipelineId,
+    stage_id: stageId,
+  });
+}
+
+/** Deixa uma nota (comentário) no card do negócio. */
+export async function addDealNote(dealId: number, text: string): Promise<void> {
+  await piperunRequest("POST", "/notes", { deal_id: dealId, text: `<p>${text}</p>` });
+}

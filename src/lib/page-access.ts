@@ -5,7 +5,13 @@
 
 import type { SessionUser } from "@/lib/auth";
 
-export const PAGE_KEYS = ["leads-recentes", "funil-marketing", "ligacoes", "campanhas"] as const;
+export const PAGE_KEYS = [
+  "leads-recentes",
+  "funil-marketing",
+  "ligacoes",
+  "campanhas",
+  "regras-funil",
+] as const;
 
 export type PageKey = (typeof PAGE_KEYS)[number];
 
@@ -14,6 +20,7 @@ export const PAGE_LABELS: Record<PageKey, string> = {
   "funil-marketing": "Funil de MKT",
   ligacoes: "Ligações",
   campanhas: "Campanhas",
+  "regras-funil": "Regras do funil",
 };
 
 function isAdminLike(role: SessionUser["role"] | undefined): boolean {

@@ -9,6 +9,7 @@ import {
   Megaphone,
   Moon,
   PanelLeft,
+  ListChecks,
   Phone,
   Settings,
   Sun,
@@ -81,6 +82,7 @@ const NAV_SECTIONS: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { title: "Campanhas", url: "/campanhas", icon: Megaphone, pageKey: "campanhas" },
       { title: "Ligações", url: "/ligacoes", icon: Phone, pageKey: "ligacoes" },
+      { title: "Regras do funil", url: "/regras-funil", icon: ListChecks, pageKey: "regras-funil" },
     ],
   },
 ];
