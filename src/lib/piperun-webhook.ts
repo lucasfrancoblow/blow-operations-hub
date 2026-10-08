@@ -45,6 +45,11 @@ export async function readWebhook(request: Request): Promise<{ dealId: number } 
     return json(400, { error: "Corpo inválido." });
   }
   const dealId = extractDealId(body);
-  if (dealId === null) return json(200, { status: "ignorado", reason: "sem id de negócio" });
+  if (dealId === null) {
+    // Só os nomes das chaves (nunca valores): ajuda a ajustar o formato do payload.
+    const keys = body && typeof body === "object" ? Object.keys(body).slice(0, 20) : [];
+    console.warn("[piperun-webhook] corpo sem id de negócio; chaves:", keys.join(","));
+    return json(200, { status: "ignorado", reason: "sem id de negócio" });
+  }
   return { dealId };
 }
