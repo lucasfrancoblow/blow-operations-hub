@@ -220,6 +220,16 @@ export async function fetchStageEntradasInRange(
   });
 }
 
+/** Entradas em etapa a partir de um instante ("YYYY-MM-DD HH:mm:ss", Brasília). A API aceita
+ * hora no filtro (confirmado ao vivo em 2026-10-08), então a consulta é pequena o bastante
+ * pra rodar a cada minuto — base da checagem periódica das regras do funil. */
+export async function fetchStageEntriesSince(since: string): Promise<PipeRunStageHistory[]> {
+  return fetchAllPages<PipeRunStageHistory>("/stageHistories", {
+    show: String(PAGE_SIZE),
+    in_date_start: since,
+  });
+}
+
 /** Mesma ideia de fetchStageEntradasInRange, mas filtrando por SAÍDA de etapa
  * (out_date) — quantos negócios deixaram aquela etapa (avançaram pra próxima) dentro
  * do período. Junto com entrada, replica as duas colunas do relatório nativo "Taxa de

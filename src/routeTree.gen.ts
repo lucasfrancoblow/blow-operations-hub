@@ -21,6 +21,7 @@ import { Route as RegrasFunilRouteImport } from './routes/regras-funil'
 import { Route as UsuariosRouteImport } from './routes/usuarios'
 import { Route as ApiPiperunDealCreatedRouteImport } from './routes/api/piperun-deal-created'
 import { Route as ApiPiperunDealMovedRouteImport } from './routes/api/piperun-deal-moved'
+import { Route as ApiCronFunnelRulesReconcileRouteImport } from './routes/api/cron/funnel-rules-reconcile'
 import { Route as ApiMcpTokenRouteImport } from './routes/api/mcp.$token'
 
 const IndexRoute = IndexRouteImport.update({
@@ -83,6 +84,12 @@ const ApiPiperunDealMovedRoute = ApiPiperunDealMovedRouteImport.update({
   path: '/api/piperun-deal-moved',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronFunnelRulesReconcileRoute =
+  ApiCronFunnelRulesReconcileRouteImport.update({
+    id: '/api/cron/funnel-rules-reconcile',
+    path: '/api/cron/funnel-rules-reconcile',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiMcpTokenRoute = ApiMcpTokenRouteImport.update({
   id: '/api/mcp/$token',
   path: '/api/mcp/$token',
@@ -102,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/usuarios': typeof UsuariosRoute
   '/api/piperun-deal-created': typeof ApiPiperunDealCreatedRoute
   '/api/piperun-deal-moved': typeof ApiPiperunDealMovedRoute
+  '/api/cron/funnel-rules-reconcile': typeof ApiCronFunnelRulesReconcileRoute
   '/api/mcp/$token': typeof ApiMcpTokenRoute
 }
 export interface FileRoutesByTo {
@@ -117,6 +125,7 @@ export interface FileRoutesByTo {
   '/usuarios': typeof UsuariosRoute
   '/api/piperun-deal-created': typeof ApiPiperunDealCreatedRoute
   '/api/piperun-deal-moved': typeof ApiPiperunDealMovedRoute
+  '/api/cron/funnel-rules-reconcile': typeof ApiCronFunnelRulesReconcileRoute
   '/api/mcp/$token': typeof ApiMcpTokenRoute
 }
 export interface FileRoutesById {
@@ -133,6 +142,7 @@ export interface FileRoutesById {
   '/usuarios': typeof UsuariosRoute
   '/api/piperun-deal-created': typeof ApiPiperunDealCreatedRoute
   '/api/piperun-deal-moved': typeof ApiPiperunDealMovedRoute
+  '/api/cron/funnel-rules-reconcile': typeof ApiCronFunnelRulesReconcileRoute
   '/api/mcp/$token': typeof ApiMcpTokenRoute
 }
 export interface FileRouteTypes {
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/api/piperun-deal-created'
     | '/api/piperun-deal-moved'
+    | '/api/cron/funnel-rules-reconcile'
     | '/api/mcp/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -165,6 +176,7 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/api/piperun-deal-created'
     | '/api/piperun-deal-moved'
+    | '/api/cron/funnel-rules-reconcile'
     | '/api/mcp/$token'
   id:
     | '__root__'
@@ -180,6 +192,7 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/api/piperun-deal-created'
     | '/api/piperun-deal-moved'
+    | '/api/cron/funnel-rules-reconcile'
     | '/api/mcp/$token'
   fileRoutesById: FileRoutesById
 }
@@ -196,6 +209,7 @@ export interface RootRouteChildren {
   UsuariosRoute: typeof UsuariosRoute
   ApiPiperunDealCreatedRoute: typeof ApiPiperunDealCreatedRoute
   ApiPiperunDealMovedRoute: typeof ApiPiperunDealMovedRoute
+  ApiCronFunnelRulesReconcileRoute: typeof ApiCronFunnelRulesReconcileRoute
   ApiMcpTokenRoute: typeof ApiMcpTokenRoute
 }
 
@@ -285,6 +299,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPiperunDealMovedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/funnel-rules-reconcile': {
+      id: '/api/cron/funnel-rules-reconcile'
+      path: '/api/cron/funnel-rules-reconcile'
+      fullPath: '/api/cron/funnel-rules-reconcile'
+      preLoaderRoute: typeof ApiCronFunnelRulesReconcileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/mcp/$token': {
       id: '/api/mcp/$token'
       path: '/api/mcp/$token'
@@ -308,6 +329,7 @@ const rootRouteChildren: RootRouteChildren = {
   UsuariosRoute: UsuariosRoute,
   ApiPiperunDealCreatedRoute: ApiPiperunDealCreatedRoute,
   ApiPiperunDealMovedRoute: ApiPiperunDealMovedRoute,
+  ApiCronFunnelRulesReconcileRoute: ApiCronFunnelRulesReconcileRoute,
   ApiMcpTokenRoute: ApiMcpTokenRoute,
 }
 export const routeTree = rootRouteImport
