@@ -1,4 +1,5 @@
-// Servidor MCP (Streamable HTTP, sem estado) com ferramentas SÓ DE LEITURA do PipeRun.
+// Servidor MCP (Streamable HTTP, sem estado) com ferramentas do PipeRun: leitura e, para a
+// líder da área, escrita em dois passos (prévia + confirmação) — ver mcp-write-tools.ts.
 // JSON-RPC 2.0 escrito à mão: o servidor não guarda sessão, então cabe em função serverless.
 
 import { timingSafeEqual } from "node:crypto";
@@ -14,9 +15,11 @@ import {
   fetchStages,
   type PipeRunDeal,
 } from "@/lib/piperun-client";
+import { WRITE_TOOLS } from "@/lib/mcp-write-tools";
+import { ToolError, dealIdFrom, optionalId, type Tool } from "@/lib/mcp-tool-kit";
 
 const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
-const SERVER_INFO = { name: "blow-piperun", version: "0.2.0" };
+const SERVER_INFO = { name: "blow-piperun", version: "0.3.0" };
 
 interface RpcRequest {
   jsonrpc?: string;
@@ -24,23 +27,6 @@ interface RpcRequest {
   method?: string;
   params?: Record<string, unknown>;
 }
-
-interface Tool {
-  name: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
-  run: (args: Record<string, unknown>) => Promise<unknown>;
-}
-
-function dealIdFrom(args: Record<string, unknown>): number {
-  const n = Number(args["deal_id"]);
-  if (!Number.isInteger(n) || n <= 0)
-    throw new ToolError("deal_id deve ser um número inteiro positivo.");
-  return n;
-}
-
-/** Erro mostrado ao Claude como resultado da ferramenta (não derruba o protocolo). */
-class ToolError extends Error {}
 
 const MAX_LISTED_DEALS = 100;
 
@@ -67,14 +53,6 @@ function periodFrom(args: Record<string, unknown>): { since: string; until: stri
   return { since, until };
 }
 
-function optionalId(args: Record<string, unknown>, key: string): number | null {
-  if (args[key] === undefined) return null;
-  const n = Number(args[key]);
-  if (!Number.isInteger(n) || n <= 0)
-    throw new ToolError(`${key} deve ser um número inteiro positivo.`);
-  return n;
-}
-
 const PERIOD_PROPERTIES = {
   data_inicio: {
     type: "string",
@@ -94,7 +72,7 @@ const DEAL_ID_SCHEMA = {
   additionalProperties: false,
 };
 
-const TOOLS: Tool[] = [
+const READ_TOOLS: Tool[] = [
   {
     name: "buscar_negocio",
     description:
@@ -284,6 +262,8 @@ const TOOLS: Tool[] = [
   },
 ];
 
+const TOOLS: Tool[] = [...READ_TOOLS, ...WRITE_TOOLS];
+
 function ok(id: RpcRequest["id"], result: unknown) {
   return { jsonrpc: "2.0", id: id ?? null, result };
 }
@@ -311,11 +291,14 @@ export async function handleRpc(message: unknown): Promise<unknown | null> {
       return ok(req.id, {});
     case "tools/list":
       return ok(req.id, {
-        tools: TOOLS.map(({ name, description, inputSchema }) => ({
+        tools: TOOLS.map(({ name, description, inputSchema, access = "read" }) => ({
           name,
           description,
           inputSchema,
-          annotations: { readOnlyHint: true },
+          annotations:
+            access === "read"
+              ? { readOnlyHint: true }
+              : { readOnlyHint: false, destructiveHint: access === "destroy" },
         })),
       });
     case "tools/call": {

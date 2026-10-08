@@ -281,7 +281,7 @@ export function fetchStages(pipelineId: number): Promise<PipeRunStage[]> {
 // --- Leitura/escrita pontual de UM negócio (usado pelas "Regras do funil") ---------
 
 async function piperunRequest<T>(
-  method: "GET" | "PUT" | "POST",
+  method: "GET" | "PUT" | "POST" | "DELETE",
   path: string,
   body?: Record<string, unknown>,
 ): Promise<T> {
@@ -298,9 +298,41 @@ async function piperunRequest<T>(
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   if (!response.ok) {
-    throw new Error(`PipeRun API respondeu ${response.status} em ${method} ${path}`);
+    const detail = (await response.text().catch(() => "")).slice(0, 300);
+    throw new Error(
+      `PipeRun API respondeu ${response.status} em ${method} ${path}${detail ? `: ${detail}` : ""}`,
+    );
   }
-  return (await response.json()) as T;
+  const text = await response.text();
+  return (text ? JSON.parse(text) : {}) as T;
+}
+
+/** Chamada livre à API do PipeRun (usada pelo conector MCP da líder da área). O caminho é
+ * validado: só `/recurso/...` simples, sem `..`, sem outro host. */
+export async function piperunApi(
+  method: "GET" | "PUT" | "POST" | "DELETE",
+  path: string,
+  body?: Record<string, unknown>,
+): Promise<unknown> {
+  if (!/^\/[A-Za-z0-9_/-]+(\?[A-Za-z0-9_=&,.%-]*)?$/.test(path) || path.includes("..")) {
+    throw new Error("Caminho inválido. Use algo como /deals/123 ou /notes?deal_id=123.");
+  }
+  return piperunRequest<unknown>(method, path, body);
+}
+
+/** Cria um negócio e devolve o registro criado. */
+export async function createDeal(body: Record<string, unknown>): Promise<PipeRunDeal> {
+  const result = await piperunRequest<{ data: PipeRunDeal }>("POST", "/deals", body);
+  return result.data;
+}
+
+/** Atualiza campos de um negócio (mover, ganhar/perder, responsável, valor...). */
+export async function updateDeal(dealId: number, body: Record<string, unknown>): Promise<void> {
+  await piperunRequest("PUT", `/deals/${dealId}`, body);
+}
+
+export async function deleteDeal(dealId: number): Promise<void> {
+  await piperunRequest("DELETE", `/deals/${dealId}`);
 }
 
 /** Estado ATUAL de um negócio direto da API — o webhook só avisa "o card X mexeu"; a
