@@ -1,5 +1,6 @@
-// Servidor MCP (Streamable HTTP, sem estado) com ferramentas do PipeRun: leitura e, para a
-// líder da área, escrita em dois passos (prévia + confirmação) — ver mcp-write-tools.ts.
+// Servidor MCP (Streamable HTTP, sem estado): PipeRun (leitura e, para a líder da área,
+// escrita em dois passos — ver mcp-write-tools.ts) e 3C Plus (só leitura — ver
+// mcp-threecplus-tools.ts).
 // JSON-RPC 2.0 escrito à mão: o servidor não guarda sessão, então cabe em função serverless.
 
 import { timingSafeEqual } from "node:crypto";
@@ -16,7 +17,8 @@ import {
   type PipeRunDeal,
 } from "@/lib/piperun-client";
 import { WRITE_TOOLS } from "@/lib/mcp-write-tools";
-import { ToolError, dealIdFrom, optionalId, type Tool } from "@/lib/mcp-tool-kit";
+import { THREECPLUS_TOOLS } from "@/lib/mcp-threecplus-tools";
+import { ToolError, dealIdFrom, optionalId, periodFrom, type Tool } from "@/lib/mcp-tool-kit";
 
 const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 const SERVER_INFO = { name: "blow-piperun", version: "0.3.0" };
@@ -32,26 +34,6 @@ const MAX_LISTED_DEALS = 100;
 
 const STATUS_LABEL: Record<number, string> = { 0: "aberto", 1: "ganho", 3: "perdido" };
 const statusLabel = (status: number) => STATUS_LABEL[status] ?? `status ${status}`;
-
-/** Hoje no horário de Brasília (YYYY-MM-DD). */
-function todayBrt(): string {
-  return new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(new Date());
-}
-
-function dateArg(args: Record<string, unknown>, key: string, fallback: string): string {
-  const value = args[key] === undefined ? fallback : String(args[key]);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value))
-    throw new ToolError(`${key} deve estar no formato AAAA-MM-DD.`);
-  return value;
-}
-
-function periodFrom(args: Record<string, unknown>): { since: string; until: string } {
-  const today = todayBrt();
-  const since = dateArg(args, "data_inicio", today);
-  const until = dateArg(args, "data_fim", since);
-  if (since > until) throw new ToolError("data_inicio não pode ser depois de data_fim.");
-  return { since, until };
-}
 
 const PERIOD_PROPERTIES = {
   data_inicio: {
@@ -262,7 +244,7 @@ const READ_TOOLS: Tool[] = [
   },
 ];
 
-const TOOLS: Tool[] = [...READ_TOOLS, ...WRITE_TOOLS];
+const TOOLS: Tool[] = [...READ_TOOLS, ...THREECPLUS_TOOLS, ...WRITE_TOOLS];
 
 function ok(id: RpcRequest["id"], result: unknown) {
   return { jsonrpc: "2.0", id: id ?? null, result };

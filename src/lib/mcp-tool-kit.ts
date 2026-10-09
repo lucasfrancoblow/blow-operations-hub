@@ -34,3 +34,23 @@ export function requiredId(args: Record<string, unknown>, key: string): number {
   if (n === null) throw new ToolError(`${key} é obrigatório.`);
   return n;
 }
+
+/** Hoje no horário de Brasília (YYYY-MM-DD). */
+export function todayBrt(): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(new Date());
+}
+
+export function dateArg(args: Record<string, unknown>, key: string, fallback: string): string {
+  const value = args[key] === undefined ? fallback : String(args[key]);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value))
+    throw new ToolError(`${key} deve estar no formato AAAA-MM-DD.`);
+  return value;
+}
+
+export function periodFrom(args: Record<string, unknown>): { since: string; until: string } {
+  const today = todayBrt();
+  const since = dateArg(args, "data_inicio", today);
+  const until = dateArg(args, "data_fim", since);
+  if (since > until) throw new ToolError("data_inicio não pode ser depois de data_fim.");
+  return { since, until };
+}

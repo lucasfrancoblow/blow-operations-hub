@@ -104,3 +104,81 @@ export async function fetchCallsForDay(date: string): Promise<ThreeCPlusCall[]> 
 
   return calls.sort((a, b) => (a.callDate < b.callDate ? 1 : -1));
 }
+
+// --- Leitura geral (usada pelo conector MCP; nada aqui escreve na 3C Plus) -----------
+
+/** Campos que nunca saem do servidor: senhas, tokens, códigos de confirmação, documentos. */
+const SENSITIVE_KEY =
+  /password|senha|token|secret|confirmation_code|document|cpf|cnpj|sip_user|api_key/i;
+
+export function redactSensitive(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactSensitive);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [
+        k,
+        SENSITIVE_KEY.test(k) ? "[oculto]" : redactSensitive(v),
+      ]),
+    );
+  }
+  return value;
+}
+
+/** GET livre na API da 3C Plus. Caminho validado (só /recurso/...), sem outro host. */
+export async function threeCPlusGet(
+  path: string,
+  params: Record<string, string> = {},
+): Promise<unknown> {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("THREECPLUS_API_KEY não configurada no servidor.");
+  if (!/^\/[A-Za-z0-9_/-]+$/.test(path) || path.includes("..")) {
+    throw new Error("Caminho inválido. Use algo como /campaigns ou /calls/ID.");
+  }
+  const url = new URL(`${BASE_URL}${path}`);
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+  });
+  if (!response.ok) {
+    const detail = (await response.text().catch(() => "")).slice(0, 300);
+    throw new Error(
+      `3C Plus API respondeu ${response.status} em ${path}${detail ? `: ${detail}` : ""}`,
+    );
+  }
+  return redactSensitive(await response.json());
+}
+
+export type ThreeCPlusCallFull = Record<string, unknown> & {
+  id: string;
+  agent_id: number;
+  agent: string;
+  campaign: string;
+  number: string;
+  readable_status_text: string;
+  qualification: string;
+  call_date: string;
+  speaking_with_agent_time: string;
+};
+
+/** Todas as chamadas de um intervalo de dias (inclui o ruído do discador, sem agente).
+ * `truncado` = bateu no limite de páginas e o resultado está incompleto. */
+export async function fetchCallsRange(
+  since: string,
+  until: string,
+): Promise<{ calls: ThreeCPlusCallFull[]; truncado: boolean }> {
+  const calls: ThreeCPlusCallFull[] = [];
+  let page = 1;
+  let totalPages = 1;
+  do {
+    const body = (await threeCPlusGet("/calls", {
+      per_page: String(PER_PAGE),
+      page: String(page),
+      start_date: `${since} 00:00:00`,
+      end_date: `${until} 23:59:59`,
+    })) as { data: ThreeCPlusCallFull[]; meta: { pagination: { total_pages: number } } };
+    calls.push(...body.data);
+    totalPages = body.meta.pagination.total_pages;
+    page += 1;
+  } while (page <= Math.min(totalPages, MAX_PAGES));
+  return { calls, truncado: totalPages > MAX_PAGES };
+}
