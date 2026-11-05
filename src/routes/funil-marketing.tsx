@@ -88,7 +88,12 @@ function channelFor(lead: Pick<LeadRecente, "pipelineName" | "origin">): string 
   if (lead.pipelineName.toLowerCase().includes("rapha mattos")) return "Rapha Mattos";
   if (lead.origin === "Meta (pago)") return "Facebook Ads";
   if (lead.origin === "Google") return "Google";
-  if (lead.origin === "Meta (orgânico)" || lead.origin === "Sem UTM") return "Orgânico";
+  if (
+    lead.origin === "Meta (orgânico)" ||
+    lead.origin === "ChatGPT (orgânico)" ||
+    lead.origin === "Sem UTM"
+  )
+    return "Orgânico";
   return "Outros";
 }
 

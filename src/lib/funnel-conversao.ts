@@ -28,7 +28,7 @@ import {
   type PipeRunStageHistory,
 } from "@/lib/piperun-client";
 import {
-  ORIGIN_LABELS,
+  originFor,
   pipelineKey,
   STAGE_CONTRATO,
   STAGE_ROGA_MARCADO,
@@ -154,7 +154,14 @@ export async function loadFunnelStageEvents(
   const deals = light ? [] : await fetchDealsByIds(dealIds);
   const originByDealId = new Map(
     deals.map(
-      (d) => [d.id, (d.origin_id && ORIGIN_LABELS[d.origin_id]) || "Outra origem"] as const,
+      (d) =>
+        [
+          d.id,
+          originFor(
+            d.origin_id,
+            d.customFields?.find((c) => c.name === "utm_source")?.value ?? null,
+          ),
+        ] as const,
     ),
   );
 

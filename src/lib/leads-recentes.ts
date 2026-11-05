@@ -136,6 +136,16 @@ export const ORIGIN_LABELS: Record<number, string> = {
   739352: "Google",
 };
 
+export const CHATGPT_ORIGIN = "ChatGPT (orgânico)";
+
+/** Origem exibida no hub. O código de origem do PipeRun só diz "Sem UTM" quando a LP
+ * manda a fonte sem mídia/campanha; a fonte `chatgpt.com` (tráfego orgânico vindo do
+ * ChatGPT) é reconhecida aqui, independente do código de origem do card. */
+export function originFor(originId: number | null | undefined, utmSource: string | null): string {
+  if (utmSource && /chatgpt|openai/i.test(utmSource)) return CHATGPT_ORIGIN;
+  return (originId && ORIGIN_LABELS[originId]) || "Outra origem";
+}
+
 const DEAL_STATUS_LABELS: Record<number, string> = {
   0: "Aberto",
   1: "Ganho",
@@ -257,8 +267,14 @@ function customField(deal: PipeRunDeal, name: string): string | null {
   return deal.customFields?.find((c) => c.name === name)?.value?.trim() || null;
 }
 
-function inscricaoFor(destino: string, utmCampaign: string | null, utmContent: string | null) {
+function inscricaoFor(
+  destino: string,
+  utmCampaign: string | null,
+  utmContent: string | null,
+  origin: string,
+) {
   if (destino !== "Outro" && destino !== "Sem campanha") return destino;
+  if (origin === CHATGPT_ORIGIN) return utmCampaign ?? utmContent ?? "LP · ChatGPT";
   return utmCampaign ?? utmContent ?? "Não identificado";
 }
 
@@ -274,6 +290,8 @@ function toLeadRecente(
     deal.customFields?.find((c) => c.name === "utm_campaign")?.value?.trim() || null;
   const utmContent = customField(deal, "utm_content");
   const destino = classifyDestino(utmCampaign, pipelineName);
+  const utmSource = customField(deal, "utm_source");
+  const origin = originFor(deal.origin_id, utmSource);
   return {
     id: deal.id,
     title: deal.title || `Negócio #${deal.id}`,
@@ -284,13 +302,13 @@ function toLeadRecente(
     stageOrder: stage?.order ?? 0,
     stageColor: stage?.color ?? null,
     ownerName: deal.owner?.name ?? "Sem responsável",
-    origin: (deal.origin_id && ORIGIN_LABELS[deal.origin_id]) || "Outra origem",
+    origin,
     destino,
     utmCampaign,
-    utmSource: customField(deal, "utm_source"),
+    utmSource,
     utmMedium: customField(deal, "utm_medium"),
     utmContent,
-    inscricao: inscricaoFor(destino, utmCampaign, utmContent),
+    inscricao: inscricaoFor(destino, utmCampaign, utmContent, origin),
     cidade: customField(deal, "Cidade"),
     uf: customField(deal, "UF")?.toUpperCase() ?? null,
     investimento: customField(deal, "Investimento"),

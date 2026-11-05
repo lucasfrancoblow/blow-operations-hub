@@ -16,6 +16,7 @@ export const CHANNEL_COLORS: Record<string, string> = {
   "Meta (pago)": "#D74015",
   "Meta (orgânico)": "#EDA100",
   Google: "#2A78D6",
+  "ChatGPT (orgânico)": "#10A37F",
   "Sem UTM": "#8A8F98",
   "Outra origem": "#375542",
 };
