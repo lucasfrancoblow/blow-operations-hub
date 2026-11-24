@@ -1,0 +1,64 @@
+name: Relatório diário do funil B2B Expansão
+
+# Seg-sáb às 06:30 de Brasília (09:30 UTC): sobra folga até as 07:15 mesmo com atraso do
+# Actions. Domingo não roda. Na segunda o período é sábado + domingo (ver
+# scripts/relatorio-funil-b2b.ts). Gera o PDF e posta no canal do Slack (SLACK_CHANNEL_ID).
+on:
+  schedule:
+    - cron: "30 9 * * 1-6"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Dia em que o relatório roda (YYYY-MM-DD). Vazio = hoje (Brasília). O período é o dia anterior (segunda: sáb + dom)."
+        required: false
+      dry_run:
+        description: "Só gera o PDF (sobe como artifact) e NÃO posta no Slack."
+        type: boolean
+        default: false
+
+# Nunca roda dobrado (evita PDF repetido no canal).
+concurrency:
+  group: relatorio-funil-b2b
+  cancel-in-progress: false
+
+jobs:
+  relatorio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Instala dependências
+        run: bun install --frozen-lockfile
+
+      - name: Instala o Chromium do Playwright
+        run: bunx playwright install --with-deps chromium
+
+      - name: Gera o relatório
+        env:
+          PIPERUN_API_KEY: ${{ secrets.PIPERUN_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+          INPUT_DATE: ${{ github.event.inputs.date }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          args=(--out relatorio-funil-b2b.pdf)
+          if [ -n "$INPUT_DATE" ]; then args+=(--date "$INPUT_DATE"); fi
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          bun run scripts/relatorio-funil-b2b.ts "${args[@]}"
+
+      - name: Sobe o PDF como artifact (dry run)
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorio-funil-b2b
+          path: relatorio-funil-b2b.pdf
+          if-no-files-found: warn
