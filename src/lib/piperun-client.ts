@@ -182,6 +182,15 @@ export async function fetchDealsByIds(ids: number[]): Promise<PipeRunDeal[]> {
   return results.flatMap((r) => r.data);
 }
 
+/** Todos os negócios de um funil (qualquer status), paginando até o fim. Usado pelo relatório
+ * diário do funil B2B para saber os nomes dos cards do Outbound. */
+export async function fetchDealsByPipeline(pipelineId: number): Promise<PipeRunDeal[]> {
+  return fetchAllPages<PipeRunDeal>("/deals", {
+    show: String(PAGE_SIZE),
+    pipeline_id: String(pipelineId),
+  });
+}
+
 export interface PipeRunStageHistory {
   id: number;
   deal_id: number;
