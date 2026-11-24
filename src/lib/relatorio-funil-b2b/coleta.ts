@@ -29,9 +29,9 @@ function customField(deal: PipeRunDeal, nome: string): string | null {
   return deal.customFields?.find((c) => c.name === nome)?.value ?? null;
 }
 
-/** Primeiro e último dia a buscar: cobre a média de 7 dias e o mês até o fim do período. */
+/** Primeiro e último dia a buscar: cobre os últimos 7 dias e o mês até o fim do período. */
 export function janelaDeBusca(p: Periodo): { from: string; to: string } {
-  return { from: p.media7From < p.mesFrom ? p.media7From : p.mesFrom, to: p.to };
+  return { from: p.seteDiasFrom < p.mesFrom ? p.seteDiasFrom : p.mesFrom, to: p.to };
 }
 
 export async function coletarEventosPipeRun(

@@ -1,11 +1,11 @@
 // Template HTML do relatório (renderizado em PDF pelo Chromium). Layout do modelo
 // aprovado: cabeçalho verde escuro, destaques laranja, cards, tabelas zebradas e
-// "badges" de variação.
+// "badges" coloridos nas taxas.
 
-import { benchmark, moeda, numero, SEM_DADO, taxa, variacao } from "./formato";
+import { benchmark, moeda, numero, taxa } from "./formato";
 import { formatarDiaMes, nomeDoDia, tituloPeriodo } from "./periodo";
 import type { Relatorio } from "./relatorio";
-import type { Tom, TomTaxa } from "./variacao";
+import type { TomTaxa } from "./variacao";
 
 export function esc(texto: string): string {
   return texto
@@ -15,7 +15,6 @@ export function esc(texto: string): string {
     .replace(/"/g, "&quot;");
 }
 
-const CLASSE_TOM: Record<Tom, string> = { bom: "b-verde", ruim: "b-laranja", neutro: "b-cinza" };
 const CLASSE_TAXA: Record<TomTaxa, string> = {
   verde: "b-verde",
   laranja: "b-laranja",
@@ -46,7 +45,7 @@ body{font-family:Inter,"Helvetica Neue",Arial,"Liberation Sans",sans-serif;color
 .card .v{font-size:23px;font-weight:700;margin:2px 0 1px}
 .card .d{font-size:9px;color:var(--suave)}
 .card .d b{font-weight:700}
-.t-bom{color:#21473a}.t-ruim{color:#e5401a}
+
 h2{font-size:17px;font-weight:700;color:var(--verde);display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--laranja);padding-bottom:4px;margin:0 0 7px}
 h2 small{font-size:9px;font-weight:400;color:var(--suave)}
 section{margin-bottom:14px}
@@ -73,17 +72,8 @@ tr.geral td{font-weight:700}
 `;
 
 function cartao(c: Relatorio["cartoes"][number], laranja: boolean): string {
-  const media =
-    c.media7 === null ? SEM_DADO : c.tipoValor === "moeda" ? moeda(c.media7) : numero(c.media7);
-  const detalhe =
-    c.variacao === null
-      ? `<b>${SEM_DADO}</b> média 7 dias: ${media}`
-      : `<b class="t-${c.tom}">${variacao(c.variacao)}</b> vs média 7 dias`;
+  const detalhe = `7 dias: <b>${valorFunil(c.tipoValor, c.seteDias)}</b>`;
   return `<div class="card${laranja ? " laranja" : ""}"><div class="r">${esc(c.rotulo)}</div><div class="v">${valorFunil(c.tipoValor, c.valor)}</div><div class="d">${detalhe}</div></div>`;
-}
-
-function badgeVariacao(pct: number | null, tom: Tom): string {
-  return `<span class="b ${pct === null ? "b-cinza" : CLASSE_TOM[tom]}">${variacao(pct)}</span>`;
 }
 
 function badgeTaxa(valor: number | null, tom: TomTaxa): string {
@@ -102,14 +92,14 @@ export function renderizarHtml(r: Relatorio, geradoEm: string): string {
   const funil = r.funil
     .map(
       (l) =>
-        `<tr><td>${esc(l.rotulo)}</td><td>${valorFunil(l.tipoValor, l.ontem)}</td><td>${valorFunil(l.tipoValor, l.media7)}</td><td>${valorFunil(l.tipoValor, l.mes)}</td><td>${badgeVariacao(l.variacao, l.tom)}</td></tr>`,
+        `<tr><td>${esc(l.rotulo)}</td><td>${valorFunil(l.tipoValor, l.ontem)}</td><td>${valorFunil(l.tipoValor, l.seteDias)}</td><td>${valorFunil(l.tipoValor, l.mes)}</td></tr>`,
     )
     .join("");
 
   const custos = r.custos
     .map(
       (c) =>
-        `<tr><td>${esc(c.rotulo)}</td><td>${moeda(c.ontem, c.casas)}</td><td>${moeda(c.media7, c.casas)}</td><td>${moeda(c.mes, c.casas)}</td></tr>`,
+        `<tr><td>${esc(c.rotulo)}</td><td>${moeda(c.ontem, c.casas)}</td><td>${moeda(c.seteDias, c.casas)}</td><td>${moeda(c.mes, c.casas)}</td></tr>`,
     )
     .join("");
 
@@ -133,19 +123,19 @@ export function renderizarHtml(r: Relatorio, geradoEm: string): string {
 
   const periodoTxt = p.fimDeSemana ? "sábado e domingo" : "o dia anterior";
   const comparacao = p.fimDeSemana
-    ? "média dos 7 dias anteriores (×2) e mês até domingo"
-    : "média dos últimos 7 dias e mês até ontem";
+    ? "últimos 7 dias e mês até domingo"
+    : "últimos 7 dias e mês até ontem";
 
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(titulo)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>${CSS}</style></head><body>
 <div class="topo"><div class="marca">BL<b>O</b>w<span>escova inteligente · @meublow</span></div></div>
-<div class="cab"><div class="kicker">${esc(kicker)}</div><h1>${esc(titulo)}</h1><p>Fonte: PipeRun (entradas por etapa) e Meta Ads/Google Ads · comparado com a ${comparacao} · Outbound fora do Geral</p></div>
+<div class="cab"><div class="kicker">${esc(kicker)}</div><h1>${esc(titulo)}</h1><p>Fonte: PipeRun (entradas por etapa) e Meta Ads/Google Ads · ${comparacao} · Outbound fora do Geral</p></div>
 <div class="cards">${r.cartoes.map((c, i) => cartao(c, i === r.cartoes.length - 1)).join("")}</div>
 <section><h2>1. Funil ${p.fimDeSemana ? "do período" : "do dia"} <small>entradas na etapa · horário de Brasília · ${esc(periodoTxt)}</small></h2>
-<table><thead><tr><th>Etapa</th><th>${colOntem}</th><th>Média 7 dias</th><th>${colMes}</th><th>Variação</th></tr></thead><tbody>${funil}</tbody></table></section>
+<table><thead><tr><th>Etapa</th><th>${colOntem}</th><th>7 dias</th><th>${colMes}</th></tr></thead><tbody>${funil}</tbody></table></section>
 <section><h2>2. Custos e taxas <small>verde = melhor que o benchmark · laranja = pior · cinza = menos de 5 casos</small></h2>
-<div class="dois"><table><thead><tr><th>Custo</th><th>${colOntem}</th><th>Média 7 dias</th><th>Mês</th></tr></thead><tbody>${custos}</tbody></table>
+<div class="dois"><table><thead><tr><th>Custo</th><th>${colOntem}</th><th>7 dias</th><th>Mês</th></tr></thead><tbody>${custos}</tbody></table>
 <table><thead><tr><th>Taxa</th><th>${colOntem}</th><th>Mês</th><th>Bench.</th></tr></thead><tbody>${taxas}</tbody></table></div></section>
 <section><h2>3. Por canal <small>${p.fimDeSemana ? "sáb + dom" : "ontem"} · Geral = soma dos quatro primeiros canais</small></h2>
 <table class="canais"><thead><tr><th>Canal</th><th>Invest.</th><th>Leads</th><th>SQL</th><th>Agend.</th><th>Realiz.</th><th>RoGa M.</th><th>RoGa R.</th><th>Doc.</th><th>Contr.</th><th>Vendas</th><th>CPL</th><th>Custo/SQL</th></tr></thead><tbody>${canais}</tbody></table></section>

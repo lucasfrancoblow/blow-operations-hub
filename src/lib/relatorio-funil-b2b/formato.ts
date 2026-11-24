@@ -17,16 +17,6 @@ export function numero(valor: number | null): string {
   return nf(0, 1).format(arred);
 }
 
-/** Percentual de variação com sinal: "+7,9%", "−100,0%" (sinal de menos tipográfico). */
-export function variacao(pct: number | null): string {
-  if (pct === null) return SEM_DADO;
-  const v = Math.round(pct * 1000) / 10;
-  const abs = nf(1, 1).format(Math.abs(v));
-  if (v > 0) return `+${abs}%`;
-  if (v < 0) return `−${abs}%`;
-  return `${abs}%`;
-}
-
 /** Taxa: "25,0%"; 100% exato sem casas. */
 export function taxa(valor: number | null): string {
   if (valor === null) return SEM_DADO;

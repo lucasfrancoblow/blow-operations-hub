@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { calcPeriodo, tituloPeriodo } from "./periodo";
-import { calcCusto, calcTaxa, tomTaxa, tomVariacao, variacaoPct } from "./variacao";
+import { calcCusto, calcTaxa, tomTaxa } from "./variacao";
 import { agruparGastoPorDia, classificarGasto, investimentoGeral, somarGasto } from "./gasto";
 import {
   canalPorOrigem,
@@ -18,15 +18,17 @@ describe("periodo", () => {
     const p = calcPeriodo("2026-11-21")!; // sábado
     expect(p.from).toBe("2026-11-20");
     expect(p.to).toBe("2026-11-20");
-    expect(p.media7From).toBe("2026-11-13");
-    expect(p.media7To).toBe("2026-11-19");
+    // 7 dias = total dos últimos 7 dias até ontem (inclui ontem).
+    expect(p.seteDiasFrom).toBe("2026-11-14");
+    expect(p.seteDiasTo).toBe("2026-11-20");
     expect(p.mesFrom).toBe("2026-11-01");
   });
   test("segunda: sábado + domingo", () => {
     const p = calcPeriodo("2026-11-23")!;
     expect(p.dias).toEqual(["2026-11-21", "2026-11-22"]);
     expect(p.fimDeSemana).toBe(true);
-    expect(p.media7To).toBe("2026-11-20");
+    expect(p.seteDiasFrom).toBe("2026-11-16");
+    expect(p.seteDiasTo).toBe("2026-11-22");
     expect(tituloPeriodo(p)).toBe("Sáb + Dom — 21/11 a 22/11");
   });
   test("domingo não roda", () => {
@@ -34,19 +36,7 @@ describe("periodo", () => {
   });
 });
 
-describe("variacao e cores", () => {
-  test("variação", () => {
-    expect(variacaoPct(12, 10)).toBeCloseTo(0.2);
-    expect(variacaoPct(0, 0.3)).toBe(-1);
-    expect(variacaoPct(1, 0)).toBeNull();
-    expect(variacaoPct(null, 3)).toBeNull();
-  });
-  test("custo menor é verde", () => {
-    expect(tomVariacao(-0.1, "custo")).toBe("bom");
-    expect(tomVariacao(0.1, "custo")).toBe("ruim");
-    expect(tomVariacao(0.1, "volume")).toBe("bom");
-    expect(tomVariacao(0.1, "neutro")).toBe("neutro");
-  });
+describe("cores das taxas", () => {
   test("denominador < 5 fica cinza; sem denominador é sem dado", () => {
     expect(tomTaxa(calcTaxa(2, 4), 0.25)).toBe("cinza");
     expect(tomTaxa(calcTaxa(2, 5), 0.25)).toBe("verde");
@@ -208,6 +198,19 @@ describe("relatório", () => {
     expect(geral.contagens.leads).toBe(3);
     expect(rel.funil.find((l) => l.rotulo === "Leads")!.ontem).toBe(3);
     expect(contarGeral(eventos, new Set(["2026-11-20"])).leads).toBe(3);
+  });
+  test("7 dias é o total (não média) dos últimos 7 dias até ontem, incluindo ontem", () => {
+    const rel = montarRelatorio({
+      periodo: calcPeriodo("2026-11-21")!,
+      eventos,
+      excluidos: [],
+      gasto: null,
+      backupDisponivel: true,
+    });
+    // 3 leads do Geral em 20/11 + 1 em 15/11 (dentro de 14–20/11).
+    const leads = rel.funil.find((l) => l.rotulo === "Leads")!;
+    expect(leads.seteDias).toBe(4);
+    expect(rel.cartoes.find((c) => c.rotulo === "Leads")!.seteDias).toBe(4);
   });
   test("sem fonte de gasto: investimento e custos sem dado, nunca 0", () => {
     const rel = montarRelatorio({

@@ -8,9 +8,9 @@ export interface Periodo {
   dias: string[];
   /** true quando é segunda-feira (sábado + domingo). */
   fimDeSemana: boolean;
-  /** 7 dias imediatamente anteriores ao período. */
-  media7From: string;
-  media7To: string;
+  /** Últimos 7 dias até o fim do período (inclui ontem). */
+  seteDiasFrom: string;
+  seteDiasTo: string;
   /** Mês de calendário do último dia do período, até esse dia. */
   mesFrom: string;
 }
@@ -63,8 +63,8 @@ export function calcPeriodo(runDate: string): Periodo | null {
     to,
     dias: diasEntre(from, to),
     fimDeSemana,
-    media7From: addDays(from, -7),
-    media7To: addDays(from, -1),
+    seteDiasFrom: addDays(to, -6),
+    seteDiasTo: to,
     mesFrom: `${to.slice(0, 7)}-01`,
   };
 }

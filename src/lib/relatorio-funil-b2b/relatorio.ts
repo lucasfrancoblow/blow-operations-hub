@@ -12,16 +12,7 @@ import {
   type Metrica,
 } from "./tipos";
 import { diasEntre, formatarDiaMes, type Periodo } from "./periodo";
-import {
-  calcCusto,
-  calcTaxa,
-  tomTaxa,
-  tomVariacao,
-  variacaoPct,
-  type Taxa,
-  type Tom,
-  type TomTaxa,
-} from "./variacao";
+import { calcCusto, calcTaxa, tomTaxa, type Taxa, type TomTaxa } from "./variacao";
 import { investimentoGeral, somarGasto, type GastoDia, type GastoJanela } from "./gasto";
 import { moeda } from "./formato";
 
@@ -39,17 +30,15 @@ export interface LinhaFunil {
   rotulo: string;
   tipoValor: "moeda" | "inteiro";
   ontem: number | null;
-  media7: number | null;
+  seteDias: number | null;
   mes: number | null;
-  variacao: number | null;
-  tom: Tom;
 }
 
 export interface LinhaCusto {
   rotulo: string;
   casas: 0 | 2;
   ontem: number | null;
-  media7: number | null;
+  seteDias: number | null;
   mes: number | null;
 }
 
@@ -76,9 +65,7 @@ export interface Cartao {
   rotulo: string;
   tipoValor: "moeda" | "inteiro";
   valor: number | null;
-  media7: number | null;
-  variacao: number | null;
-  tom: Tom;
+  seteDias: number | null;
 }
 
 export interface Relatorio {
@@ -144,26 +131,18 @@ export function contarGeral(eventos: EventoFunil[], dias: Set<string>): Contagen
   );
 }
 
-function escalar(c: Contagens, fator: number): Record<Metrica, number> {
-  const out = contagensVazias();
-  for (const m of METRICAS) out[m] = c[m] * fator;
-  return out;
-}
-
 export function montarRelatorio(entrada: EntradaRelatorio): Relatorio {
   const { periodo, eventos } = entrada;
-  const nDias = periodo.dias.length;
   const diasPeriodo = new Set(periodo.dias);
-  const diasMedia = diasEntre(periodo.media7From, periodo.media7To);
+  const diasSete = diasEntre(periodo.seteDiasFrom, periodo.seteDiasTo);
   const diasMes = diasEntre(periodo.mesFrom, periodo.to);
-  const setMedia = new Set(diasMedia);
+  const setSete = new Set(diasSete);
   const setMes = new Set(diasMes);
-  // Média de 7 dias por dia, escalada para o tamanho do período (2 dias na segunda).
-  const fatorMedia = nDias / diasMedia.length;
 
+  // Totais (não médias): ontem, últimos 7 dias até ontem e mês até ontem.
   const geral = {
     ontem: contarGeral(eventos, diasPeriodo),
-    media: escalar(contarGeral(eventos, setMedia), fatorMedia),
+    sete: contarGeral(eventos, setSete),
     mes: contarGeral(eventos, setMes),
   };
 
@@ -171,11 +150,11 @@ export function montarRelatorio(entrada: EntradaRelatorio): Relatorio {
   const gastoIndisponivel = entrada.gasto === null;
   const porDia = entrada.gasto ?? new Map<string, GastoDia>();
   const gOntem = somarGasto(porDia, periodo.dias, true);
-  const gMedia = somarGasto(porDia, diasMedia, false);
+  const gSete = somarGasto(porDia, diasSete, false);
   const gMes = somarGasto(porDia, diasMes, false);
   const invGeral = {
     ontem: gastoIndisponivel ? null : investimentoGeral(gOntem),
-    media: gastoIndisponivel ? null : mediaEscalada(investimentoGeral(gMedia), fatorMedia),
+    sete: gastoIndisponivel ? null : investimentoGeral(gSete),
     mes: gastoIndisponivel ? null : investimentoGeral(gMes),
   };
 
@@ -184,31 +163,23 @@ export function montarRelatorio(entrada: EntradaRelatorio): Relatorio {
     rotulo: "Investimento",
     tipoValor: "moeda",
     ontem: invGeral.ontem,
-    media7: invGeral.media,
+    seteDias: invGeral.sete,
     mes: invGeral.mes,
-    variacao: variacaoPct(invGeral.ontem, invGeral.media),
-    tom: "neutro",
   };
   const funil: LinhaFunil[] = [
     linhaInvest,
-    ...METRICAS.map((m): LinhaFunil => {
-      const v = variacaoPct(geral.ontem[m], geral.media[m]);
-      return {
-        rotulo: ROTULOS[m],
-        tipoValor: "inteiro",
-        ontem: geral.ontem[m],
-        media7: geral.media[m],
-        mes: geral.mes[m],
-        variacao: v,
-        tom: tomVariacao(v, "volume"),
-      };
-    }),
+    ...METRICAS.map((m): LinhaFunil => ({
+      rotulo: ROTULOS[m],
+      tipoValor: "inteiro",
+      ontem: geral.ontem[m],
+      seteDias: geral.sete[m],
+      mes: geral.mes[m],
+    })),
   ];
 
   // Custos.
   const custo = (inv: number | null, m: Metrica, c: Record<Metrica, number>) =>
     calcCusto(inv, c[m]);
-  const mediaInvSoma = gastoIndisponivel ? null : investimentoGeral(gMedia);
   const custos: LinhaCusto[] = (
     [
       ["CPL", "leads", 2],
@@ -221,8 +192,8 @@ export function montarRelatorio(entrada: EntradaRelatorio): Relatorio {
     rotulo,
     casas,
     ontem: custo(invGeral.ontem, m, geral.ontem),
-    // Média e mês = razão de somas (investimento total / volume total da janela).
-    media7: custo(mediaInvSoma, m, escalar(contarGeral(eventos, setMedia), 1)),
+    // 7 dias e mês = investimento total da janela / volume total da janela.
+    seteDias: custo(invGeral.sete, m, geral.sete),
     mes: custo(invGeral.mes, m, geral.mes),
   }));
 
@@ -285,9 +256,7 @@ export function montarRelatorio(entrada: EntradaRelatorio): Relatorio {
     rotulo,
     tipoValor: linha.tipoValor,
     valor: linha.ontem,
-    media7: linha.media7,
-    variacao: linha.variacao,
-    tom: linha.tom,
+    seteDias: linha.seteDias,
   });
   const linhaPorRotulo = (r: string) => funil.find((l) => l.rotulo === r)!;
   const cartoes: Cartao[] = [
@@ -313,11 +282,6 @@ export function montarRelatorio(entrada: EntradaRelatorio): Relatorio {
   return relatorio;
 }
 
-function mediaEscalada(soma: number | null, fator: number): number | null {
-  // `soma` é o total dos 7 dias; média por dia × tamanho do período = soma/7*nDias = soma/diasMedia*nDias.
-  return soma === null ? null : soma * fator;
-}
-
 function fmtNum(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1).replace(".", ",");
 }
@@ -326,34 +290,21 @@ function pct(n: number): string {
   return `${(n * 100).toFixed(1).replace(".", ",")}%`;
 }
 
-function comparar(rotulo: string, dia: number, media: number): string | null {
-  if (media === 0 && dia === 0) return null;
-  if (dia > media)
-    return `${rotulo} acima da média de 7 dias (${fmtNum(dia)} contra ${fmtNum(media)})`;
-  if (dia < media)
-    return `${rotulo} abaixo da média de 7 dias (${fmtNum(dia)} contra ${fmtNum(media)})`;
-  return `${rotulo} em linha com a média de 7 dias (${fmtNum(dia)})`;
-}
-
 function gerarDestaques(r: Relatorio, g: GastoJanela, gastoIndisponivel: boolean): string[] {
   const out: string[] = [];
   const linha = (rot: string) => r.funil.find((l) => l.rotulo === rot)!;
   const leads = linha("Leads");
   const sql = linha("SQL");
-  if (leads.ontem !== null && leads.media7 !== null && sql.ontem !== null && sql.media7 !== null) {
-    const acima = leads.ontem >= leads.media7 && sql.ontem >= sql.media7;
-    const abaixo = leads.ontem <= leads.media7 && sql.ontem <= sql.media7;
-    if ((acima || abaixo) && leads.ontem !== leads.media7) {
-      out.push(
-        `Leads e SQL ${acima ? "acima" : "abaixo"} da média de 7 dias (${fmtNum(leads.ontem)} contra ${fmtNum(leads.media7)} e ${fmtNum(sql.ontem)} contra ${fmtNum(sql.media7)}).`,
-      );
-    } else {
-      const partes = [
-        comparar("Leads", leads.ontem, leads.media7),
-        comparar("SQL", sql.ontem, sql.media7),
-      ].filter(Boolean);
-      if (partes.length) out.push(`${partes.join("; ")}.`);
-    }
+  if (
+    leads.ontem !== null &&
+    leads.seteDias !== null &&
+    sql.ontem !== null &&
+    sql.seteDias !== null
+  ) {
+    const quando = r.periodo.fimDeSemana ? "No sábado e domingo" : "Ontem";
+    out.push(
+      `${quando}: ${fmtNum(leads.ontem)} leads e ${fmtNum(sql.ontem)} SQL; nos últimos 7 dias: ${fmtNum(leads.seteDias)} leads e ${fmtNum(sql.seteDias)} SQL.`,
+    );
   }
   const fundo = ["RoGa realizado", "Contrato", "Venda"].map(linha);
   const zerados = fundo.filter((l) => l.ontem === 0).map((l) => l.rotulo.toLowerCase());
@@ -393,9 +344,7 @@ function gerarAvisos(
   const avisos: string[] = [];
   const { periodo } = entrada;
   if (periodo.fimDeSemana) {
-    avisos.push(
-      "Segunda-feira: o período soma sábado e domingo; a média de 7 dias é multiplicada por 2 para comparar.",
-    );
+    avisos.push("Segunda-feira: o período soma sábado e domingo; os 7 dias vão até domingo.");
   }
   if (gastoIndisponivel) {
     avisos.push(
