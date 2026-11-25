@@ -1,11 +1,18 @@
 name: Relatório diário do funil B2B Expansão
 
-# Seg-sáb às 06:30 de Brasília (09:30 UTC): sobra folga até as 07:15 mesmo com atraso do
-# Actions. Domingo não roda. Na segunda o período é sábado + domingo (ver
+# Seg-sáb a partir das 06:07 de Brasília (09:07 UTC), meta 07:15. Domingo não roda. Na segunda o período é sábado + domingo (ver
 # scripts/relatorio-funil-b2b.ts). Gera o PDF e posta no canal do Slack (SLACK_CHANNEL_ID).
+#
+# O agendamento do GitHub atrasa (às vezes horas) ou pula disparos. Por isso há vários
+# horários seguidos e um trava: o agendado só posta se ainda não houve envio hoje.
+run-name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true' && 'Funil B2B (teste)' || 'Funil B2B (envio)' }}
+
 on:
   schedule:
-    - cron: "30 9 * * 1-6"
+    - cron: "7 9 * * 1-6"
+    - cron: "23 9 * * 1-6"
+    - cron: "41 9 * * 1-6"
+    - cron: "53 9 * * 1-6"
   workflow_dispatch:
     inputs:
       date:
@@ -21,24 +28,45 @@ concurrency:
   group: relatorio-funil-b2b
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   relatorio:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Já enviou hoje?
+        id: trava
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          desde=$(date -u -d "$(TZ=America/Sao_Paulo date +%F) 00:00 -0300" +%FT%TZ)
+          n=$(gh api "repos/${{ github.repository }}/actions/workflows/relatorio-funil-b2b.yml/runs?created=>=$desde&per_page=50" \
+            --jq "[.workflow_runs[] | select(.id != ${{ github.run_id }}) | select(.display_title == \"Funil B2B (envio)\") | select(.conclusion == \"success\" or .status != \"completed\")] | length")
+          echo "envios hoje: $n"
+          if [ "$n" -gt 0 ]; then echo "pular=1" >> "$GITHUB_OUTPUT"; fi
+
       - uses: actions/checkout@v4
+        if: steps.trava.outputs.pular != '1'
 
       - uses: oven-sh/setup-bun@v2
+        if: steps.trava.outputs.pular != '1'
         with:
           bun-version: latest
 
       - name: Instala dependências
+        if: steps.trava.outputs.pular != '1'
         run: bun install --frozen-lockfile
 
       - name: Instala o Chromium do Playwright
+        if: steps.trava.outputs.pular != '1'
         run: bunx playwright install --with-deps chromium
 
       - name: Gera o relatório
+        if: steps.trava.outputs.pular != '1'
         env:
           PIPERUN_API_KEY: ${{ secrets.PIPERUN_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
