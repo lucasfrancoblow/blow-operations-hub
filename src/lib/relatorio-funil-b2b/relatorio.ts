@@ -32,6 +32,8 @@ export interface LinhaFunil {
   ontem: number | null;
   seteDias: number | null;
   mes: number | null;
+  /** Conversão desta etapa sobre a anterior (com meta), para a seta na própria linha. */
+  taxa?: LinhaTaxa;
 }
 
 export interface LinhaCusto {
@@ -215,6 +217,14 @@ export function montarRelatorio(entrada: EntradaRelatorio): Relatorio {
       tomMes: tomTaxa(mes, t.benchmark),
     };
   });
+
+  // Seta na tabela do funil: cada etapa recebe a taxa "anterior → ela" (a 1ª que termina nela,
+  // ex.: SQL = Lead → SQL; Venda = Contrato → Venda).
+  for (const [i, m] of METRICAS.entries()) {
+    const idx = TAXAS.findIndex((t) => t.num === m);
+    const taxa = taxas[idx];
+    if (taxa) funil[i + 1]!.taxa = taxa;
+  }
 
   // Canais.
   const investCanal = (canal: Canal): number | null => {

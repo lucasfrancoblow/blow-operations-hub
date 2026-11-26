@@ -5,7 +5,7 @@
 import { benchmark, moeda, numero, taxa } from "./formato";
 import { formatarDiaMes, nomeDoDia, tituloPeriodo } from "./periodo";
 import type { Relatorio } from "./relatorio";
-import type { TomTaxa } from "./variacao";
+import type { Taxa, TomTaxa } from "./variacao";
 
 export function esc(texto: string): string {
   return texto
@@ -61,6 +61,8 @@ tr.geral td{font-weight:700}
 .b-verde{background:var(--verde)}.b-laranja{background:var(--laranja)}.b-cinza{background:var(--cinza)}
 .t{display:inline-block;min-width:64px;text-align:right;font-size:10.5px;font-weight:700;font-variant-numeric:tabular-nums}
 .t i{font-style:normal;font-size:8.5px;margin-right:4px}
+.funil .conv{margin-top:1px;line-height:1}.funil .conv .t{font-size:9px;min-width:0}.funil .sub{font-size:8.5px;font-weight:500;color:var(--suave)}
+.legenda{font-size:8.5px;color:var(--suave);margin-top:4px;text-align:right}
 .t-bom{color:#1a8a4a}.t-ruim{color:#d02f22}.t-pouco{color:var(--cinza);font-weight:600}
 .dois th,.dois td{padding-left:6px;padding-right:6px}
 .dois{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.18fr);gap:12px;align-items:start}
@@ -95,24 +97,25 @@ export function renderizarHtml(r: Relatorio, geradoEm: string): string {
   const colOntem = p.fimDeSemana ? "Sáb + Dom" : "Ontem";
   const colMes = p.fimDeSemana ? "Mês até domingo" : "Mês até ontem";
 
-  const funil = r.funil
-    .map(
-      (l) =>
-        `<tr><td>${esc(l.rotulo)}</td><td>${valorFunil(l.tipoValor, l.ontem)}</td><td>${valorFunil(l.tipoValor, l.seteDias)}</td><td>${valorFunil(l.tipoValor, l.mes)}</td></tr>`,
-    )
-    .join("");
+  // Cada célula: o número e, embaixo, a conversão sobre a etapa anterior com a seta.
+  const celula = (l: Relatorio["funil"][number], v: number | null, t?: Taxa, tom?: TomTaxa) =>
+    `<td>${valorFunil(l.tipoValor, v)}${t && tom ? `<div class="conv">${badgeTaxa(t.valor, tom)}</div>` : ""}</td>`;
+  const linhaLeadVenda = r.taxas.find((t) => t.rotulo === "Lead → Venda");
+  const funil =
+    r.funil
+      .map((l) => {
+        const t = l.taxa;
+        return `<tr><td>${esc(l.rotulo)}${t ? `<div class="sub">${esc(t.rotulo)}</div>` : ""}</td>${celula(l, l.ontem, t?.ontem, t?.tomOntem)}${celula(l, l.seteDias, t?.seteDias, t?.tomSete)}${celula(l, l.mes, t?.mes, t?.tomMes)}<td>${t ? benchmark(t.benchmark) : ""}</td></tr>`;
+      })
+      .join("") +
+    (linhaLeadVenda
+      ? `<tr class="total"><td>Lead → Venda<div class="sub">conversão total do funil</div></td><td>${badgeTaxa(linhaLeadVenda.ontem.valor, linhaLeadVenda.tomOntem)}</td><td>${badgeTaxa(linhaLeadVenda.seteDias.valor, linhaLeadVenda.tomSete)}</td><td>${badgeTaxa(linhaLeadVenda.mes.valor, linhaLeadVenda.tomMes)}</td><td>${benchmark(linhaLeadVenda.benchmark)}</td></tr>`
+      : "");
 
   const custos = r.custos
     .map(
       (c) =>
         `<tr><td>${esc(c.rotulo)}</td><td>${moeda(c.ontem, c.casas)}</td><td>${moeda(c.seteDias, c.casas)}</td><td>${moeda(c.mes, c.casas)}</td></tr>`,
-    )
-    .join("");
-
-  const taxas = r.taxas
-    .map(
-      (t) =>
-        `<tr><td>${esc(t.rotulo)}</td><td>${badgeTaxa(t.ontem.valor, t.tomOntem)}</td><td>${badgeTaxa(t.seteDias.valor, t.tomSete)}</td><td>${badgeTaxa(t.mes.valor, t.tomMes)}</td><td>${benchmark(t.benchmark)}</td></tr>`,
     )
     .join("");
 
@@ -139,14 +142,13 @@ export function renderizarHtml(r: Relatorio, geradoEm: string): string {
 <div class="cab"><div class="kicker">${esc(kicker)}</div><h1>${esc(titulo)}</h1><p>Fonte: PipeRun (entradas por etapa) e Meta Ads/Google Ads · ${comparacao} · Outbound fora do Geral</p></div>
 <div class="cards">${r.cartoes.map((c, i) => cartao(c, i === r.cartoes.length - 1)).join("")}</div>
 <section><h2>1. Funil ${p.fimDeSemana ? "do período" : "do dia"} <small>entradas na etapa · horário de Brasília · ${esc(periodoTxt)}</small></h2>
-<table><thead><tr><th>Etapa</th><th>${colOntem}</th><th>7 dias</th><th>${colMes}</th></tr></thead><tbody>${funil}</tbody></table></section>
-<section><h2>2. Conversão etapa → etapa <small><span class="t-bom">▲ bateu a meta</span> · <span class="t-ruim">▼ abaixo da meta</span> · cinza = menos de 5 casos</small></h2>
-<table><thead><tr><th>Etapa → etapa</th><th>${colOntem}</th><th>7 dias</th><th>${colMes}</th><th>Meta</th></tr></thead><tbody>${taxas}</tbody></table></section>
-<section><h2>3. Custos</h2>
+<table class="funil"><thead><tr><th>Etapa</th><th>${colOntem}</th><th>7 dias</th><th>${colMes}</th><th>Meta</th></tr></thead><tbody>${funil}</tbody></table>
+<p class="legenda"><span class="t-bom">▲ bateu a meta</span> · <span class="t-ruim">▼ abaixo da meta</span> · cinza = etapa anterior com menos de 5 casos · % = conversão sobre a etapa anterior</p></section>
+<section><h2>2. Custos</h2>
 <table><thead><tr><th>Custo</th><th>${colOntem}</th><th>7 dias</th><th>${colMes}</th></tr></thead><tbody>${custos}</tbody></table></section>
-<section><h2>4. Por canal <small>${p.fimDeSemana ? "sáb + dom" : "ontem"} · Geral = soma dos quatro primeiros canais</small></h2>
+<section><h2>3. Por canal <small>${p.fimDeSemana ? "sáb + dom" : "ontem"} · Geral = soma dos quatro primeiros canais</small></h2>
 <table class="canais"><thead><tr><th>Canal</th><th>Invest.</th><th>Leads</th><th>SQL</th><th>Agend.</th><th>Realiz.</th><th>RoGa M.</th><th>RoGa R.</th><th>Doc.</th><th>Contr.</th><th>Vendas</th><th>CPL</th><th>Custo/SQL</th></tr></thead><tbody>${canais}</tbody></table></section>
-<section><h2>5. Destaques e pontos de atenção</h2>
+<section><h2>4. Destaques e pontos de atenção</h2>
 <div class="caixas"><div class="caixa"><h3>Destaques ${p.fimDeSemana ? "do período" : "do dia"}</h3>${lista(r.destaques, "Sem destaques calculáveis neste período.")}</div>
 <div class="caixa"><h3>Avisos</h3>${lista(r.avisos, "Nenhum aviso.")}</div></div></section>
 <div class="rodape"><span>Gerado às ${esc(geradoEm)} (Brasília)</span><span>bLOw · B2B Expansão · ${formatarDiaMes(p.from)}${p.from === p.to ? "" : ` a ${formatarDiaMes(p.to)}`}</span></div>

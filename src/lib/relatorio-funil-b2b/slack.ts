@@ -40,13 +40,23 @@ export function configuracaoSlack(): { token: string; canal: string } {
   return { token: exigirEnv("SLACK_BOT_TOKEN"), canal: exigirEnv("SLACK_CHANNEL_ID") };
 }
 
+/** ID de usuário (U…) vira o canal da DM do bot (conversations.open, escopo im:write). */
+async function resolverDestino(token: string, destino: string): Promise<string> {
+  if (!/^U[A-Z0-9]+$/.test(destino)) return destino;
+  const r = await chamar("conversations.open", token, { users: destino });
+  return String((r["channel"] as { id: string }).id);
+}
+
 export async function enviarPdf(opcoes: {
   pdf: Buffer;
   nomeArquivo: string;
   titulo: string;
   comentario: string;
+  /** Outro destino (canal ou ID de usuário), para teste. Padrão: SLACK_CHANNEL_ID. */
+  destino?: string;
 }): Promise<void> {
-  const { token, canal } = configuracaoSlack();
+  const token = exigirEnv("SLACK_BOT_TOKEN");
+  const canal = await resolverDestino(token, opcoes.destino || exigirEnv("SLACK_CHANNEL_ID"));
   const url = await chamar(
     "files.getUploadURLExternal",
     token,

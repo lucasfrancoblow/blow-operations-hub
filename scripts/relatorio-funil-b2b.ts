@@ -5,6 +5,7 @@
 //              dia anterior; na segunda-feira, sábado + domingo. Domingo não roda.
 //   --dry-run  grava o PDF e NÃO posta no Slack.
 //   --out      caminho do PDF (padrão: relatorio-funil-b2b-AAAA-MM-DD.pdf).
+//   --to       manda o PDF para outro destino (ID de usuário ou canal), para teste.
 // Variáveis: PIPERUN_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
 //   GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY, SLACK_BOT_TOKEN, SLACK_CHANNEL_ID.
 
@@ -25,6 +26,7 @@ const { values } = parseArgs({
     date: { type: "string" },
     "dry-run": { type: "boolean", default: false },
     out: { type: "string" },
+    to: { type: "string" },
   },
 });
 
@@ -36,7 +38,7 @@ if (!/^\d{4}-\d{2}-\d{2}$/.test(runDate)) {
 const dryRun = values["dry-run"] === true;
 
 // Falha fechado: sem credencial do Slack não adianta gerar (só no envio real).
-if (!dryRun) configuracaoSlack();
+if (!dryRun && !values.to) configuracaoSlack();
 
 const resultado = await gerarRelatorio(runDate);
 if (resultado === null) {
@@ -66,5 +68,6 @@ await enviarPdf({
   nomeArquivo: `funil-b2b-expansao-${resultado.periodo.to}.pdf`,
   titulo: tituloSlack(resultado.periodo),
   comentario: comentarioSlack(resultado.periodo),
+  ...(values.to ? { destino: values.to } : {}),
 });
 console.log("PDF enviado ao Slack.");
