@@ -1,8 +1,8 @@
 name: Relatório comercial diário (DM Diego)
 
-# Seg-sáb ~07:10 de Brasília, depois do sync da 3C (03:00). Envia por DM no Slack só para
+# Seg-sáb às 07:00 de Brasília, depois do sync da 3C (03:00). Envia por DM no Slack só para
 # SLACK_RELATORIO_COMERCIAL_DESTINO (ID do Diego Almada).
-# Disparo principal: n8n (workflow "Disparar-relatorio-comercial", 07:10 seg-sáb) chamando
+# Disparo principal: n8n (workflow "Disparar-relatorio-comercial", 07:00 seg-sáb) chamando
 # workflow_dispatch. Os crons abaixo ficam de reserva, porque o agendamento do GitHub atrasa
 # ou pula disparos. A trava garante um envio só por dia.
 # Envio para outro destino (`to`) também é teste: não conta na trava do envio do dia.
@@ -10,9 +10,9 @@ run-name: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.d
 
 on:
   schedule:
-    - cron: "15 10 * * 1-6"
+    - cron: "20 10 * * 1-6"
     - cron: "40 10 * * 1-6"
-    - cron: "10 11 * * 1-6"
+    - cron: "5 11 * * 1-6"
   workflow_dispatch:
     inputs:
       date:

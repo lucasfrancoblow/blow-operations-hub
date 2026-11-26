@@ -1,9 +1,9 @@
 name: Relatório diário do funil B2B Expansão
 
-# Seg-sáb a partir das 06:07 de Brasília (09:07 UTC), meta 07:15. Domingo não roda. Na segunda o período é sábado + domingo (ver
+# Seg-sáb às 07:00 de Brasília. Domingo não roda. Na segunda o período é sábado + domingo (ver
 # scripts/relatorio-funil-b2b.ts). Gera o PDF e posta no canal do Slack (SLACK_CHANNEL_ID).
 #
-# Disparo principal: n8n (workflow "Disparar-relatorio-funil-b2b", 06:05 seg-sáb) chamando
+# Disparo principal: n8n (workflow "Disparar-relatorio-funil-b2b", 07:00 seg-sáb) chamando
 # workflow_dispatch; os crons abaixo ficam de reserva.
 # O agendamento do GitHub atrasa (às vezes horas) ou pula disparos. Por isso há vários
 # horários seguidos e um trava: o agendado só posta se ainda não houve envio hoje.
@@ -11,10 +11,9 @@ run-name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dr
 
 on:
   schedule:
-    - cron: "7 9 * * 1-6"
-    - cron: "23 9 * * 1-6"
-    - cron: "41 9 * * 1-6"
-    - cron: "53 9 * * 1-6"
+    - cron: "20 10 * * 1-6"
+    - cron: "40 10 * * 1-6"
+    - cron: "5 11 * * 1-6"
   workflow_dispatch:
     inputs:
       date:
