@@ -40,11 +40,16 @@ export function configuracaoSlack(): { token: string; canal: string } {
   return { token: exigirEnv("SLACK_BOT_TOKEN"), canal: exigirEnv("SLACK_CHANNEL_ID") };
 }
 
-/** ID de usuário (U…) vira o canal da DM do bot (conversations.open, escopo im:write). */
+/** ID de usuário (U…) vira o canal da DM do bot. conversations.open pede o escopo im:write;
+ * sem ele, tenta o próprio ID de usuário (o Slack aceita em chat.postMessage). */
 async function resolverDestino(token: string, destino: string): Promise<string> {
   if (!/^U[A-Z0-9]+$/.test(destino)) return destino;
-  const r = await chamar("conversations.open", token, { users: destino });
-  return String((r["channel"] as { id: string }).id);
+  try {
+    const r = await chamar("conversations.open", token, { users: destino });
+    return String((r["channel"] as { id: string }).id);
+  } catch {
+    return destino;
+  }
 }
 
 export async function enviarPdf(opcoes: {
