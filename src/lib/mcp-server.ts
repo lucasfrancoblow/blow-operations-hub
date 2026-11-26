@@ -18,6 +18,7 @@ import {
 } from "@/lib/piperun-client";
 import { WRITE_TOOLS } from "@/lib/mcp-write-tools";
 import { THREECPLUS_TOOLS } from "@/lib/mcp-threecplus-tools";
+import { ThreeCPlusError } from "@/lib/threecplus-client";
 import { ToolError, dealIdFrom, optionalId, periodFrom, type Tool } from "@/lib/mcp-tool-kit";
 
 const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
@@ -292,7 +293,13 @@ export async function handleRpc(message: unknown): Promise<unknown | null> {
         return ok(req.id, { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] });
       } catch (error) {
         if (!(error instanceof ToolError)) console.error("[mcp] falha em", tool.name, error);
-        const text = error instanceof ToolError ? error.message : "Falha ao consultar o PipeRun.";
+        // Erro da 3C já vem com o motivo (ex.: token recusado); o resto não expõe detalhe.
+        const text =
+          error instanceof ToolError || error instanceof ThreeCPlusError
+            ? error.message
+            : tool.name.startsWith("tcp_")
+              ? "Falha ao consultar a 3C Plus."
+              : "Falha ao consultar o PipeRun.";
         return ok(req.id, { isError: true, content: [{ type: "text", text }] });
       }
     }

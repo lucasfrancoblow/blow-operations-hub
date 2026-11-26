@@ -13,6 +13,9 @@ on:
       date:
         description: "Data a sincronizar (YYYY-MM-DD). Vazio = ontem."
         required: false
+      date_end:
+        description: "Data final, para reprocessar um intervalo (YYYY-MM-DD). Vazio = só a data acima."
+        required: false
 
 jobs:
   sync:
@@ -29,4 +32,6 @@ jobs:
           THREECPLUS_API_KEY: ${{ secrets.THREECPLUS_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: bun run scripts/sync-3cplus-calls.ts ${{ github.event.inputs.date }}
+          INPUT_DATE: ${{ github.event.inputs.date }}
+          INPUT_DATE_END: ${{ github.event.inputs.date_end }}
+        run: bun run scripts/sync-3cplus-calls.ts "$INPUT_DATE" "$INPUT_DATE_END"

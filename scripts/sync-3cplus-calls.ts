@@ -7,11 +7,14 @@
 // agente entrar) e somar aqui. Rodar isso a cada carregamento de tela do hub seria
 // lento demais — este script roda 1x/dia, agrega e grava só os totais.
 //
-// Uso: bun run scripts/sync-3cplus-calls.ts [YYYY-MM-DD]
+// Uso: bun run scripts/sync-3cplus-calls.ts [YYYY-MM-DD [YYYY-MM-DD]]
 // Sem argumento, sincroniza o dia de ontem (America/Sao_Paulo) — dia já fechado,
-// sem chamada ainda em andamento.
+// sem chamada ainda em andamento. Com duas datas, sincroniza o intervalo (reprocessar).
+// Autenticação: THREECPLUS_API_KEY precisa ser um TOKEN DE SERVIÇO da 3C Plus — o token
+// pessoal foi descontinuado e é recusado (403) desde 08/11/2026.
 
-const THREECPLUS_BASE_URL = "https://app.3c.plus/api/v1";
+import { diagnosticarAutenticacao, threeCPlusRequest } from "@/lib/threecplus-client";
+
 const PER_PAGE = 500;
 
 interface ThreeCPlusCall {
@@ -59,25 +62,18 @@ function yesterdaySaoPaulo(): string {
   return saoPauloNow.toLocaleDateString("en-CA");
 }
 
-async function fetchAllCalls(apiKey: string, date: string): Promise<ThreeCPlusCall[]> {
+async function fetchAllCalls(date: string): Promise<ThreeCPlusCall[]> {
   const calls: ThreeCPlusCall[] = [];
   let page = 1;
   let totalPages = 1;
 
   do {
-    const params = new URLSearchParams({
+    const body = (await threeCPlusRequest("/calls", {
       per_page: String(PER_PAGE),
       page: String(page),
       start_date: `${date} 00:00:00`,
       end_date: `${date} 23:59:59`,
-    });
-    const response = await fetch(`${THREECPLUS_BASE_URL}/calls?${params}`, {
-      headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
-    });
-    if (!response.ok) {
-      throw new Error(`3C Plus API respondeu ${response.status} em /calls (página ${page})`);
-    }
-    const body = (await response.json()) as {
+    })) as {
       data: ThreeCPlusCall[];
       meta: { pagination: { total_pages: number } };
     };
@@ -87,6 +83,16 @@ async function fetchAllCalls(apiKey: string, date: string): Promise<ThreeCPlusCa
   } while (page <= totalPages);
 
   return calls;
+}
+
+/** Dias de `from` até `to` (inclusivo), YYYY-MM-DD. */
+function diasEntre(from: string, to: string): string[] {
+  const out: string[] = [];
+  for (let d = new Date(`${from}T12:00:00Z`); d <= new Date(`${to}T12:00:00Z`);) {
+    out.push(d.toISOString().slice(0, 10));
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
 }
 
 function aggregate(date: string, calls: ThreeCPlusCall[]): CallMetricRow[] {
@@ -135,28 +141,36 @@ async function upsertRows(
   });
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    throw new Error(`Supabase REST respondeu ${response.status} ao gravar call_metrics_daily: ${body}`);
+    throw new Error(
+      `Supabase REST respondeu ${response.status} ao gravar call_metrics_daily: ${body}`,
+    );
   }
 }
 
 async function main() {
-  const apiKey = requireEnv("THREECPLUS_API_KEY");
+  requireEnv("THREECPLUS_API_KEY");
   const supabaseUrl = requireEnv("SUPABASE_URL");
   const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
-  const date = process.argv[2] ?? yesterdaySaoPaulo();
+  const from = process.argv[2] || yesterdaySaoPaulo();
+  const to = process.argv[3] || from;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || from > to) {
+    throw new Error(`Datas inválidas: "${from}" a "${to}". Use AAAA-MM-DD [AAAA-MM-DD].`);
+  }
+  const dias = diasEntre(from, to);
+  if (dias.length > 62) throw new Error("Intervalo grande demais (máximo 62 dias por vez).");
 
-  console.log(`Sincronizando chamadas da 3C Plus para ${date}...`);
-  const calls = await fetchAllCalls(apiKey, date);
-  console.log(`${calls.length} chamadas encontradas.`);
-
-  const rows = aggregate(date, calls);
-  console.log(`${rows.length} linhas agregadas (agente x campanha x status).`);
-
-  await upsertRows(supabaseUrl, serviceRoleKey, rows);
-  console.log("Gravado no Supabase (call_metrics_daily).");
+  for (const date of dias) {
+    console.log(`Sincronizando chamadas da 3C Plus para ${date}...`);
+    const calls = await fetchAllCalls(date);
+    const rows = aggregate(date, calls);
+    await upsertRows(supabaseUrl, serviceRoleKey, rows);
+    console.log(`${calls.length} chamadas, ${rows.length} linhas gravadas em call_metrics_daily.`);
+  }
 }
 
-main().catch((err) => {
-  console.error(err);
+main().catch(async (err) => {
+  console.error(err instanceof Error ? err.message : err);
+  const auth = await diagnosticarAutenticacao();
+  if (auth) console.error(`Causa provável (token): ${auth}`);
   process.exit(1);
 });

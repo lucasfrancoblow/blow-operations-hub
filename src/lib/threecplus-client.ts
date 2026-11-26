@@ -52,6 +52,70 @@ export function isThreeCPlusConfigured(): boolean {
   return getApiKey() !== null;
 }
 
+/** Erro da API da 3C Plus com mensagem pronta para mostrar (sem segredo). */
+export class ThreeCPlusError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "ThreeCPlusError";
+  }
+}
+
+/** Texto do erro da 3C: o campo `detail` do JSON, ou o começo do corpo. */
+function detalheDoErro(corpo: string): string {
+  try {
+    const json = JSON.parse(corpo) as { detail?: unknown };
+    if (typeof json.detail === "string") return json.detail;
+  } catch {
+    // corpo não é JSON (ex.: página "error code: 520" da Cloudflare)
+  }
+  return corpo.slice(0, 200);
+}
+
+/** GET autenticado na API v1 da 3C Plus. Tenta de novo em 429/5xx (a 3C devolve 520 da
+ * Cloudflare em instabilidade). 401/403 não são repetidos: a mensagem da 3C diz o motivo
+ * (em 11/2026 o token pessoal foi descontinuado e só token de serviço é aceito). */
+export async function threeCPlusRequest(
+  path: string,
+  params: Record<string, string> = {},
+): Promise<unknown> {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new ThreeCPlusError("THREECPLUS_API_KEY não configurada no servidor.", 0);
+  const url = new URL(`${BASE_URL}${path}`);
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+
+  for (let tentativa = 0; ; tentativa++) {
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+    });
+    if (response.ok) return response.json();
+    const repetir = response.status === 429 || response.status >= 500;
+    if (!repetir || tentativa >= 3) {
+      const detalhe = detalheDoErro(await response.text().catch(() => ""));
+      throw new ThreeCPlusError(
+        `3C Plus API respondeu ${response.status} em ${path}${detalhe ? `: ${detalhe}` : ""}`,
+        response.status,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000 * (tentativa + 1) ** 2));
+  }
+}
+
+/** Diagnóstico quando /calls falha com 5xx: com token recusado, /calls devolve 520 sem
+ * motivo, mas /me devolve 401/403 com a explicação. Retorna essa mensagem, ou null. */
+export async function diagnosticarAutenticacao(): Promise<string | null> {
+  try {
+    await threeCPlusRequest("/me");
+    return null;
+  } catch (error) {
+    return error instanceof ThreeCPlusError && (error.status === 401 || error.status === 403)
+      ? error.message
+      : null;
+  }
+}
+
 function toCall(raw: ThreeCPlusCallRaw): ThreeCPlusCall {
   return {
     id: raw.id,
@@ -71,27 +135,17 @@ function toCall(raw: ThreeCPlusCallRaw): ThreeCPlusCall {
  * ignora o ruído do discador (voicemail/falha/não atendida sem agente), que é a
  * maioria esmagadora do volume bruto e não interessa pra auditoria de conversa. */
 export async function fetchCallsForDay(date: string): Promise<ThreeCPlusCall[]> {
-  const apiKey = getApiKey();
-  if (!apiKey) throw new Error("THREECPLUS_API_KEY não configurada no servidor.");
-
   const calls: ThreeCPlusCall[] = [];
   let page = 1;
   let totalPages = 1;
 
   do {
-    const params = new URLSearchParams({
+    const body = (await threeCPlusRequest("/calls", {
       per_page: String(PER_PAGE),
       page: String(page),
       start_date: `${date} 00:00:00`,
       end_date: `${date} 23:59:59`,
-    });
-    const response = await fetch(`${BASE_URL}/calls?${params}`, {
-      headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
-    });
-    if (!response.ok) {
-      throw new Error(`3C Plus API respondeu ${response.status} em /calls`);
-    }
-    const body = (await response.json()) as {
+    })) as {
       data: ThreeCPlusCallRaw[];
       meta: { pagination: { total_pages: number } };
     };
@@ -129,23 +183,10 @@ export async function threeCPlusGet(
   path: string,
   params: Record<string, string> = {},
 ): Promise<unknown> {
-  const apiKey = getApiKey();
-  if (!apiKey) throw new Error("THREECPLUS_API_KEY não configurada no servidor.");
   if (!/^\/[A-Za-z0-9_/-]+$/.test(path) || path.includes("..")) {
     throw new Error("Caminho inválido. Use algo como /campaigns ou /calls/ID.");
   }
-  const url = new URL(`${BASE_URL}${path}`);
-  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
-  });
-  if (!response.ok) {
-    const detail = (await response.text().catch(() => "")).slice(0, 300);
-    throw new Error(
-      `3C Plus API respondeu ${response.status} em ${path}${detail ? `: ${detail}` : ""}`,
-    );
-  }
-  return redactSensitive(await response.json());
+  return redactSensitive(await threeCPlusRequest(path, params));
 }
 
 export type ThreeCPlusCallFull = Record<string, unknown> & {
