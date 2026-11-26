@@ -191,6 +191,43 @@ export async function fetchDealsByPipeline(pipelineId: number): Promise<PipeRunD
   });
 }
 
+/** Negócios FECHADOS (ganhos e perdidos) num range de dias, pela data de fechamento
+ * (closed_at, Brasília). A API aceita closed_at_start/closed_at_end (confirmado ao vivo em
+ * 2026-11-26). Perdido = status 3 nesta conta; ganho = status 1. */
+export async function fetchDealsClosedInRange(
+  since: string,
+  until: string,
+): Promise<PipeRunDeal[]> {
+  return fetchAllPages<PipeRunDeal>("/deals", {
+    show: String(PAGE_SIZE),
+    closed_at_start: `${since} 00:00:00`,
+    closed_at_end: `${until} 23:59:59`,
+  });
+}
+
+export interface PipeRunNamed {
+  id: number;
+  name: string;
+}
+
+/** Usuários da conta, ativos e inativos (o dono de negócio antigo pode ter saído). */
+export function fetchUsers(): Promise<PipeRunNamed[]> {
+  return cachedMeta("users", async () => {
+    const [ativos, inativos] = await Promise.all([
+      fetchAllPages<PipeRunNamed>("/users", { show: "200" }),
+      fetchAllPages<PipeRunNamed>("/users", { show: "200", active: "0" }),
+    ]);
+    return [...ativos, ...inativos];
+  });
+}
+
+/** Motivos de perda (id -> nome). */
+export function fetchLostReasons(): Promise<PipeRunNamed[]> {
+  return cachedMeta("lostReasons", () =>
+    fetchAllPages<PipeRunNamed>("/lostReasons", { show: "200" }),
+  );
+}
+
 export interface PipeRunStageHistory {
   id: number;
   deal_id: number;

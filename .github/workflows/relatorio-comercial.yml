@@ -1,0 +1,79 @@
+name: Relatório comercial diário (DM Diego)
+
+# Seg-sáb ~07:15 de Brasília, depois do sync da 3C (03:00). Envia por DM no Slack só para
+# SLACK_RELATORIO_COMERCIAL_DESTINO (ID do Diego Almada). Vários horários + trava porque o
+# agendamento do GitHub atrasa ou pula disparos (mesmo padrão do relatorio-funil-b2b).
+run-name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true' && 'Comercial (teste)' || 'Comercial (envio)' }}
+
+on:
+  schedule:
+    - cron: "15 10 * * 1-6"
+    - cron: "40 10 * * 1-6"
+    - cron: "10 11 * * 1-6"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Dia em que roda (YYYY-MM-DD). Vazio = hoje. Período = ontem (segunda: sáb + dom)."
+        required: false
+      dry_run:
+        description: "Só imprime no log, não envia."
+        type: boolean
+        default: false
+      to:
+        description: "Destino alternativo no Slack (ID de usuário). Vazio = Diego."
+        required: false
+
+concurrency:
+  group: relatorio-comercial
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  relatorio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Já enviou hoje?
+        id: trava
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          desde=$(date -u -d "$(TZ=America/Sao_Paulo date +%F) 00:00 -0300" +%FT%TZ)
+          n=$(gh api "repos/${{ github.repository }}/actions/workflows/relatorio-comercial.yml/runs?created=>=$desde&per_page=50" \
+            --jq "[.workflow_runs[] | select(.id != ${{ github.run_id }}) | select(.display_title == \"Comercial (envio)\") | select(.conclusion == \"success\" or .status != \"completed\")] | length")
+          echo "envios hoje: $n"
+          if [ "$n" -gt 0 ]; then echo "pular=1" >> "$GITHUB_OUTPUT"; fi
+
+      - uses: actions/checkout@v4
+        if: steps.trava.outputs.pular != '1'
+
+      - uses: oven-sh/setup-bun@v2
+        if: steps.trava.outputs.pular != '1'
+        with:
+          bun-version: latest
+
+      - name: Instala dependências
+        if: steps.trava.outputs.pular != '1'
+        run: bun install --frozen-lockfile
+
+      - name: Gera e envia
+        if: steps.trava.outputs.pular != '1'
+        env:
+          PIPERUN_API_KEY: ${{ secrets.PIPERUN_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_RELATORIO_COMERCIAL_DESTINO: U097RGWMR7F
+          INPUT_DATE: ${{ github.event.inputs.date }}
+          INPUT_TO: ${{ github.event.inputs.to }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          args=()
+          if [ -n "$INPUT_DATE" ]; then args+=(--date "$INPUT_DATE"); fi
+          if [ -n "$INPUT_TO" ]; then args+=(--to "$INPUT_TO"); fi
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          bun run scripts/relatorio-comercial.ts "${args[@]}"

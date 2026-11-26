@@ -69,3 +69,12 @@ export async function enviarMensagem(texto: string): Promise<void> {
   const { token, canal } = configuracaoSlack();
   await chamar("chat.postMessage", token, { channel: canal, text: texto });
 }
+
+/** Mensagem para um destino específico (canal ou ID de usuário, ex.: DM do bot). */
+export async function enviarMensagemPara(destino: string, texto: string): Promise<void> {
+  await chamar("chat.postMessage", exigirEnv("SLACK_BOT_TOKEN"), {
+    channel: destino,
+    text: texto,
+    unfurl_links: false,
+  });
+}
