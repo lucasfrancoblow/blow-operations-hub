@@ -40,7 +40,7 @@ describe("cores das taxas", () => {
   test("denominador < 5 fica cinza; sem denominador é sem dado", () => {
     expect(tomTaxa(calcTaxa(2, 4), 0.25)).toBe("cinza");
     expect(tomTaxa(calcTaxa(2, 5), 0.25)).toBe("verde");
-    expect(tomTaxa(calcTaxa(1, 8), 0.25)).toBe("laranja");
+    expect(tomTaxa(calcTaxa(1, 8), 0.25)).toBe("vermelho");
     expect(calcTaxa(0, 0).valor).toBeNull();
   });
   test("custo sem volume ou sem investimento é null", () => {

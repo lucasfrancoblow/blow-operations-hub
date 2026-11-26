@@ -46,8 +46,10 @@ export interface LinhaTaxa {
   rotulo: string;
   benchmark: number;
   ontem: Taxa;
+  seteDias: Taxa;
   mes: Taxa;
   tomOntem: TomTaxa;
+  tomSete: TomTaxa;
   tomMes: TomTaxa;
 }
 
@@ -200,13 +202,16 @@ export function montarRelatorio(entrada: EntradaRelatorio): Relatorio {
   // Taxas.
   const taxas: LinhaTaxa[] = TAXAS.map((t) => {
     const ontem = calcTaxa(geral.ontem[t.num], geral.ontem[t.den]);
+    const seteDias = calcTaxa(geral.sete[t.num], geral.sete[t.den]);
     const mes = calcTaxa(geral.mes[t.num], geral.mes[t.den]);
     return {
       rotulo: t.rotulo,
       benchmark: t.benchmark,
       ontem,
+      seteDias,
       mes,
       tomOntem: tomTaxa(ontem, t.benchmark),
+      tomSete: tomTaxa(seteDias, t.benchmark),
       tomMes: tomTaxa(mes, t.benchmark),
     };
   });

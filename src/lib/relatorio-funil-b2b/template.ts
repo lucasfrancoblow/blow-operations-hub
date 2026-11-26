@@ -16,10 +16,11 @@ export function esc(texto: string): string {
 }
 
 const CLASSE_TAXA: Record<TomTaxa, string> = {
-  verde: "b-verde",
-  laranja: "b-laranja",
-  cinza: "b-cinza",
+  verde: "t-bom",
+  vermelho: "t-ruim",
+  cinza: "t-pouco",
 };
+const SETA: Record<TomTaxa, string> = { verde: "▲", vermelho: "▼", cinza: "" };
 
 function valorFunil(tipo: "moeda" | "inteiro", v: number | null): string {
   return tipo === "moeda" ? moeda(v) : numero(v);
@@ -58,6 +59,9 @@ td:first-child{font-weight:600}
 tr.geral td{font-weight:700}
 .b{display:inline-block;min-width:58px;text-align:center;border-radius:2px;padding:2px 8px;font-size:9.5px;font-weight:700;color:#fff}
 .b-verde{background:var(--verde)}.b-laranja{background:var(--laranja)}.b-cinza{background:var(--cinza)}
+.t{display:inline-block;min-width:64px;text-align:right;font-size:10.5px;font-weight:700;font-variant-numeric:tabular-nums}
+.t i{font-style:normal;font-size:8.5px;margin-right:4px}
+.t-bom{color:#1a8a4a}.t-ruim{color:#d02f22}.t-pouco{color:var(--cinza);font-weight:600}
 .dois th,.dois td{padding-left:6px;padding-right:6px}
 .dois{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.18fr);gap:12px;align-items:start}
 .canais th,.canais td{padding:5.5px 5px;font-size:9.5px}
@@ -76,8 +80,10 @@ function cartao(c: Relatorio["cartoes"][number], laranja: boolean): string {
   return `<div class="card${laranja ? " laranja" : ""}"><div class="r">${esc(c.rotulo)}</div><div class="v">${valorFunil(c.tipoValor, c.valor)}</div><div class="d">${detalhe}</div></div>`;
 }
 
+/** Taxa com seta: ▲ verde = bateu a meta, ▼ vermelho = abaixo, cinza sem seta = menos de 5 casos. */
 function badgeTaxa(valor: number | null, tom: TomTaxa): string {
-  return `<span class="b ${CLASSE_TAXA[tom]}">${taxa(valor)}</span>`;
+  const seta = valor === null ? "" : SETA[tom];
+  return `<span class="t ${CLASSE_TAXA[tom]}">${seta ? `<i>${seta}</i>` : ""}${taxa(valor)}</span>`;
 }
 
 export function renderizarHtml(r: Relatorio, geradoEm: string): string {
@@ -106,7 +112,7 @@ export function renderizarHtml(r: Relatorio, geradoEm: string): string {
   const taxas = r.taxas
     .map(
       (t) =>
-        `<tr><td>${esc(t.rotulo)}</td><td>${badgeTaxa(t.ontem.valor, t.tomOntem)}</td><td>${badgeTaxa(t.mes.valor, t.tomMes)}</td><td>${benchmark(t.benchmark)}</td></tr>`,
+        `<tr><td>${esc(t.rotulo)}</td><td>${badgeTaxa(t.ontem.valor, t.tomOntem)}</td><td>${badgeTaxa(t.seteDias.valor, t.tomSete)}</td><td>${badgeTaxa(t.mes.valor, t.tomMes)}</td><td>${benchmark(t.benchmark)}</td></tr>`,
     )
     .join("");
 
@@ -134,12 +140,13 @@ export function renderizarHtml(r: Relatorio, geradoEm: string): string {
 <div class="cards">${r.cartoes.map((c, i) => cartao(c, i === r.cartoes.length - 1)).join("")}</div>
 <section><h2>1. Funil ${p.fimDeSemana ? "do período" : "do dia"} <small>entradas na etapa · horário de Brasília · ${esc(periodoTxt)}</small></h2>
 <table><thead><tr><th>Etapa</th><th>${colOntem}</th><th>7 dias</th><th>${colMes}</th></tr></thead><tbody>${funil}</tbody></table></section>
-<section><h2>2. Custos e taxas <small>verde = melhor que o benchmark · laranja = pior · cinza = menos de 5 casos</small></h2>
-<div class="dois"><table><thead><tr><th>Custo</th><th>${colOntem}</th><th>7 dias</th><th>Mês</th></tr></thead><tbody>${custos}</tbody></table>
-<table><thead><tr><th>Taxa</th><th>${colOntem}</th><th>Mês</th><th>Bench.</th></tr></thead><tbody>${taxas}</tbody></table></div></section>
-<section><h2>3. Por canal <small>${p.fimDeSemana ? "sáb + dom" : "ontem"} · Geral = soma dos quatro primeiros canais</small></h2>
+<section><h2>2. Conversão etapa → etapa <small><span class="t-bom">▲ bateu a meta</span> · <span class="t-ruim">▼ abaixo da meta</span> · cinza = menos de 5 casos</small></h2>
+<table><thead><tr><th>Etapa → etapa</th><th>${colOntem}</th><th>7 dias</th><th>${colMes}</th><th>Meta</th></tr></thead><tbody>${taxas}</tbody></table></section>
+<section><h2>3. Custos</h2>
+<table><thead><tr><th>Custo</th><th>${colOntem}</th><th>7 dias</th><th>${colMes}</th></tr></thead><tbody>${custos}</tbody></table></section>
+<section><h2>4. Por canal <small>${p.fimDeSemana ? "sáb + dom" : "ontem"} · Geral = soma dos quatro primeiros canais</small></h2>
 <table class="canais"><thead><tr><th>Canal</th><th>Invest.</th><th>Leads</th><th>SQL</th><th>Agend.</th><th>Realiz.</th><th>RoGa M.</th><th>RoGa R.</th><th>Doc.</th><th>Contr.</th><th>Vendas</th><th>CPL</th><th>Custo/SQL</th></tr></thead><tbody>${canais}</tbody></table></section>
-<section><h2>4. Destaques e pontos de atenção</h2>
+<section><h2>5. Destaques e pontos de atenção</h2>
 <div class="caixas"><div class="caixa"><h3>Destaques ${p.fimDeSemana ? "do período" : "do dia"}</h3>${lista(r.destaques, "Sem destaques calculáveis neste período.")}</div>
 <div class="caixa"><h3>Avisos</h3>${lista(r.avisos, "Nenhum aviso.")}</div></div></section>
 <div class="rodape"><span>Gerado às ${esc(geradoEm)} (Brasília)</span><span>bLOw · B2B Expansão · ${formatarDiaMes(p.from)}${p.from === p.to ? "" : ` a ${formatarDiaMes(p.to)}`}</span></div>
