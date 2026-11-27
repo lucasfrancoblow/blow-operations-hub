@@ -61,11 +61,26 @@ export function removerBounces(linhas: LinhaHistorico[]): {
   return { mantidas: linhas.filter((l) => !ignoradas.has(l)), bounces };
 }
 
-export type ResolucaoCard = { canal: Canal; semOrigem: boolean } | { excluir: "teste" };
+export type MotivoExclusao = "teste" | "bounce" | "lixeira";
+
+export type ResolucaoCard =
+  { canal: Canal; semOrigem: boolean } | { excluir: Exclude<MotivoExclusao, "bounce"> };
 
 export interface ResultadoEventos {
   eventos: EventoFunil[];
-  excluidos: Array<{ day: string; motivo: "teste" | "bounce" }>;
+  excluidos: Array<{ day: string; motivo: MotivoExclusao }>;
+}
+
+/**
+ * Card na lixeira do PipeRun: o histórico de etapas continua lá, mas o card não existe mais
+ * no funil. Ex.: em 09/11/2026 uma cópia de card foi criada direto em Venda e apagada 1 min
+ * depois, e o relatório contou uma venda que não houve. A busca de deals por id não devolve
+ * card excluído (`deal` undefined); se algum vier marcado como excluído, também sai.
+ */
+export function cardNaLixeira(deal: object | undefined): boolean {
+  if (!deal) return true;
+  const d = deal as { deleted?: unknown; deleted_at?: unknown };
+  return Boolean(d.deleted_at) || d.deleted === true || Number(d.deleted) === 1;
 }
 
 /**

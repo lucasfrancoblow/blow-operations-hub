@@ -9,7 +9,7 @@ import {
   indexarBackup,
   normalizarNome,
 } from "./canais";
-import { construirEventos, ehCardDeTeste, type LinhaHistorico } from "./eventos";
+import { cardNaLixeira, construirEventos, ehCardDeTeste, type LinhaHistorico } from "./eventos";
 import { contarGeral, montarRelatorio } from "./relatorio";
 import { CANAIS_GERAL, type EventoFunil } from "./tipos";
 
@@ -151,6 +151,24 @@ describe("eventos", () => {
     );
     expect(r.eventos.map((e) => e.metrica)).toEqual(["realizada"]);
     expect(r.excluidos).toEqual([{ day: "2026-11-20", motivo: "bounce" }]);
+  });
+  test("card na lixeira", () => {
+    expect(cardNaLixeira(undefined)).toBe(true);
+    expect(cardNaLixeira({ deleted: 1 })).toBe(true);
+    expect(cardNaLixeira({ deleted_at: "2026-11-09 09:24:44" })).toBe(true);
+    expect(cardNaLixeira({ deleted: 0, deleted_at: null })).toBe(false);
+    expect(cardNaLixeira({})).toBe(false);
+  });
+  test("venda de card excluído não conta (cópia criada em Venda e apagada)", () => {
+    const r = construirEventos(
+      [hist(1, 628992, "2026-11-23 14:18:02"), hist(65607243, 628992, "2026-11-09 09:23:31")],
+      (id) =>
+        id === 65607243
+          ? ({ excluir: "lixeira" } as const)
+          : { canal: "Orgânico" as const, semOrigem: false },
+    );
+    expect(r.eventos.map((e) => e.dealId)).toEqual([1]);
+    expect(r.excluidos).toEqual([{ day: "2026-11-09", motivo: "lixeira" }]);
   });
   test("conta uma vez por etapa/dia e exclui teste", () => {
     const r = construirEventos(
