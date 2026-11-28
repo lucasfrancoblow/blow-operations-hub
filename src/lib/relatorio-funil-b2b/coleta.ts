@@ -13,6 +13,7 @@ import { isSupabaseConfigured } from "@/lib/supabase-client";
 import { loadAdMetrics } from "@/lib/ad-metrics";
 import { classificarCanal, indexarBackup, normalizarNome, type IndiceBackup } from "./canais";
 import {
+  cardNaLixeira,
   construirEventos,
   ehCardDeTeste,
   type LinhaHistorico,
@@ -63,11 +64,11 @@ export async function coletarEventosPipeRun(
     const deal = deals.get(dealId);
     const titulo = deal?.title ?? "";
     if (ehCardDeTeste(titulo)) return { excluir: "teste" };
+    if (!deal || cardNaLixeira(deal)) return { excluir: "lixeira" };
     if (funil === "outbound") return { canal: "Outbound", semOrigem: false };
     if (funil === "closer" && nomesOutbound.has(normalizarNome(titulo))) {
       return { canal: "Outbound", semOrigem: false };
     }
-    if (!deal) return { canal: "Orgânico", semOrigem: true };
     return classificarCanal(
       {
         titulo,

@@ -11,6 +11,7 @@ import {
   type EventoFunil,
   type Metrica,
 } from "./tipos";
+import type { ResultadoEventos } from "./eventos";
 import { diasEntre, formatarDiaMes, type Periodo } from "./periodo";
 import { calcCusto, calcTaxa, tomTaxa, type Taxa, type TomTaxa } from "./variacao";
 import { investimentoGeral, somarGasto, type GastoDia, type GastoJanela } from "./gasto";
@@ -19,7 +20,7 @@ import { moeda } from "./formato";
 export interface EntradaRelatorio {
   periodo: Periodo;
   eventos: EventoFunil[];
-  excluidos: Array<{ day: string; motivo: "teste" | "bounce" }>;
+  excluidos: ResultadoEventos["excluidos"];
   /** null = fonte de gasto indisponível (falha ao consultar). */
   gasto: Map<string, GastoDia> | null;
   /** false quando a planilha Backup Leads não pôde ser lida. */
@@ -396,9 +397,14 @@ function gerarAvisos(
   }
   const testes = entrada.excluidos.filter((e) => dias.has(e.day) && e.motivo === "teste").length;
   const bounces = entrada.excluidos.filter((e) => dias.has(e.day) && e.motivo === "bounce").length;
-  if (testes + bounces > 0) {
+  const lixeira = entrada.excluidos.filter((e) => dias.has(e.day) && e.motivo === "lixeira").length;
+  if (testes + bounces + lixeira > 0) {
     const partes: string[] = [];
     if (testes) partes.push(`${testes} ${testes === 1 ? "card de teste" : "cards de teste"}`);
+    if (lixeira)
+      partes.push(
+        `${lixeira} ${lixeira === 1 ? "movimentação de card excluído" : "movimentações de cards excluídos"} no PipeRun`,
+      );
     if (bounces)
       partes.push(
         `${bounces} ${bounces === 1 ? "movimentação errada" : "movimentações erradas"} (volta em menos de 2 min)`,
